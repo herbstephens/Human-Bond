@@ -1,0 +1,19 @@
+{
+    "name": "Year 1 — First Year Together",
+    "description": "A celebration of the very first year of your verified bond. Proof that love and humanity endure.",
+    "image": "ipfs://QmQ4brU2JAibeMrWAkE39h7cbAKc3wysrATiHSoZajRJTn",
+    "attributes": [
+        {
+            "trait_type": "Milestone Year",
+            "value": "1"
+        },
+        {
+            "trait_type": "Category",
+            "value": "Anniversary"
+        },
+        {
+            "trait_type": "Verification",
+            "value": "World ID Proof"
+        }
+    ]
+}
