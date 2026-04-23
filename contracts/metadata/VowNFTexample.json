@@ -1,0 +1,27 @@
+{
+    "name": "Human Bond NFT",
+    "description": "A verified on-chain union between two humans using World ID. This NFT represents the immutable vow formed at the moment of marriage.",
+    "image": "ipfs://QmS5Aqic36eFsGvmGsPDBD3VhfTyY7W1E7Sk7jTrAuKtqo",
+    "attributes": [
+        {
+            "trait_type": "Partner A",
+            "value": "0xPartnerA"
+        },
+        {
+            "trait_type": "Partner B",
+            "value": "0xPartnerB"
+        },
+        {
+            "trait_type": "Marriage Date",
+            "value": "2025-01-12"
+        },
+        {
+            "trait_type": "Marriage ID",
+            "value": "0xabcd1234..."
+        },
+        {
+            "trait_type": "Verification Type",
+            "value": "World ID Proof"
+        }
+    ]
+}
