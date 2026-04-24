@@ -1,7 +1,7 @@
 <h1 align="center">💍 HumanBond</h1>
 
 <p align="center">
-  <b>Relationship infrastructure for the verified human internet.</b><br/>
+  <b>Relationship infrastructure for verified humans.</b><br/>
   Two World-ID-verified humans. One cryptographic bond.<br/>
   Soulbound Vow NFT · yearly Milestone NFTs · daily TIME yield · clean-exit divorce.
 </p>
