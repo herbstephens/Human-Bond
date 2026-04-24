@@ -156,14 +156,20 @@ Why this matters for World Build 3: HumanBond and TIME together turn a verified 
 
 ---
 
-## Team
+## Core Team
 
 | | | |
 |---|---|---|
-| **Herb Stephens** | Founder & Product | Co-founder, Democracy Earth Foundation · author of *The Lie of Investing* · `herbstephens.eth` |
+| **Herb Stephens** | Lead & Product | Co-founder, Democracy Earth Foundation · `herbstephens.eth` |
 | **Leticia Azevedo** | Lead Smart Contracts | Deployed all 4 World Chain contracts · [@leticarolina](https://github.com/leticarolina) · [@letiweb3](https://x.com/letiweb3) · Brazil |
 | **Franco Amicone** | Front-end | Mini App lead · Next.js · MiniKit 2.0 · Argentina |
 
+---
+
+## Other Contributors
+
+| | | |
+|---|---|---|
 | **Santi Siri** | Full-stack | Co-founder Democracy.Earth | Advisor · Argentina |
 | **Axel Ország-Krisz** | Full-stack | Cross-chain infrastructure · team member at ETH Global Buenos Aires v1 · Hungary |
 
