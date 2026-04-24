@@ -171,7 +171,7 @@ Why this matters for World Build 3: HumanBond and TIME together turn a verified 
 | | | |
 |---|---|---|
 | **Santi Siri** | Full-stack | Co-founder Democracy.Earth | Advisor · Argentina |
-| **Axel Ország-Krisz** | Full-stack | Cross-chain infrastructure · team member at ETH Global Buenos Aires v1 · Hungary |
+| **Dr. Axel Ország-Krisz** | Full-stack | Cross-chain infrastructure · team member at ETH Global Buenos Aires v1 · Hungary |
 
 ---
 
