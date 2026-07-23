@@ -1,0 +1,35 @@
+{
+    "name": "Human Bond Milestone - Year 1",
+    "description": "Year 1 milestone of a verified human bond on World Chain.",
+    "image": "ipfs://dummy1",
+    "attributes": [
+        {
+            "trait_type": "Milestone Year",
+            "value": "1"
+        },
+        {
+            "trait_type": "Partner A",
+            "value": "0xe6e0b3393c2fe909f05fa225c38c97cd962d74f6"
+        },
+        {
+            "trait_type": "Partner B",
+            "value": "0x1d96f2f6bef1202e4ce1ff6dad0c2cb002861d3e"
+        },
+        {
+            "trait_type": "Bond ID",
+            "value": "0x249f3eb483d118fee0f6da8ec88d8227fcc6acd564602c486ee23f5843203d5b"
+        },
+        {
+            "trait_type": "Bond Start",
+            "value": "301"
+        },
+        {
+            "trait_type": "Claimed At",
+            "value": "482"
+        },
+        {
+            "trait_type": "Verification",
+            "value": "World ID Proof"
+        }
+    ]
+}

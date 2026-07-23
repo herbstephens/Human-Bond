@@ -7,30 +7,34 @@ import {Strings} from "openzeppelin-contracts/contracts/utils/Strings.sol";
 import {Base64} from "openzeppelin-contracts/contracts/utils/Base64.sol";
 
 /**
- * @title VowNFT
+ * @title BondNFT
  * @author Leticia Azevedo (@letiweb3)
  * @dev ERC-721 token representing a verified human bond.
- *      Each NFT stores metadata about the two partners and a unique marriage ID.
+ *      Each NFT stores metadata about the two partners and a unique Bond ID.
  */
-contract VowNFT is ERC721, Ownable {
+contract BondNFT is ERC721, Ownable {
     using Strings for uint256;
 
-    error VowNFT__UnauthorizedMinter();
-    error VowNFT__TransfersDisabled();
+    error BondNFT__UnauthorizedMinter();
+    error BondNFT__TransfersDisabled();
+    error BondNFT__InvalidAddress();
     uint256 public totalSupply;
-    string public imageCID = "ipfs://bafkreigg2jeevy3rhgzgnhk22vsbclszceos3jlzg4otuqal62vwokzwai"; //placeholder image CID
+
+    string public imageURI = "ipfs://bafkreieeq6mqrapuwa5uceqcno6xn5cryicidq6z27xpmdlw5l3z5v2dsu";
 
     address public humanBondContract; //authorized minter address
     mapping(uint256 => TokenMetadata) public tokenMetadata;
-    mapping(bytes32 => uint256[2]) public marriageToToken; // marriageId -> two tokenIds (0 if not set)
+    mapping(bytes32 => uint256[]) public bondToToken; // bondId -> tokenIds (0 if not set)
 
-    event VowMinted(bytes32 indexed marriageId, uint256 indexed tokenId, address indexed to);
+    event BondMinted(bytes32 indexed bondId, uint256 indexed tokenId, address indexed to);
+    event HumanBondContractSet(address indexed contractAddress);
+    event ImageURISet(string newURI);
 
     struct TokenMetadata {
         address partnerA;
         address partnerB;
         uint256 bondStart;
-        bytes32 marriageId;
+        bytes32 bondId;
     }
 
     modifier onlyHumanBond() {
@@ -40,47 +44,45 @@ contract VowNFT is ERC721, Ownable {
 
     function _onlyHumanBond() internal view {
         if (msg.sender != humanBondContract) {
-            revert VowNFT__UnauthorizedMinter();
+            revert BondNFT__UnauthorizedMinter();
         }
     }
 
-    constructor() ERC721("Vows", "VOW") Ownable(msg.sender) {
-        totalSupply = 0;
-    }
+    constructor() ERC721("Human Bond NFT", "HB") Ownable(msg.sender) {}
 
     /// @notice Set the HumanBond contract address
     function setHumanBondContract(address contractAddress) external onlyOwner {
+        if (contractAddress == address(0)) revert BondNFT__InvalidAddress();
         humanBondContract = contractAddress;
+        emit HumanBondContractSet(contractAddress);
     }
 
-    /// @notice Set the image CID for all NFTs
-    function setImageCID(string calldata newCid) external onlyOwner {
-        imageCID = newCid;
+    /// @notice Set the image URI for all NFTs
+    /// @dev e.g. "ipfs://bafkreigg2jeevy3rhgzgnhk22vsbclszceos3jlzg4otuqal62vwokzwai"
+    function setImageURI(string calldata newURI) external onlyOwner {
+        imageURI = newURI;
+        emit ImageURISet(newURI);
     }
 
     /// @notice Mint a Bond NFT to a given address.
-    //only HumanBond contract can mint
-    function mintVowNFT(address to, address _partnerA, address _partnerB, uint256 _bondStart, bytes32 _marriageId)
+    function mintBondNft(address to, address _partnerA, address _partnerB, uint256 _bondStart, bytes32 _bondId)
         external
         onlyHumanBond
         returns (uint256)
     {
         totalSupply++;
+        uint256 tokenId = totalSupply;
 
-        tokenMetadata[totalSupply] =
-            TokenMetadata({partnerA: _partnerA, partnerB: _partnerB, bondStart: _bondStart, marriageId: _marriageId});
+        tokenMetadata[tokenId] =
+            TokenMetadata({partnerA: _partnerA, partnerB: _partnerB, bondStart: _bondStart, bondId: _bondId});
 
-        _safeMint(to, totalSupply);
+        bondToToken[_bondId].push(tokenId);
 
-        if (marriageToToken[_marriageId][0] == 0) {
-            marriageToToken[_marriageId][0] = totalSupply;
-        } else {
-            marriageToToken[_marriageId][1] = totalSupply;
-        }
+        _safeMint(to, tokenId);
 
-        emit VowMinted(_marriageId, totalSupply, to);
+        emit BondMinted(_bondId, tokenId, to);
 
-        return totalSupply;
+        return tokenId;
     }
 
     /// @notice Returns the static IPFS metadata URI for all tokens.
@@ -99,11 +101,11 @@ contract VowNFT is ERC721, Ownable {
                 '{"trait_type":"partnerB","value":"',
                 Strings.toHexString(uint256(uint160(m.partnerB)), 20),
                 '"},',
-                '{"trait_type":"marriageDate","value":"',
+                '{"trait_type":"bondDate","value":"',
                 Strings.toString(m.bondStart),
                 '"},',
-                '{"trait_type":"marriageId","value":"',
-                Strings.toHexString(uint256(m.marriageId), 32),
+                '{"trait_type":"bondId","value":"',
+                Strings.toHexString(uint256(m.bondId), 32),
                 '"}',
                 "]"
             )
@@ -113,9 +115,9 @@ contract VowNFT is ERC721, Ownable {
             abi.encodePacked(
                 '{"name":"Human Bond NFT #',
                 id.toString(),
-                '","description":"Human verified bond recorded on-chain. Each token represents a unique commitment between two verified humans.",',
+                '","description":"A Human Bond recorded on-chain. Each token represents a unique commitment between two World ID verified humans.",',
                 '"image":"',
-                imageCID,
+                imageURI,
                 '",',
                 '"attributes":',
                 attrs,
@@ -128,31 +130,33 @@ contract VowNFT is ERC721, Ownable {
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                             SOULBOUND OVERRIDES                             */
+    /*                             SOULBOUND OVERRIDES                            */
     /* -------------------------------------------------------------------------- */
+    /// @dev Fully soulbound — tokens can only be minted. Transfers and burns are permanently disabled.
     function _update(address to, uint256 tokenId, address auth) internal override returns (address) {
         address from = _ownerOf(tokenId);
 
-        if (from != address(0) && to != from) {
-            revert VowNFT__TransfersDisabled();
-        }
+        if (from != address(0)) revert BondNFT__TransfersDisabled();
 
         return super._update(to, tokenId, auth);
     }
 
+    /* -------------------------------------------------------------------------- */
+    /*                                  GETTERS                                   */
+    /* -------------------------------------------------------------------------- */
     /// @notice Getter for token metadata
     function getTokenMetadata(uint256 id)
         external
         view
-        returns (address partnerA, address partnerB, uint256 bondStart, bytes32 marriageId)
+        returns (address partnerA, address partnerB, uint256 bondStart, bytes32 bondId)
     {
         _requireOwned(id);
         TokenMetadata memory m = tokenMetadata[id];
-        return (m.partnerA, m.partnerB, m.bondStart, m.marriageId);
+        return (m.partnerA, m.partnerB, m.bondStart, m.bondId);
     }
 
-    /// @notice Get token ids for a marriage (returns [tokenA, tokenB], 0 if slot not set)
-    function getTokensByMarriage(bytes32 marriageId) external view returns (uint256[2] memory) {
-        return marriageToToken[marriageId];
+    /// @notice Get token ids for a bond (returns [tokenA, tokenB], 0 if slot not set)
+    function getTokensByBond(bytes32 bondId) external view returns (uint256[] memory) {
+        return bondToToken[bondId];
     }
 }
