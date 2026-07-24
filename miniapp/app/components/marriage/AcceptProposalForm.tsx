@@ -132,9 +132,8 @@ export function AcceptProposalForm() {
       setState("verifying");
 
       if (USE_MOCKS) {
-        await simulateTx();
         setState("sending");
-        await simulateTx("married");
+        await simulateTx("married", "Accept bond");
         setState("success");
         setTxHash("0xmocktransactionhash");
         return;

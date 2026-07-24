@@ -9,6 +9,7 @@ import {TimeToken} from "./TimeToken.sol";
 import {MilestoneNFT} from "./MilestoneNFT.sol";
 import {ByteHasher} from "./helpers/ByteHasher.sol";
 import {IWorldID} from "./helpers/IWorldID.sol";
+import {IBondVaultModule} from "./vault/interfaces/IBondVaultModule.sol";
 
 /**
  * @title HumanBond
@@ -32,6 +33,7 @@ contract HumanBond is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     error HumanBond__DissolutionAlreadyRequested();
     error HumanBond__NoDissolutionRequest();
     error HumanBond__DissolutionDelayNotMet();
+    error HumanBond__DissolutionDelayElapsed();
 
     /* ----------------------------- STRUCTS ----------------------------- */
     //Represents a pending bond request
@@ -104,7 +106,20 @@ contract HumanBond is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     mapping(bytes32 => DissolutionRequest) public dissolutionRequests; // bondId => dissolution request details
     bytes32[] public bondIds; // every couple has a unique “bond fingerprint”
 
-    uint256[30] private __gap;
+    /// @notice Optional BondVaultModule. When set, dissolutions trigger an automatic 50/50 split
+    ///         of the couple's shared Safe. Left unset the protocol behaves exactly as before.
+    address public bondVaultModule;
+
+    /// @notice How many times a given pair has bonded. 0 means never; the first bond is epoch 1.
+    /// @dev A bond id is a pure function of the two addresses, so it is identical every time the
+    ///      same pair bonds. That is fine for the bond record itself — it is overwritten — but
+    ///      anything created *per bond instance* needs to be distinguishable across re-bonds.
+    ///      Concretely, the shared Safe is deployed with CREATE2 and its address derives from this
+    ///      epoch; without it a re-bonded pair would collide with their own previous Safe and could
+    ///      never create a new one.
+    mapping(bytes32 => uint256) public bondEpoch;
+
+    uint256[28] private __gap;
 
     /* ----------------------------- EVENTS ----------------------------- */
     event ProposalCreated(address indexed proposer, address indexed proposed, uint256 timestamp);
@@ -125,6 +140,9 @@ contract HumanBond is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     event DissolutionDelayUpdated(uint256 newDissolutionDelay);
     event BondNftUpdated(address indexed newBondNft);
     event MilestoneNftUpdated(address indexed newMilestoneNft);
+    event BondVaultModuleUpdated(address indexed newBondVaultModule);
+    event VaultSettled(bytes32 indexed bondId);
+    event VaultSettlementFailed(bytes32 indexed bondId);
 
     /* --------------------------- INITIALIZER -------------------------- */
     function initialize(
@@ -237,6 +255,10 @@ contract HumanBond is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         activeBondOf[msg.sender] = bondId;
         activeBondCount++;
 
+        // Distinguishes this bond instance from any previous one between the same two people.
+        // Everything created per bond instance (today: the shared Safe) keys off this.
+        bondEpoch[bondId]++;
+
         bool crossProposed = proposals[msg.sender].proposed == proposer; //check if acceptor also proposed to proposer
         delete proposals[proposer]; // clear proposer's outgoing proposal
         delete proposals[msg.sender]; // clear acceptor's outgoing proposal if one exists
@@ -277,14 +299,20 @@ contract HumanBond is Initializable, OwnableUpgradeable, UUPSUpgradeable {
 
     /// @notice Execute a previously requested dissolution once the delay has elapsed.
     ///        Rewards any pending yield, then marks the bond as inactive and updates dissolution timestamps.
-    function executeDissolution(address partner) external {
-        bytes32 bondId = _getBondId(msg.sender, partner);
+    /// @dev Permissionless on purpose. Once the delay has elapsed the outcome is already fixed —
+    ///      the other partner has no say in it and the requester cannot cancel anymore — so anyone
+    ///      (the other partner opening the app, or a keeper) may finalize it. This is what makes the
+    ///      dissolution effectively automatic: it can no longer stall because the requester never
+    ///      came back to send a second transaction.
+    /// @param a One partner of the bond.
+    /// @param b The other partner of the bond.
+    function executeDissolution(address a, address b) external {
+        bytes32 bondId = _getBondId(a, b);
         Bond storage bond = bonds[bondId];
         DissolutionRequest storage req = dissolutionRequests[bondId];
 
         if (!bond.active) revert HumanBond__NoActiveBond();
         if (!req.active) revert HumanBond__NoDissolutionRequest();
-        if (msg.sender != req.requester) revert HumanBond__NotYourBond();
         if (block.timestamp < req.requestedAt + dissolutionDelay) {
             revert HumanBond__DissolutionDelayNotMet();
         }
@@ -309,16 +337,37 @@ contract HumanBond is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             timeToken.mint(bond.partnerB, reward - split);
         }
 
+        // Split the couple's shared Safe 50/50, if they ever created one.
+        // Wrapped in try/catch on purpose: a reverting, out-of-gas or malicious module must never
+        // be able to trap two people in a bond they already ended. If this fails the dissolution
+        // still goes through and settlement can be retried permissionlessly on the module itself.
+        address vaultModule = bondVaultModule;
+        if (vaultModule != address(0)) {
+            try IBondVaultModule(vaultModule).settleAndSplit(bondId) {
+                emit VaultSettled(bondId);
+            } catch {
+                emit VaultSettlementFailed(bondId);
+            }
+        }
+
         emit BondDissolved(bond.partnerA, bond.partnerB, block.timestamp);
     }
 
-    /// @notice Cancel a pending dissolution request. Only the requester can cancel.
+    /// @notice Cancel a pending dissolution request. Only the requester can cancel, and only
+    ///         while the delay is still running.
+    /// @dev The window closes once the delay elapses. Otherwise the requester could sit on a
+    ///      matured request and cancel it the moment someone tried to finalize it, which would
+    ///      make the dissolution indefinitely blockable again — the exact thing the delay is
+    ///      meant to rule out.
     function cancelDissolutionRequest(address partner) external {
         bytes32 bondId = _getBondId(msg.sender, partner);
         DissolutionRequest storage req = dissolutionRequests[bondId];
 
         if (!req.active) revert HumanBond__NoDissolutionRequest();
         if (msg.sender != req.requester) revert HumanBond__NotYourBond();
+        if (block.timestamp >= req.requestedAt + dissolutionDelay) {
+            revert HumanBond__DissolutionDelayElapsed();
+        }
 
         Bond storage bond = bonds[bondId];
         delete dissolutionRequests[bondId];
@@ -507,6 +556,15 @@ contract HumanBond is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         emit BondNftUpdated(_bondNft);
     }
 
+    /// @notice Owner can set (or clear, with address(0)) the BondVaultModule used to auto-split
+    ///         a couple's shared Safe on dissolution.
+    /// @dev address(0) is allowed on purpose — it disables the hook without needing an upgrade,
+    ///      which is the escape hatch if the module ever misbehaves.
+    function setBondVaultModule(address _bondVaultModule) external onlyOwner {
+        bondVaultModule = _bondVaultModule;
+        emit BondVaultModuleUpdated(_bondVaultModule);
+    }
+
     /// @notice Owner can update the MilestoneNFT contract address.
     function setMilestoneNft(address _milestoneNft) external onlyOwner {
         if (_milestoneNft == address(0)) revert HumanBond__InvalidAddress();
@@ -536,6 +594,12 @@ contract HumanBond is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     /// @dev Get deterministic bond ID for a couple.
     function getBondId(address a, address b) external pure returns (bytes32) {
         return _getBondId(a, b);
+    }
+
+    /// @dev How many times this pair has bonded. 0 = never, 1 = first bond, and so on.
+    ///      The frontend needs this to derive the shared Safe's CREATE2 address.
+    function getBondEpoch(address a, address b) external view returns (uint256) {
+        return bondEpoch[_getBondId(a, b)];
     }
 
     /// @dev Check if two addresses are currently bonded

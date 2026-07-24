@@ -6,6 +6,7 @@ import { MiniKitProvider } from "@worldcoin/minikit-js/minikit-provider";
 import { WagmiProvider } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { wagmiConfig } from "@/lib/wagmi/config";
+import { WORLD_APP_CONFIG } from "@/lib/contracts";
 import { USE_MOCKS } from "@/lib/config";
 import { MarriageProvider } from "@/lib/marriage/MarriageProvider";
 import { Header } from "./Header";
@@ -19,13 +20,22 @@ const MockScenarioPanel = USE_MOCKS
     })
   : null;
 
+const MockTxConfirm = USE_MOCKS
+  ? dynamic(() => import("@/lib/mocks/MockTxConfirm").then((m) => m.MockTxConfirm), {
+      ssr: false,
+    })
+  : null;
+
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
   const pathname = usePathname();
   const isGalleryPage = pathname === '/marriage/gallery';
 
   return (
-    <MiniKitProvider>
+    // Without appId MiniKit installs anonymously ("App ID not provided during
+    // install") and commands can misbehave inside World App. Sourced from
+    // WORLD_APP_CONFIG so the id lives in exactly one place.
+    <MiniKitProvider props={{ appId: WORLD_APP_CONFIG.APP_ID }}>
       <WagmiProvider config={wagmiConfig}>
         <QueryClientProvider client={queryClient}>
           <MarriageProvider>
@@ -34,6 +44,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
               {children}
             </div>
             {MockScenarioPanel && <MockScenarioPanel />}
+            {MockTxConfirm && <MockTxConfirm />}
           </MarriageProvider>
         </QueryClientProvider>
       </WagmiProvider>

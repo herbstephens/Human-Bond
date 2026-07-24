@@ -1,13 +1,15 @@
-// Contract Addresses on Worldchain Mainnet (Chain ID: 480) — V3
+// Contract Addresses on Worldchain Mainnet (Chain ID: 480) — V5
+// Deployed 2026-07-24. See contracts/DEPLOYMENT-v5.md for verification details.
 export const CONTRACT_ADDRESSES = {
-  HUMAN_BOND: '0xc14803e47D19eD0F305E16d462d97c6d4D2a2A93' as const,        // Proxy (always use this)
-  HUMAN_BOND_IMPL: '0x38b9f58fBF0Fd242d12512fC98e8a53e64c8e814' as const,   // Implementation
-  BOND_NFT: '0x26860bC82B257ed139e33bC6BB185d748aB7b9dc' as const,
-  MILESTONE_NFT: '0xA98F4B954009559335085B36f1024A165024D3E0' as const,
-  TIME_TOKEN: '0x65E4d2C637C1adf1a92839D91DB8bE1e63EE864f' as const,
+  HUMAN_BOND: '0x7822e66B3597424424AA62d765E29eC89b9fD541' as const,        // Proxy (always use this)
+  BOND_NFT: '0x95deecB32F60B8b5BE45cd9F2c3D44ED8579Ad3e' as const,
+  MILESTONE_NFT: '0xe308AdC4bb0a39A6266D79f25Ac0BCbDA252cDBE' as const,
+  TIME_TOKEN: '0x8d292a670a41923CE99Ac9bc11EF8FFB87a04E84' as const,
+  // ENS subname registrar — the third call in the vault-creation batch.
+  BOND_REGISTRAR: '0xEea00940991d31b7a39c0A24BD8fcf259aAC839A' as const,
 } as const
 
-// World App Configuration
+// World App Configuration — production app (V5 nullifiers derive from this app_id, immutable)
 export const WORLD_APP_CONFIG = {
   APP_ID: 'app_bfc3261816aeadc589f9c6f80a98f5df' as `app_${string}`,
   ACTIONS: {
@@ -143,10 +145,11 @@ export const HUMAN_BOND_ABI = [
   { "type": "function", "name": "dayDuration", "inputs": [], "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }], "stateMutability": "view" },
   { "type": "function", "name": "dissolutionDelay", "inputs": [], "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }], "stateMutability": "view" },
   { "type": "function", "name": "dissolutionRequests", "inputs": [{ "name": "", "type": "bytes32", "internalType": "bytes32" }], "outputs": [{ "name": "requester", "type": "address", "internalType": "address" }, { "name": "requestedAt", "type": "uint256", "internalType": "uint256" }, { "name": "active", "type": "bool", "internalType": "bool" }], "stateMutability": "view" },
-  { "type": "function", "name": "executeDissolution", "inputs": [{ "name": "partner", "type": "address", "internalType": "address" }], "outputs": [], "stateMutability": "nonpayable" },
+  { "type": "function", "name": "executeDissolution", "inputs": [{ "name": "a", "type": "address", "internalType": "address" }, { "name": "b", "type": "address", "internalType": "address" }], "outputs": [], "stateMutability": "nonpayable" },
   { "type": "function", "name": "externalNullifierAccept", "inputs": [], "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }], "stateMutability": "view" },
   { "type": "function", "name": "externalNullifierPropose", "inputs": [], "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }], "stateMutability": "view" },
   { "type": "function", "name": "getBond", "inputs": [{ "name": "a", "type": "address", "internalType": "address" }, { "name": "b", "type": "address", "internalType": "address" }], "outputs": [{ "name": "", "type": "tuple", "internalType": "struct HumanBond.Bond", "components": [{ "name": "partnerA", "type": "address", "internalType": "address" }, { "name": "partnerB", "type": "address", "internalType": "address" }, { "name": "bondStart", "type": "uint256", "internalType": "uint256" }, { "name": "lastClaim", "type": "uint256", "internalType": "uint256" }, { "name": "lastMilestoneYear", "type": "uint256", "internalType": "uint256" }, { "name": "active", "type": "bool", "internalType": "bool" }] }], "stateMutability": "view" },
+  { "type": "function", "name": "bondEpoch", "inputs": [{ "name": "", "type": "bytes32", "internalType": "bytes32" }], "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }], "stateMutability": "view" },
   { "type": "function", "name": "getBondId", "inputs": [{ "name": "a", "type": "address", "internalType": "address" }, { "name": "b", "type": "address", "internalType": "address" }], "outputs": [{ "name": "", "type": "bytes32", "internalType": "bytes32" }], "stateMutability": "pure" },
   { "type": "function", "name": "getBondStart", "inputs": [{ "name": "a", "type": "address", "internalType": "address" }, { "name": "b", "type": "address", "internalType": "address" }], "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }], "stateMutability": "view" },
   { "type": "function", "name": "getBondView", "inputs": [{ "name": "a", "type": "address", "internalType": "address" }, { "name": "b", "type": "address", "internalType": "address" }], "outputs": [{ "name": "v", "type": "tuple", "internalType": "struct HumanBond.BondView", "components": [{ "name": "partnerA", "type": "address", "internalType": "address" }, { "name": "partnerB", "type": "address", "internalType": "address" }, { "name": "bondStart", "type": "uint256", "internalType": "uint256" }, { "name": "lastClaim", "type": "uint256", "internalType": "uint256" }, { "name": "lastMilestoneYear", "type": "uint256", "internalType": "uint256" }, { "name": "active", "type": "bool", "internalType": "bool" }, { "name": "pendingYield", "type": "uint256", "internalType": "uint256" }, { "name": "bondId", "type": "bytes32", "internalType": "bytes32" }] }], "stateMutability": "view" },
@@ -172,7 +175,9 @@ export const HUMAN_BOND_ABI = [
   { "type": "function", "name": "rejectProposal", "inputs": [{ "name": "proposer", "type": "address", "internalType": "address" }], "outputs": [], "stateMutability": "nonpayable" },
   { "type": "function", "name": "renounceOwnership", "inputs": [], "outputs": [], "stateMutability": "nonpayable" },
   { "type": "function", "name": "requestDissolution", "inputs": [{ "name": "partner", "type": "address", "internalType": "address" }], "outputs": [], "stateMutability": "nonpayable" },
+  { "type": "function", "name": "bondVaultModule", "inputs": [], "outputs": [{ "name": "", "type": "address", "internalType": "address" }], "stateMutability": "view" },
   { "type": "function", "name": "setBondNft", "inputs": [{ "name": "_bondNft", "type": "address", "internalType": "address" }], "outputs": [], "stateMutability": "nonpayable" },
+  { "type": "function", "name": "setBondVaultModule", "inputs": [{ "name": "_bondVaultModule", "type": "address", "internalType": "address" }], "outputs": [], "stateMutability": "nonpayable" },
   { "type": "function", "name": "setDayDuration", "inputs": [{ "name": "_day", "type": "uint256", "internalType": "uint256" }], "outputs": [], "stateMutability": "nonpayable" },
   { "type": "function", "name": "setDissolutionDelay", "inputs": [{ "name": "_delay", "type": "uint256", "internalType": "uint256" }], "outputs": [], "stateMutability": "nonpayable" },
   { "type": "function", "name": "setMilestoneNft", "inputs": [{ "name": "_milestoneNft", "type": "address", "internalType": "address" }], "outputs": [], "stateMutability": "nonpayable" },
@@ -191,6 +196,9 @@ export const HUMAN_BOND_ABI = [
   { "type": "event", "name": "DissolutionDelayUpdated", "inputs": [{ "name": "newDissolutionDelay", "type": "uint256", "indexed": false, "internalType": "uint256" }], "anonymous": false },
   { "type": "event", "name": "DissolutionRequestCancelled", "inputs": [{ "name": "partnerA", "type": "address", "indexed": true, "internalType": "address" }, { "name": "partnerB", "type": "address", "indexed": true, "internalType": "address" }, { "name": "timestamp", "type": "uint256", "indexed": false, "internalType": "uint256" }], "anonymous": false },
   { "type": "event", "name": "DissolutionRequested", "inputs": [{ "name": "partnerA", "type": "address", "indexed": true, "internalType": "address" }, { "name": "partnerB", "type": "address", "indexed": true, "internalType": "address" }, { "name": "requester", "type": "address", "indexed": true, "internalType": "address" }, { "name": "timestamp", "type": "uint256", "indexed": false, "internalType": "uint256" }], "anonymous": false },
+  { "type": "event", "name": "BondVaultModuleUpdated", "inputs": [{ "name": "newBondVaultModule", "type": "address", "indexed": true, "internalType": "address" }], "anonymous": false },
+  { "type": "event", "name": "VaultSettled", "inputs": [{ "name": "bondId", "type": "bytes32", "indexed": true, "internalType": "bytes32" }], "anonymous": false },
+  { "type": "event", "name": "VaultSettlementFailed", "inputs": [{ "name": "bondId", "type": "bytes32", "indexed": true, "internalType": "bytes32" }], "anonymous": false },
   { "type": "event", "name": "Initialized", "inputs": [{ "name": "version", "type": "uint64", "indexed": false, "internalType": "uint64" }], "anonymous": false },
   { "type": "event", "name": "MilestoneNftUpdated", "inputs": [{ "name": "newMilestoneNft", "type": "address", "indexed": true, "internalType": "address" }], "anonymous": false },
   { "type": "event", "name": "OwnershipTransferred", "inputs": [{ "name": "previousOwner", "type": "address", "indexed": true, "internalType": "address" }, { "name": "newOwner", "type": "address", "indexed": true, "internalType": "address" }], "anonymous": false },
@@ -211,6 +219,7 @@ export const HUMAN_BOND_ABI = [
   { "type": "error", "name": "HumanBond__CooldownActive", "inputs": [] },
   { "type": "error", "name": "HumanBond__DissolutionAlreadyRequested", "inputs": [] },
   { "type": "error", "name": "HumanBond__DissolutionDelayNotMet", "inputs": [] },
+  { "type": "error", "name": "HumanBond__DissolutionDelayElapsed", "inputs": [] },
   { "type": "error", "name": "HumanBond__InvalidAddress", "inputs": [] },
   { "type": "error", "name": "HumanBond__NoActiveBond", "inputs": [] },
   { "type": "error", "name": "HumanBond__NoDissolutionRequest", "inputs": [] },

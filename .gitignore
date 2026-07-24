@@ -1,0 +1,18 @@
+# Build deps & artifacts — restored with `forge install` / `npm install`, never committed
+contracts/lib/
+contracts/out/
+contracts/cache/
+contracts/broadcast/**/dry-run/
+miniapp/node_modules/
+miniapp/.next/
+
+# Secrets
+**/signing-key-*.json
+**/.env
+**/.env.local
+*.key
+*.pem
+
+# OS / editor
+.DS_Store
+**/.claude/
