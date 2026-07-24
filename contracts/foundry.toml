@@ -13,4 +13,7 @@ remappings = [
     "world-id-contracts/=lib/world-id-contracts/",
 ]
 
+[etherscan]
+world = { key = "${ETHERSCAN_API_KEY}", chain = 480, url = "https://api.etherscan.io/v2/api?chainid=480" }
+
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
