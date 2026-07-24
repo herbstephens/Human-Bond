@@ -82,6 +82,8 @@ Threat model: someone holds your phone and knows your PIN (or the hot wallet is 
 
 Hito is the **transaction-security layer of the living trust — not the inheritance mechanism** (see next section for why).
 
+**Hito as the trust's notification channel:** above threshold X, the Safe/agent pushes the proposal to the hardware device itself — display and confirmation happen **out-of-band**. Even with phone + PIN compromised (the exact threat model above), the attacker never sees the approval channel. This is also hito's product pitch inside the project.
+
 ## Sweep Problem — Mischa's Three Options, Compared
 
 | Option | Mechanism | Verdict |
@@ -95,6 +97,21 @@ Hito is the **transaction-security layer of the living trust — not the inherit
 ## 0G — Verified AI Trust Manager (post-workshop idea)
 
 **The idea:** the trust gets an auditable AI executor — it monitors heartbeat/death evidence, executes payouts per the charter, potentially manages vault assets. 0G's TEE-sealed verifiable inference is what makes "verified" real: every executor decision is provable, which is exactly what you want from the entity that decides whether you are dead. *"The executor is an auditable AI, not an uncle."*
+
+**Why the trust *owns* the agent (vs. any LLM making suggestions)** — checked against the 0G docs:
+
+1. **The agent is itself inheritable.** On 0G an agent is a token (ERC-7857 "Agentic ID") whose encrypted intelligence — memory, learned behavior, state — **transfers with ownership** (TEE-oracle re-encryption; the new owner receives the fully functional agent, the old owner loses access). The executor that knows years of the family's finances and charter is an asset in the vault like USDC and TIME — and passes to the heirs with its memory intact. An external LLM account hangs on one person and one credit card and dies with them.
+2. **Verifiable decisions.** 0G inference runs in a TEE (TeeML: model inside the enclave, response signed with the TEE key; TeeTLS: verified proxy). Every proposal is cryptographically attributable to a specific model run — auditable and disputable later. A normal LLM API is unverifiable and silently model-swapped.
+3. **Private persistent memory owned by the trust.** Charter, investment policy and family financials live encrypted in the agent's iNFT intelligence / 0G storage — not in a vendor's context window.
+4. **Bounded on-chain agency.** The agent holds a **proposer role** on the Safe: it can queue transactions autonomously but never execute. Execution runs through the hito tiers. Autonomy with zero unilateral power — Safe supports the proposer/signer separation natively.
+
+**Rejected alternative:** one personal agent per member whose "behavior" gets inherited. Behavior can be reconstructed post-hoc from transaction history and policy — and inherited intent belongs in the **charter** anyway (a testament *is* recorded intent that survives you; the trust agent executes it). Neutrality seals it: the executor must serve the trust, not one partner — per-member agents would end up negotiating against each other.
+
+**Interaction model:** every bond member may write to the agent. Access is signature-gated (Safe-owner key or World ID proof of a bond member), so the agent always knows who is speaking and keeps per-member context. Requests above the thresholds become Safe proposals that run through the confirmation tiers — anyone can chat, only the process moves money. Design default: **one shared transparent log** — shared money means shared visibility; private channels are the exception.
+
+**Shared investments and purchases:** the agent proposes per the investment policy in the charter (DCA, yield on idle USDC, joint purchases, bills); members confirm via hito above thresholds. This gives the "build shared wealth" decision its engine — the vault turns from passive storage into managed shared wealth.
+
+**Caveats from the docs:** (1) "fully autonomous" means an autonomous *off-chain* loop with on-chain identity — the docs document no on-chain-triggered inference; (2) inference is paid from a **prepaid 0G-token account** (batch settlement) which the trust tops up from its own funds — the trust pays its own manager; (3) whether a *contract* (the Safe) can own an ERC-7857 token is not explicitly documented — key delivery on transfer uses the receiver's public key, non-trivial for a multisig. **Question for the 0G booth.**
 
 **Prize reality (checked Jul 24):** 0G "Best AI Product" is $6,000 (3k/2k/1k) and requires a **working demo with actual 0G Compute inference**, live link, public repo, <3-min video. That is real build scope, not a pitch slide. Continuity track ($1,500) requires a prior 0G submission — we have none.
 
