@@ -111,6 +111,19 @@ Hito is the **transaction-security layer of the living trust — not the inherit
 
 **Shared investments and purchases:** the agent proposes per the investment policy in the charter (DCA, yield on idle USDC, joint purchases, bills); members confirm via hito above thresholds. This gives the "build shared wealth" decision its engine — the vault turns from passive storage into managed shared wealth.
 
+**Why hardware confirmation is non-negotiable here — the more autonomous the agent, the more critical the hito anchor:**
+
+An autonomous agent with a proposer role is, by design, an **untrusted proposal stream**. The TEE proves *which model* produced a proposal — it does not prove the proposal is correct or benign. Verifiability ≠ correctness. So the security model must assume proposals can be wrong or hostile, and place one trust anchor behind them that no software compromise can reach:
+
+| Attack vector | Example | What stops it |
+|---|---|---|
+| Prompt injection | any bond member (or a hacked member account) chats the agent into proposing a transfer to an attacker address | proposal lands in the Safe queue — **hito on-device display shows the real recipient/amount**, human declines |
+| Model error / hallucination | agent misreads the charter, proposes a 10x oversized investment | same — the human sees the actual numbers on a display the agent cannot draw on |
+| Compromised agent host | the off-chain loop is hacked, starts queueing drains | proposals ≠ execution; nothing moves without hardware confirmation |
+| Compromised phone UI | phone shows "send $50 to partner", actually signs "drain to attacker" | **what-you-see-is-what-you-sign**: the hito screen renders the transaction independently of the phone |
+
+One sentence for the pitch: **autonomy upstream requires a trust anchor downstream** — the agent may think, propose, and manage; only a human with hardware in hand may execute. This is exactly why hito is not an accessory in this architecture but its load-bearing security layer.
+
 **Caveats from the docs:** (1) "fully autonomous" means an autonomous *off-chain* loop with on-chain identity — the docs document no on-chain-triggered inference; (2) inference is paid from a **prepaid 0G-token account** (batch settlement) which the trust tops up from its own funds — the trust pays its own manager; (3) whether a *contract* (the Safe) can own an ERC-7857 token is not explicitly documented — key delivery on transfer uses the receiver's public key, non-trivial for a multisig. **Question for the 0G booth.**
 
 **Prize reality (checked Jul 24):** 0G "Best AI Product" is $6,000 (3k/2k/1k) and requires a **working demo with actual 0G Compute inference**, live link, public repo, <3-min video. That is real build scope, not a pitch slide. Continuity track ($1,500) requires a prior 0G submission — we have none.
