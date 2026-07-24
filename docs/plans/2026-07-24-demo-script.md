@@ -125,7 +125,7 @@ Money is where trust gets real. This act proves the everyday: getting paid, taki
 | Screen | What happens | On-chain |
 |---|---|---|
 | **S6 Trust home** | Balance · members · ENS address front and center (this IS the routing story: give this address to whoever pays you) · per-member monthly spend stat · heartbeat status chips (green) | reads vault |
-| **S7 Receive** | Employer sends 1,000 USDC to the ENS name → balance ticks up live | ERC-20 transfer to Safe |
+| **S7 Receive** | Employer sends 1,000 USDC to the ENS name → balance ticks up live. **Nothing splits, nothing forwards** — the money arrives and waits to be claimed | ERC-20 transfer to Safe |
 | **S8 Claim** | Ben claims his 50% to his personal wallet — one tap, no co-signature. *Claims, not custody.* | `claim()` on vault |
 | **S9 Spend small** | Alice pays $8 (below threshold) — phone only, instant | Safe tx |
 | **S10 Spend large** | Alice tries $500 → **hito lights up**, shows real recipient + amount on its own display (WYSIWYS), she confirms on-device | Safe tx w/ hardware signer (W2) |

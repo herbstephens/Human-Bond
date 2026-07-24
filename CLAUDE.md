@@ -24,10 +24,13 @@ HumanBond is a proof-of-humanity partnership protocol, live on World Chain Mainn
 
 - **NEVER touch the live mainnet contracts** (HumanBond `0x6494…bB13`, TIME `0x261f…6a82`, VowNFT, MilestoneNFT). New functionality = NEW contracts (vault, heartbeat) that read from them. The Continuity-track story depends on this.
 - **One bond per human is enforced on-chain** (`activeBondOf` reverts on a second proposal). Demo/testing needs pre-created identities — you cannot bond twice with the same World ID.
+- **The vault NEVER auto-splits or auto-forwards.** Incoming funds (USDC, TIME) accrue at the bond's ENS/Safe address; entitled parties **claim** (pull-based). The "50/50 split enforced automatically" language in the root docs (README, ETHGLOBAL_LISBON, TIME_PROTOCOL_TIEIN) describes the live contract's **TIME minting** — protocol issuance, not vault behavior. Do not copy the auto-split pattern into the vault. Decision record: brainstorm doc, "Decisions — Team Conversation, Jul 24".
 - No fallbacks, no defensive programming. Fail hard and explicitly; never swallow errors or stack traces. Avoid try/catch unless the flow genuinely requires it.
 - Everything labeled *(roadmap)* in the docs is pitch material — do not build it.
 
 # Gotchas
+
+- Root `DEMO_SCRIPT.md` is the OLD (pre-Lisbon) demo. The current demo is `docs/plans/2026-07-24-demo-script.md` — don't build from the old one.
 
 - `contracts/lib/` (forge-std, OpenZeppelin, world-id) is **missing** — the contracts folder was uploaded without submodules. Run the installs from `contracts/.gitmodules` before `forge build`.
 - `docs/ARCHITECTURE.md` vs `docs/architecture.md` collide on case-insensitive filesystems (macOS): one of them will permanently show as modified in `git status`. **Never commit that phantom change**; don't `git add .` blindly.
