@@ -118,11 +118,15 @@ Human-Bond/
 
 ## Team
 
-**Herb Stephens** — Protocol design, TIME Protocol architecture. Co-founder, Democracy Earth Foundation. herb@democracy.earth
+**Herb Stephens** — Lead. Protocol design, TIME Protocol architect. Co-founder, Democracy Earth Foundation. herb@democracy.earth
 
-**Franco** — Frontend / MiniKit. Lead developer, HumanBond Mini App. ETHGlobal Lisbon in-person.
+**Franco** — Frontend / MiniKit. Lead developer, HumanBond Mini App.
 
-**Leticia** — Smart contracts. HumanBond V2 deployed and verified on World Chain Mainnet.
+**Francesca** — AI.
+
+**Leon** — Product and Project Management. UX.
+
+**Mikhail** — Full-stack. Founder of hito.xyz. Hardware.
 
 ---
 
