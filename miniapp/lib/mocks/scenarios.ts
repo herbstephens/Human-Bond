@@ -24,12 +24,12 @@ export type Scenario =
   | "dissolutionPending";
 
 export const SCENARIOS: { id: Scenario; label: string }[] = [
-  { id: "single", label: "Soltero" },
-  { id: "proposalReceived", label: "Propuesta recibida" },
-  { id: "proposalSent", label: "Propuesta enviada" },
-  { id: "married", label: "Casado" },
+  { id: "single", label: "Single" },
+  { id: "proposalReceived", label: "Proposal received" },
+  { id: "proposalSent", label: "Proposal sent" },
+  { id: "married", label: "Married" },
   { id: "cooldown", label: "Cooldown" },
-  { id: "dissolutionPending", label: "Disolución pendiente" },
+  { id: "dissolutionPending", label: "Dissolution pending" },
 ];
 
 export const DEFAULT_SCENARIO: Scenario = "married";
