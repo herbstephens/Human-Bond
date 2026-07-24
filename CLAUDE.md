@@ -35,7 +35,7 @@ HumanBond is a proof-of-humanity partnership protocol, live on World Chain Mainn
 - `contracts/lib/` (forge-std, OpenZeppelin, world-id) is **missing** — the contracts folder was uploaded without submodules. Run the installs from `contracts/.gitmodules` before `forge build`.
 - `docs/ARCHITECTURE.md` vs `docs/architecture.md` collide on case-insensitive filesystems (macOS): one of them will permanently show as modified in `git status`. **Never commit that phantom change**; don't `git add .` blindly.
 - Supabase-style backends, migrations, RLS: not applicable here — this project has no own database. State lives on-chain + Walrus.
-- Only USDC is currently handled by the existing shared-wallet code; TIME is an ERC-20 on World Chain and the vault treats it identically.
+- USDC and TIME are both plain ERC-20s on World Chain; the vault treats them identically. Repo-reality audit of what code actually exists: plan, P10/P11.
 
 # Team & Ownership (weekend)
 

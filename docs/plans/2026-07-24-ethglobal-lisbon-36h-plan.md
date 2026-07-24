@@ -49,7 +49,7 @@ W1+W2 = Scene 3 (P0-adjacent). W3+W4 = Scene 4 (Saturday).
 
 | # | Task | Scene | Owner | Realism | When |
 |---|---|---|---|---|---|
-| T1 | Vault contract (generic claims table, states, claim fn) | 1/2/5 | Mischa | ✅ confirmed Fri | tonight |
+| T1 | Vault contract (generic claims table, states, claim fn) | 1/2/5 | Mischa | 🟡 **greenfield — the believed shared-wallet/USDC code is NOT in this repo (see P10)** | tonight |
 | T2 | ENS subname at bond creation → Safe | 1 | Franco | ✅ | tonight |
 | T3 | Walrus: charter (incl. heir allocations) at creation | 1/5 | Francesca | ✅ | tonight |
 | T4 | World verification changes (Orb/NFC tier gate for wallet) | 1 | Franco | ✅ ("today" per Fri convo) | tonight |
@@ -120,6 +120,15 @@ W1+W2 = Scene 3 (P0-adjacent). W3+W4 = Scene 4 (Saturday).
 - **hito retry/decline path:** "resend to device" button; decline = proposal stays pending; rehearse one deliberate failure (T7)
 - **`require(state == BOTH_ALIVE)` on heir/charter writes** — else the survivor can rewrite the estate after the first death, contradicting "nothing about death is decided at death" (T1)
 
+## Team Conversation (Sat) — "AI agents for shared finances"
+
+- **Naming:** the trust's agent is the **trustee agent** (team language — docs previously said "family agent", same thing): neutral, knows both parties' preferences, represents neither. Framing is **decision-making, not dispute arbitration**.
+- **New demo beat option for Scene 4:** restaurant-bill scan — scan receipt → agents confirm the split → payment executes. Concrete, relatable, 15 seconds.
+- **ENS also for personal wallets** (payment rails per person, not just the joint name) — cheap if Durin works, else roadmap.
+- **Pitch arc: 4 minutes, 5 acts** (bond → daily money incl. agents → child/heir → first death → second death + child inherits). The 6-act build structure maps 1:1 — Act 4 (agents) folds into "daily money" on stage.
+- **Confirmed:** USDC as token of choice, Safe encodes hard rules, 0G as the agent-communication framework, child inherits at 18 via World ID age verification.
+- **Team next steps:** simple concept description → LLM-generated basic UI spec; minimal agent demo (two agents share a Safe, a spend triggers wallet confirmation); map demo acts to 0G bounty requirements.
+
 ## Prerequisites — verify in the FIRST HOUR (Sat 09:00–10:00)
 
 Access and accounts nobody has confirmed yet. Each unverified item silently blocks a task.
@@ -134,7 +143,9 @@ Access and accounts nobody has confirmed yet. Each unverified item silently bloc
 | P6 | **Walrus needs SUI/WAL for storage** — testnet is fine, but keys must exist | T3 | Francesca |
 | P7 | **Graph Studio supports World Chain?** + deploy key | T11 | whoever takes T11 |
 | P8 | **hito × World Chain:** does the device sign for our chain ID, and how does the app talk to it (WalletConnect/SDK)? | T7, W1–W4 | Mischa |
-| P9 | `.env.local` shared with every dev; `contracts/lib` installed (forge deps are missing from the repo) | everyone | tonight |
+| P9 | `.env.local` shared with every dev (NO `.env*` exists in the repo, not even an example); `contracts/lib` installed (forge deps are missing) | everyone | tonight |
+| P10 | **Where is Mischa's shared-wallet/limits code?** Repo audit (Sat): zero Safe/USDC/split/limit code exists in this repo — Friday's demo referred to code elsewhere. Locate & import it, or T1/W2 start from zero. Every sponsor SDK (Safe, ENS, Walrus, 0G) still needs `npm install` — miniapp web3 deps are only MiniKit + wagmi/viem | T1, T7, W1–W4 | Mischa |
+| P11 | Screen reality: only S1–S3 exist (`/marriage/*` routes); S4–S19 are all new. Useful base: `lib/mocks/scenarios.ts` (6 demo scenarios, mock/real swap via `USE_MOCKS`) for T12; `contracts/script/Deploy.s.sol` covers only the 4 live contracts; verification code knows only Orb/Device — Selfie/NFC start from zero | T4, T5, T6, T12 | Franco |
 
 ## Definition of Done (per scene)
 

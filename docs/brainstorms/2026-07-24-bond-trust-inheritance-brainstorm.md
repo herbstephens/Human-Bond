@@ -63,6 +63,8 @@ The simultaneous-death case (state 3) is not an edge case bolted on — it is si
 
 **Corrections to the "Before" state** (the current build knows more than the brief): shared wallet is a **Safe**; **USDC is the only supported token** so far and has some existing direct-split behavior — the exact current behavior (split on receipt vs. on dissolution) must be pinned down in writing; a **spending-limits concept** exists (small amounts single-signer, larger amounts require both partners).
 
+> **Correction to the correction (Sat repo audit):** none of that code is in this repository — exhaustive search finds zero Safe/USDC/split/limit code. What was shown on Friday lives elsewhere or was conceptual. The vault workstream starts greenfield (see plan P10).
+
 ## TIME Semantics (settled)
 
 - **Daily UBI TIME (1/human/day) goes to each person's own wallet, individually. Never split.** (Confirmed.)
