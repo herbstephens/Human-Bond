@@ -23,9 +23,15 @@ import {
     MessageCircle,
     AlertTriangle,
     Timer,
+    Wallet,
 } from "lucide-react";
+import { useVaultSpends } from "@/lib/hooks/useVaultSpends";
+import { needsYourSignature } from "@/lib/vault/types";
 import { useWorldProfile, displayName, triggerDirectChat, triggerProfileCard } from "@/lib/worldcoin/useWorldProfile";
 import { isInWorldApp } from "@/lib/worldcoin/initMiniKit";
+// Temporary Hito handoff probe — also rendered on the unbonded home screen and at
+// /hito, so it is reachable in any bond state. Remove all three once we're done.
+import { HitoLinkTest } from "./HitoLinkTest";
 
 type ClaimState = "idle" | "sending" | "success" | "error";
 type DissolutionTxState = "idle" | "sending" | "success" | "error";
@@ -89,6 +95,18 @@ export function MarriageDashboard({
             setLocalDissolutionCancelled(false);
         }
     }, [dissolutionRequest?.active, localDissolutionCancelled]);
+
+    // Pending-signature badge. The notification is best-effort — the partner may
+    // have them disabled — so the count has to be visible here too, or a payment
+    // could sit unapproved with nothing in the UI hinting at it.
+    const vaultPartnerA = (marriageView?.partnerA ?? null) as `0x${string}` | null;
+    const vaultPartnerB = (marriageView?.partnerB ?? null) as `0x${string}` | null;
+    const vaultBondId = (marriageView?.bondId ?? null) as `0x${string}` | null;
+    const { spends: vaultSpends } = useVaultSpends(vaultBondId, vaultPartnerA, vaultPartnerB);
+    const pendingSignatureCount = useMemo(
+        () => needsYourSignature(vaultSpends.filter((s) => !s.executed && !s.cancelled), walletAddress).length,
+        [vaultSpends, walletAddress],
+    );
 
     const [interpolatedYield, setInterpolatedYield] = useState<number>(0);
 
@@ -302,7 +320,7 @@ export function MarriageDashboard({
                     address: CONTRACT_ADDRESSES.HUMAN_BOND,
                     abi: HUMAN_BOND_ABI,
                     functionName: "executeDissolution",
-                    args: [dashboard.partner],
+                    args: [walletAddress, dashboard.partner],
                 }],
             });
 
@@ -381,16 +399,16 @@ export function MarriageDashboard({
                                 <p className="text-xs font-bold text-orange-800">Your partner wants to end the bond.</p>
                                 {canExecute ? (
                                     <p className="text-[10px] text-orange-700 mt-0.5 leading-relaxed">
-                                        You&apos;re still bonded — but they can finalize it at any moment now. Only they can complete or cancel the dissolution, so reach out if you want to keep the bond.
+                                        The wait is over, so the dissolution can be finalized at any moment. It can&apos;t be cancelled anymore. Your shared wallet will be split 50/50.
                                     </p>
                                 ) : (
                                     <>
                                         <p className="text-[10px] text-orange-700 mt-0.5 leading-relaxed">
-                                            You&apos;re still bonded. They can finalize it once the wait ends — only they can complete or cancel it.
+                                            You&apos;re still bonded during the wait. Only they can cancel it — once the wait ends, the dissolution goes through and your shared wallet is split 50/50.
                                         </p>
                                         <p className="text-[10px] font-bold text-orange-800 mt-1 flex items-center gap-1">
                                             <Timer size={10} />
-                                            {daysRemaining}d {hoursRemaining}h {minutesRemaining}m {secsRemaining}s until they can finalize
+                                            {daysRemaining}d {hoursRemaining}h {minutesRemaining}m {secsRemaining}s until it can be finalized
                                         </p>
                                     </>
                                 )}
@@ -415,6 +433,9 @@ export function MarriageDashboard({
                     )}
                 </div>
             )}
+
+            {/* Temporary — see import note */}
+            <HitoLinkTest />
 
             {/* Bond Status Card */}
             <div className="bg-white rounded-[2rem] p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 space-y-8 relative overflow-hidden">
@@ -563,6 +584,26 @@ export function MarriageDashboard({
                 {/* Actions */}
                 <div className="pt-4 space-y-3">
                     <button
+                        onClick={() => router.push("/vault")}
+                        className="w-full py-4 px-6 rounded-2xl text-sm font-bold text-gray-700 bg-white border-2 border-gray-100 hover:bg-gray-50 transition-all flex items-center justify-between group"
+                    >
+                        <div className="flex items-center gap-3">
+                            <span className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-emerald-100 transition-colors">
+                                <Wallet size={18} className="text-gray-500 group-hover:text-emerald-600" />
+                            </span>
+                            <span>Shared Wallet</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {pendingSignatureCount > 0 ? (
+                                <span className="text-[10px] font-black text-white bg-amber-500 rounded-full px-2 py-1 min-w-[20px] text-center">
+                                    {pendingSignatureCount}
+                                </span>
+                            ) : null}
+                            <ChevronRight size={18} className="text-gray-300" />
+                        </div>
+                    </button>
+
+                    <button
                         onClick={() => router.push("/marriage/gallery")}
                         className="w-full py-4 px-6 rounded-2xl text-sm font-bold text-gray-700 bg-white border-2 border-gray-100 hover:bg-gray-50 transition-all flex items-center justify-between group"
                     >
@@ -693,7 +734,7 @@ export function MarriageDashboard({
                                 <>
                                     <h3 className="text-2xl font-black text-gray-900 tracking-tight">Execute Dissolution?</h3>
                                     <p className="text-sm text-gray-500 font-medium leading-relaxed">
-                                        The 3-day waiting period has passed. Confirming dissolves the bond and distributes all pending TIME tokens. If you&apos;ve changed your mind, you can still cancel the request and keep the bond.
+                                        The 3-day wait has passed. Confirming dissolves the bond, distributes pending TIME, and splits your shared wallet 50/50. The cancel window has closed — either of you can finalize it now.
                                     </p>
                                 </>
                             ) : isDissolutionPending && isRequester && !canExecute ? (
@@ -707,7 +748,7 @@ export function MarriageDashboard({
                                 <>
                                     <h3 className="text-2xl font-black text-gray-900 tracking-tight">Start Dissolution?</h3>
                                     <p className="text-sm text-gray-500 font-medium leading-relaxed">
-                                        This starts a 3-day waiting period. After 3 days, you can execute the dissolution. You can cancel anytime before executing.
+                                        This starts a 3-day waiting period, and you can cancel at any point during it. Once it ends the bond dissolves and your shared wallet is split 50/50 — that step can&apos;t be undone.
                                     </p>
                                 </>
                             )}
@@ -740,13 +781,8 @@ export function MarriageDashboard({
                                     >
                                         {dissolutionTxState === "sending" ? "Processing..." : "Confirm Dissolution"}
                                     </button>
-                                    <button
-                                        onClick={handleCancelDissolution}
-                                        disabled={dissolutionTxState === "sending"}
-                                        className="w-full py-4 px-6 rounded-2xl text-sm font-bold text-amber-600 hover:text-amber-700 hover:bg-amber-50 transition-all disabled:opacity-50"
-                                    >
-                                        Cancel request — keep the bond
-                                    </button>
+                                    {/* No cancel here on purpose: once the delay elapses the contract
+                                        rejects cancellation, so offering it would only produce a revert. */}
                                     <button
                                         onClick={() => setShowConfirm(false)}
                                         disabled={dissolutionTxState === "sending"}

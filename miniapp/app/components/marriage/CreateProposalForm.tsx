@@ -140,9 +140,8 @@ export function CreateProposalForm() {
       setState("verifying");
 
       if (USE_MOCKS) {
-        await simulateTx();
         setState("sending");
-        await simulateTx("proposalSent");
+        await simulateTx("proposalSent", "Propose bond");
         setState("success");
         setTxHash("0xmocktransactionhash");
         return;

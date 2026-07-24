@@ -47,6 +47,9 @@ const MarriageDashboard = dynamic(
 
 import { BondCelebrationOverlay } from "../components/marriage/BondCelebrationOverlay";
 import { BondDissolutionOverlay } from "../components/marriage/BondDissolutionOverlay";
+// Temporary Hito handoff probe. Lives on the unbonded screen on purpose, so it can
+// be tested without an active bond. Remove once the integration is settled.
+import { HitoLinkTest } from "../components/marriage/HitoLinkTest";
 
 // ---------------------------------------------------------------------------
 
@@ -464,6 +467,9 @@ export default function HomePage() {
                     <span>Enable notifications</span>
                   </button>
                 )}
+
+                {/* Temporary — see import note */}
+                <HitoLinkTest />
               </div>
             ) : (
               <div className="flex flex-col items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-1000">

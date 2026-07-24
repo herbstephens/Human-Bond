@@ -76,9 +76,8 @@ function ProposalDetailCard({
             setError(null);
 
             if (USE_MOCKS) {
-                await simulateTx();
                 setCardState("sending_accept");
-                await simulateTx("married");
+                await simulateTx("married", "Accept bond");
                 onHandled("accept");
                 return;
             }

@@ -1,0 +1,201 @@
+/**
+ * Shared Wallet — the bond's third wallet (Protected Route)
+ *
+ * A Safe smart account owned 2-of-2 by the couple. Small USDC payments go
+ * through instantly; anything larger waits for the partner's approval.
+ */
+
+'use client'
+
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ArrowLeft, History, Inbox } from "lucide-react";
+import { useAuthStore } from "@/state/authStore";
+import { useMarriage } from "@/lib/marriage/context";
+import { USE_MOCKS } from "@/lib/config";
+import { useBondVault } from "@/lib/hooks/useBondVault";
+import { useVaultSpends } from "@/lib/hooks/useVaultSpends";
+import { useVaultActions } from "@/lib/hooks/useVaultActions";
+import { useWorldProfile, displayName } from "@/lib/worldcoin/useWorldProfile";
+import { needsYourSignature } from "@/lib/vault/types";
+import { VaultBalanceCard } from "@/app/components/vault/VaultBalanceCard";
+import { SendFundsForm } from "@/app/components/vault/SendFundsForm";
+import { SpendCard } from "@/app/components/vault/SpendCard";
+import { CreateVaultOnboarding } from "@/app/components/vault/CreateVaultOnboarding";
+import { ForeignAssetsNotice } from "@/app/components/vault/ForeignAssetsNotice";
+
+export default function VaultPage() {
+    const router = useRouter();
+    const { isVerified, checkVerificationExpiry } = useAuthStore();
+    const { address, dashboard, marriageView, isMarriageLoading } = useMarriage();
+    const [sendOpen, setSendOpen] = useState(false);
+
+    // The redirect is the only side effect here. Gating on `isVerified` directly
+    // avoids a redundant loading flag that would just mirror it one render later.
+    // Mock mode skips the World ID gate, same as the other protected routes.
+    useEffect(() => {
+        checkVerificationExpiry();
+        if (!USE_MOCKS && !isVerified) router.replace("/");
+    }, [isVerified, checkVerificationExpiry, router]);
+
+    const isAuthed = USE_MOCKS || isVerified;
+
+    const partner = (dashboard?.partner ?? null) as `0x${string}` | null;
+    const { profile: partnerProfile } = useWorldProfile(partner ?? "");
+    const partnerName = displayName(partner ?? "", partnerProfile.username);
+
+    const partnerA = (marriageView?.partnerA ?? null) as `0x${string}` | null;
+    const partnerB = (marriageView?.partnerB ?? null) as `0x${string}` | null;
+    const bondId = (marriageView?.bondId ?? null) as `0x${string}` | null;
+
+    const { vault, isLoading: isVaultLoading, refetch: refetchVault } = useBondVault(partnerA, partnerB, bondId);
+    const { spends, refetch: refetchSpends } = useVaultSpends(bondId, partnerA, partnerB);
+
+    const handleDone = useCallback(() => {
+        void refetchVault();
+        void refetchSpends();
+    }, [refetchVault, refetchSpends]);
+
+    const { state, error, createVault, proposeSpend, approveSpend, cancelSpend, reset } = useVaultActions({
+        bondId,
+        partnerA,
+        partnerB,
+        partner,
+        onDone: handleDone,
+    });
+
+    const { pending, history, awaitingYou } = useMemo(() => {
+        const pendingList = spends.filter((s) => !s.executed && !s.cancelled);
+        return {
+            pending: pendingList,
+            history: spends.filter((s) => s.executed || s.cancelled),
+            awaitingYou: needsYourSignature(pendingList, address),
+        };
+    }, [spends, address]);
+
+    const isBonded = dashboard?.isBonded ?? false;
+
+    if (!isAuthed || isMarriageLoading || isVaultLoading) {
+        return (
+            <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto mb-4" />
+                    <p className="text-black/70">Loading shared wallet…</p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="min-h-screen bg-[#FAFAFA] px-4 py-6 pb-24">
+            <div className="max-w-2xl mx-auto space-y-6">
+                <button
+                    onClick={() => router.push("/home")}
+                    className="flex items-center gap-2 text-xs font-bold text-gray-400 hover:text-gray-600 transition-colors uppercase tracking-widest"
+                >
+                    <ArrowLeft size={16} />
+                    Back
+                </button>
+
+                {!isBonded ? (
+                    <div className="bg-white rounded-[2rem] p-8 border border-gray-100 text-center space-y-2">
+                        <h3 className="text-xl font-bold text-gray-900">No active bond</h3>
+                        <p className="text-sm text-gray-500 font-medium">
+                            A shared wallet belongs to a bond. Create one first.
+                        </p>
+                    </div>
+                ) : null}
+
+                {isBonded && vault && !vault.isCreated ? (
+                    <CreateVaultOnboarding
+                        predictedAddress={vault.address}
+                        partnerName={partnerName}
+                        txState={state}
+                        error={error}
+                        onCreate={createVault}
+                    />
+                ) : null}
+
+                {isBonded && vault && vault.isCreated ? (
+                    <>
+                        {awaitingYou.length > 0 ? (
+                            <div className="rounded-2xl p-4 border border-amber-200 bg-amber-50 flex items-center gap-3">
+                                <Inbox size={18} className="text-amber-500 shrink-0" />
+                                <p className="text-xs font-bold text-amber-800">
+                                    {awaitingYou.length === 1
+                                        ? "1 payment is waiting for your approval."
+                                        : `${awaitingYou.length} payments are waiting for your approval.`}
+                                </p>
+                            </div>
+                        ) : null}
+
+                        <VaultBalanceCard
+                            vault={vault}
+                            partnerName={partnerName}
+                            onSend={() => setSendOpen(true)}
+                        />
+
+                        <ForeignAssetsNotice assets={vault.foreignAssets} vaultAddress={vault.address} />
+
+                        <SendFundsForm
+                            open={sendOpen}
+                            onOpenChange={setSendOpen}
+                            vault={vault}
+                            partnerName={partnerName}
+                            txState={state}
+                            error={error}
+                            onSend={proposeSpend}
+                            onReset={reset}
+                        />
+
+                        {pending.length > 0 ? (
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2 px-1">
+                                    <Inbox size={18} className="text-amber-500" />
+                                    <h4 className="text-base font-bold text-gray-800">Pending</h4>
+                                </div>
+                                {pending.map((spend) => (
+                                    <SpendCard
+                                        key={spend.spendId}
+                                        spend={spend}
+                                        viewer={address}
+                                        partnerName={partnerName}
+                                        txState={state}
+                                        onApprove={approveSpend}
+                                        onCancel={cancelSpend}
+                                    />
+                                ))}
+                            </div>
+                        ) : null}
+
+                        {history.length > 0 ? (
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2 px-1">
+                                    <History size={18} className="text-gray-400" />
+                                    <h4 className="text-base font-bold text-gray-800">History</h4>
+                                </div>
+                                {history.map((spend) => (
+                                    <SpendCard
+                                        key={spend.spendId}
+                                        spend={spend}
+                                        viewer={address}
+                                        partnerName={partnerName}
+                                    />
+                                ))}
+                            </div>
+                        ) : null}
+
+                        {spends.length === 0 ? (
+                            <div className="bg-white rounded-[2rem] p-8 border border-gray-100 text-center space-y-1">
+                                <p className="text-sm font-bold text-gray-700">No payments yet</p>
+                                <p className="text-xs text-gray-400 font-medium">
+                                    Copy the bond address above and send USDC to fund this wallet.
+                                </p>
+                            </div>
+                        ) : null}
+                    </>
+                ) : null}
+            </div>
+        </div>
+    );
+}

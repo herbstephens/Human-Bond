@@ -5,15 +5,18 @@
  */
 
 import { MiniKit } from '@worldcoin/minikit-js'
+import { WORLD_APP_CONFIG } from '@/lib/contracts'
 
 /**
  * MiniKit Configuration
- * APP_ID must match your app ID from the Developer Portal
- * Format: app_staging_xxxxx or app_xxxxx for production
+ * APP_ID must match your app ID from the Developer Portal.
+ *
+ * Sourced from WORLD_APP_CONFIG rather than an env var: NEXT_PUBLIC_WORLD_APP_ID
+ * was never set anywhere, so this silently resolved to `undefined`. The app id
+ * lives in lib/contracts alongside the addresses it must stay in sync with.
  */
 export const MINIKIT_CONFIG = {
-  app_id: process.env.NEXT_PUBLIC_WORLD_APP_ID as `app_${string}`,
-  // Optional: You can add more config here as needed
+  app_id: WORLD_APP_CONFIG.APP_ID,
 }
 
 /**
