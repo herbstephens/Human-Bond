@@ -122,7 +122,7 @@ Human-Bond/
 
 **Franco** — Frontend / MiniKit. Lead developer, HumanBond Mini App.
 
-**Francesca** — AI.
+**Francesca** — Vibe coder. AI agents.
 
 **Leon** — Product and Project Management. UX.
 
