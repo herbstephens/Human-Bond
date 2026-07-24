@@ -10,6 +10,46 @@ input: docs/plans/2026-07-24-ethglobal-lisbon-36h-plan.md
 
 **Framing:** this is not a couple's wallet demo. It is the life of a **family trust**: founded by two humans, grown by heirs, managed by a **family agent**, and — when its founders die — passed on intact. *The bond that outlives you.*
 
+```mermaid
+flowchart LR
+    A1["Act 1 · Founding<br/>bond + Safe + ENS + charter"] --> A2["Act 2 · Daily money<br/>receive · claim · spend"]
+    A2 --> A3["Act 3 · Heirs<br/>Carla added · charter v2"]
+    A3 --> A4["Act 4 · Family agent<br/>proposes · humans confirm"]
+    A4 --> A5["Act 5 · First death<br/>sweep linked funds"]
+    A5 --> A6["Act 6 · Both gone<br/>heirs claim"]
+    style A1 fill:#1a3a5c,color:#fff
+    style A4 fill:#4a3a6c,color:#fff
+    style A5 fill:#5c2a2a,color:#fff
+    style A6 fill:#2a5c3a,color:#fff
+```
+
+**The core mechanic — the trust's state machine (spans Acts 2→6):**
+
+```mermaid
+stateDiagram-v2
+    [*] --> BOTH_ALIVE : trust founded
+    BOTH_ALIVE --> CHALLENGE : heartbeat missed
+    CHALLENGE --> BOTH_ALIVE : Selfie Check in window — death cancelled
+    CHALLENGE --> ONE_DECEASED : challenge window elapses
+    ONE_DECEASED --> BOTH_DECEASED : second partner lapses
+    BOTH_DECEASED --> [*] : estate settled
+    note right of BOTH_ALIVE
+        partners claim 50/50
+        spend via hito tiers
+        agent proposes
+    end note
+    note right of ONE_DECEASED
+        survivor claims per rules
+        collectFromDeceased sweeps
+        linked wallets into trust
+    end note
+    note right of BOTH_DECEASED
+        heirs claim their %
+        NFC age gate for minors
+        agent passes to heirs
+    end note
+```
+
 ## Cast & Demo Setup (prepare Sat PM — T12)
 
 - **Alice & Ben** — bonded partners. Pre-created World IDs (1 bond per human = no spontaneous bonding on stage), Orb/NFC tier.
@@ -40,6 +80,22 @@ input: docs/plans/2026-07-24-ethglobal-lisbon-36h-plan.md
 | **S9 Spend small** | Alice pays $8 (below threshold) — phone only, instant | Safe tx |
 | **S10 Spend large** | Alice tries $500 → **hito lights up**, shows real recipient + amount on its own display (WYSIWYS), she confirms on-device | Safe tx w/ hardware signer (W2) |
 
+**Money flow (Acts 2, 5, 6 in one picture):**
+
+```mermaid
+flowchart TD
+    E[Employer / anyone] -->|USDC to alice-ben.humanbond.eth| V[(Trust Vault<br/>Safe)]
+    AW[Alice's personal wallet] -.->|pre-approved allowance<br/>while alive| V
+    V -->|claim 50% anytime| A[Alice]
+    V -->|claim 50% anytime| B[Ben]
+    V -->|spend below X: phone only| P1[payment]
+    V -->|spend above X: hito confirm| P2[payment]
+    AW ==>|ONE_DECEASED:<br/>collectFromDeceased| V
+    V ==>|BOTH_DECEASED:<br/>heir claims %| C[Carla]
+    linkStyle 6 stroke:#c0392b
+    linkStyle 7 stroke:#27ae60
+```
+
 ## Act 3 — The Family Grows (Scene 5a: Heirs)
 
 | Screen | What happens | On-chain |
@@ -56,6 +112,34 @@ input: docs/plans/2026-07-24-ethglobal-lisbon-36h-plan.md
 | **S15 Proposal inbox** | Proposal card: amount, purpose, TEE signature, confirmation status Alice ⬜ / Ben ⬜ → **both hito devices light up** → both confirm → executes | Safe proposal → threshold sigs → exec (W3+W4) |
 
 **The refused-bot beat matters:** AgentKit's track is "tell a bot from a human-backed agent" — show the negative case for 10 seconds.
+
+**The full choreography (W3+W4):**
+
+```mermaid
+sequenceDiagram
+    actor Ben
+    participant PA as Personal Agent
+    participant FA as Family Agent<br/>0G · owned by Safe
+    participant AK as World AgentKit
+    participant Safe as Trust Safe
+    participant HA as hito Alice
+    participant HB as hito Ben
+    Ben->>PA: set aside 100 USDC monthly for Carla
+    PA->>FA: request on Ben's behalf
+    FA->>AK: verify human backing of requester
+    AK-->>FA: verified — bonded member
+    Note over FA: charter check + TEE-verified inference
+    FA->>Safe: proposal (TEE-signed)
+    Safe-->>HA: confirmation request
+    Safe-->>HB: confirmation request
+    Note over HA,HB: both devices show real<br/>recipient + amount (WYSIWYS)
+    HA-->>Safe: confirmed on device
+    HB-->>Safe: confirmed on device
+    Safe->>Safe: execute
+    rect rgb(90, 40, 40)
+    Note over PA,AK: negative case: unbacked bot request → AgentKit refuses → no proposal rights
+    end
+```
 
 ## Act 5 — The First Death (Scene 5b)
 
