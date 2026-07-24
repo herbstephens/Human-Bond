@@ -10,7 +10,11 @@ input: docs/plans/2026-07-24-ethglobal-lisbon-36h-plan.md
 
 **Framing:** this is not a couple's wallet demo. It is the life of a **family trust**: founded by two humans, grown by heirs, managed by a **family agent**, and — when its founders die — passed on intact. *The bond that outlives you.*
 
+**What we are building this weekend, said plainly:** when two people share a life, their money lives in systems that don't know they exist — separate accounts, paper wills, passwords in drawers, keys that die with their owners. We give the relationship itself an account. It has a name you can tell your employer. It holds what you build together. It asks for a human hand before big money moves. And when you stop showing up — first one of you, then both — it does exactly what you wrote down: no lawyers, no lost keys, no doubt. Not a wallet with extra steps. **A family that works on-chain.**
+
 ## The Product on One Page — everything the living trust does
+
+**How to read this picture, top to bottom:** two verified humans form one bond — the relationship itself, recorded once, provable forever. The bond brings the trust with it: a **vault** that holds the money, a **charter** that holds the rules, an **agent** that does the housekeeping. Money finds the family through one name. From there it moves in exactly four ways — you **claim** your half (no permission needed, it is yours), you **spend** (small on the phone, big with hardware in hand), the **agent proposes** (and never executes), and — the only red box in the picture — when the heartbeats stop, the **estate** takes over. Everything else in this document is this picture, played out in time.
 
 ```mermaid
 flowchart TB
@@ -37,7 +41,18 @@ flowchart TB
     style E fill:#5c2a2a,color:#ffffff
 ```
 
+Read it as six promises:
+
+- **The bond** — who you are to each other. Public, exclusive, permanent.
+- **The vault** — what you own together. Yours to claim, never locked behind the other's key.
+- **The charter** — what you agreed. Will included, impossible to lose.
+- **The agent** — who does the work. Thinks for the family, signs for nobody.
+- **The heartbeat** — the proof you're still here. A face, not a password.
+- **Estate mode** — the promise kept. Exactly what you wrote, exactly when it matters.
+
 ## The Demo Arc
+
+Six acts, one life, under three minutes. The first four acts make the audience love the trust; the last two show it keeping its promise. That order **is** the pitch: nobody cares that software survives its users — until they've watched a family live in it.
 
 ```mermaid
 flowchart LR
@@ -53,6 +68,8 @@ flowchart LR
 ```
 
 **The core mechanic — the trust's state machine (spans Acts 2→6):**
+
+Four states, one principle: **nothing about death is decided at death.** Every rule below was set while both partners were alive — the states merely execute what was agreed. And the arrow pointing back up is the one that matters most: as long as you can look into a camera, no missed timer can bury you. A face beats a clock — and no key, stolen or lost, can fake either.
 
 ```mermaid
 stateDiagram-v2
@@ -91,6 +108,8 @@ stateDiagram-v2
 
 ## Act 1 — Founding (Scene 1: Bond)
 
+Two minutes ago, these were two strangers to the chain. Now they leave with a name, a vault, and a will. The founding must feel like a ceremony, not a setup wizard — this is the wedding, the bank appointment, and the notary visit collapsed into one flow.
+
 | Screen | What happens | On-chain |
 |---|---|---|
 | **S1 Verify** | Tier badges (Selfie / NFC / Orb). Copy states the gate: *"A shared trust needs NFC or Orb verification."* | World ID proof |
@@ -100,6 +119,8 @@ stateDiagram-v2
 | **S5 Trust settings** | Three onboarding steps: (a) inheritance opt-in — *"Is this the trust your life savings should flow to when you die?"* (b) hito threshold slider — *"ask my hardware wallet above $X"* (c) hito pairing (W1) | threshold stored in vault config |
 
 ## Act 2 — Daily Life (Scenes 2+3: Money & Hardware)
+
+Money is where trust gets real. This act proves the everyday: getting paid, taking your half without asking anyone, buying coffee without friction — and hitting a hardware wall exactly when the amount deserves one. If the audience believes the Tuesday, they'll believe the funeral.
 
 | Screen | What happens | On-chain |
 |---|---|---|
@@ -111,12 +132,16 @@ stateDiagram-v2
 
 ## Act 3 — The Family Grows (Scene 5a: Heirs)
 
+One screen, one slider — and the couple becomes a family. Adding an heir should feel as light as adding a contact, because the heaviness is carried by the protocol, not the user. Carla doesn't need a wallet, an app, or even to know this happened. She just needs to exist.
+
 | Screen | What happens | On-chain |
 |---|---|---|
 | **S11 Heirs** | Add Carla: % slider (e.g. 100% after both gone). Two modes: wallet address OR *"no wallet yet"* → pending entry, note: *"claimable once she verifies (NFC, 18+)"* | heir row in vault claims table |
 | **S12 Charter v2** | Updated charter (heir allocations) re-stored on Walrus — *"a will that cannot be lost"* — visible in trust home | Walrus blob v2 |
 
 ## Act 4 — The Family Agent (Scene 4: Agents, Saturday)
+
+The trust gets staff. The family agent works for the charter, not for either partner — it can think, draft, and propose, but the only hands that can move money are human hands on hardware. This act carries two prize tracks in one scene: an agent that must prove its human backing (AgentKit), thinking in a place where its thoughts can be verified (0G).
 
 | Screen | What happens | On-chain |
 |---|---|---|
@@ -156,12 +181,16 @@ sequenceDiagram
 
 ## Act 5 — The First Death (Scene 5b)
 
+The act nobody builds features for — and the reason we exist. One partner goes silent. The system doesn't panic: it waits, asks for a face, waits again. Only then does it act — gathers what was promised into the trust and hands the survivor exactly what was agreed. Grief comes with enough paperwork; this act deletes that part.
+
 | Screen | What happens | On-chain |
 |---|---|---|
 | **S16 Heartbeat lapse** | Alice's chip turns amber → *"Alice hasn't confirmed life in 2 min"* → challenge window countdown. **Twist first:** Alice returns, taps check-in, **Selfie Check verifies her face → death cancelled.** *"No key can fake this."* Then (demo) she lapses for real. | `checkIn()` Selfie-gated · then state → ONE_DECEASED |
 | **S17 Trust in mourning** | Trust home in muted state: *"Alice · deceased."* Ben taps **"Collect Alice's linked funds"** → her pre-approved personal wallet is swept into the trust (**Geld wird eingezogen**). Ben's claims now follow Alice's rules; the family agent keeps working, confirmations now Ben-only. | `collectFromDeceased(token, alice)` via allowance |
 
 ## Act 6 — The Bond Outlives Them (Scene 5c)
+
+The last act inverts the product: its users are gone, and it still works. Carla has never touched this app before today — she inherits with a passport tap. No probate court, no safe-deposit box, no uncle with a USB stick. The bond outlives its people; the audience doesn't hear that as a slogan anymore, because they just watched it happen.
 
 | Screen | What happens | On-chain |
 |---|---|---|
