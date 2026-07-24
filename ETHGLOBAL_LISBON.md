@@ -2,23 +2,20 @@
 
 **Event:** ETHGlobal Lisbon · July 24–26, 2026 · Pavilhão Carlos Lopes
 **Track:** Continuity Track — existing product shipping new features
-**Team:** Herb Stephens · Franco (in-person) · Leticia (remote)
+**Team:** Francesca · Franco · Herb · Leon · Mikhail 
 
 ---
 
 ## Project Description
 
-HumanBond is a two-person partnership protocol deployed and live on World Chain Mainnet, searchable today in the World App store. Two World ID–verified humans form an on-chain bond — a soulbound VowNFT anchored to biometric proof of unique humanity, not just a wallet address. When either partner earns income through the TIME Protocol, a 50/50 split is enforced automatically on-chain: the working partner and the non-market partner — the caregiver, the homemaker, the person whose contribution the formal economy has never recognized — receive equal shares. This is not a philosophical gesture. It is a smart contract. Beyond the bond itself, HumanBond exposes a Partnership Registry API: a verifiable, privacy-preserving on-chain record of partnership status that dating platforms, financial services, and legal systems can query with user consent. HumanBond is the first application of TIME Protocol's identity stack to a relationship that predates every financial system on earth — and the first time that relationship has had programmable economic consequences.
+HumanBond is a two-person partnership protocol deployed and live on World Chain Mainnet, searchable today in the World App store. Two World ID–verified humans form an on-chain bond — a soulbound VowNFT anchored to biometric proof of unique humanity, not just a wallet address. When either partner earns income through the TIME Protocol, a 50/50 split is enforced automatically on-chain: the working partner and the non-market partner — the caregiver, the homemaker, the person whose contribution the formal economy has never recognized — receive equal shares. This is not a philosophical gesture. It is a smart contract. Beyond the bond itself, HumanBond exposes a Partnership Registry API: a verifiable, privacy-preserving on-chain record of partnership status that dating platforms, financial services, and legal systems can query with user consent. HumanBond is the first application of TIME Protocol's identity stack to a relationship that predates every financial system on earth — and the first time that partnership has had programmable economic consequences.
 
 ---
 
 ## What We Built at the Hackathon
 
-### Leticia (smart contracts, remote)
 - `finalizeWorkAndDistribute()` — 50/50 Work TIME split on payment receipt. When a payment is received for verified work, the contract mints TIME and distributes 50% to the worker and 50% to their bonded partner automatically. No manual split required. No trust required.
-
-### Franco (frontend, in-person)
-- **Age Grant visualisation** — UI showing the user's governance endowment at verification (Age × 365 TIME), with the Liquidity Ladder unlock progress
+- **World 'Selfie Check' and 'NFC Credentials' ** — this adds two layers to the ID stack, eliminating use friction by introducing Tier 2 and Tier 3 sign-up [to the existing Tier 0 and Tier 4, iris orb scan].
 - **ENS subname registration** — During bond formation, partners register `name1-name2.humanbond.eth` as their shared economic address
 - **Walrus storage** — VowNFT metadata, partnership charter, and milestone records stored permanently on Walrus (Sui ecosystem)
 - **The Graph subgraph** — Partnership Registry indexed and queryable via standard subgraph API
