@@ -8,28 +8,11 @@
 
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useEffect, useRef } from 'react';
-import {
-  ArrowLeft,
-  Camera,
-  Check,
-  Landmark,
-  ReceiptText,
-  ScanLine,
-  Sparkles,
-  User,
-} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, ArrowUp, Check, ScanLine } from 'lucide-react';
 import { useAgentStore, type ChoreoStage, type Payment } from '@/lib/agent/agentStore';
 
 // ---------------------------------------------------------------------------
-
-function AgentAvatar() {
-  return (
-    <div className="w-8 h-8 shrink-0 rounded-full bg-black flex items-center justify-center">
-      <Sparkles size={14} className="text-white" />
-    </div>
-  );
-}
 
 const CHOREO_STEPS: { stage: ChoreoStage; label: string; who: string }[] = [
   { stage: 'requested', label: 'Request sent to the trustee', who: 'Your agent' },
@@ -51,22 +34,13 @@ function ChoreographyCard({ payment }: { payment: Payment }) {
 
   return (
     <div className="w-full bg-white rounded-[1.75rem] border border-gray-100 shadow-[0_20px_50px_rgba(0,0,0,0.05)] overflow-hidden animate-in fade-in zoom-in duration-500">
-      {/* Header: the three actors */}
-      <div className={`px-6 py-4 flex items-center justify-between ${isPaid ? 'bg-emerald-50' : 'bg-amber-50'}`}>
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full bg-black flex items-center justify-center">
-            <Sparkles size={12} className="text-white" />
-          </div>
-          <div className="w-6 h-px bg-gray-300" />
-          <div className="w-7 h-7 rounded-full bg-amber-500 flex items-center justify-center">
-            <Landmark size={12} className="text-white" />
-          </div>
-          <div className="w-6 h-px bg-gray-300" />
-          <div className="w-7 h-7 rounded-full bg-white border border-gray-200 flex items-center justify-center">
-            <User size={12} className="text-gray-500" />
-          </div>
-        </div>
-        <div className="text-right">
+      {/* Header: the three actors, as words */}
+      <div className={`px-6 py-4 flex items-center justify-between gap-4 ${isPaid ? 'bg-emerald-50' : 'bg-amber-50'}`}>
+        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-gray-500 leading-relaxed">
+          Your agent <span className="text-gray-300 mx-0.5">→</span> Trustee{' '}
+          <span className="text-gray-300 mx-0.5">→</span> Alice&nbsp;+&nbsp;You
+        </p>
+        <div className="text-right shrink-0">
           <p className="text-sm font-black text-gray-900 font-mono">{payment.amountUsdc.toFixed(2)} USDC</p>
           <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{payment.vendor}</p>
         </div>
@@ -140,6 +114,7 @@ export default function AgentChatPage() {
     agentSay,
     resetAgent,
   } = useAgentStore();
+  const [draft, setDraft] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -168,6 +143,20 @@ export default function AgentChatPage() {
     );
   };
 
+  const submitDraft = () => {
+    const text = draft.trim();
+    if (!text) return;
+    say(text);
+    setDraft('');
+    setTimeout(
+      () =>
+        agentSay(
+          'Noted — I’ll factor that in. If it should become a rule for our shared account, say the word and I’ll take it to the trustee.',
+        ),
+      900,
+    );
+  };
+
   return (
     <div className="min-h-screen bg-[#E8E8E8] flex flex-col">
       {/* Header */}
@@ -178,7 +167,6 @@ export default function AgentChatPage() {
         >
           <ArrowLeft size={16} />
         </Link>
-        <AgentAvatar />
         <div className="flex-1">
           <h1 className="text-base font-black text-gray-900 tracking-tight">Your agent</h1>
           <p className="text-[9px] font-bold uppercase tracking-[0.25em] flex items-center gap-1.5">
@@ -204,7 +192,7 @@ export default function AgentChatPage() {
       </header>
 
       {/* Messages */}
-      <main className="flex-1 overflow-y-auto px-6 pb-44 space-y-4 max-w-lg w-full mx-auto">
+      <main className="flex-1 overflow-y-auto px-6 pb-48 space-y-4 max-w-lg w-full mx-auto">
         {messages.map((m) => {
           if (m.kind === 'choreo') {
             const p = payments[m.paymentId];
@@ -212,19 +200,13 @@ export default function AgentChatPage() {
           }
           if (m.kind === 'receipt') {
             return (
-              <div key={m.id} className="flex items-end gap-2 animate-in fade-in zoom-in duration-500">
-                <AgentAvatar />
+              <div key={m.id} className="animate-in fade-in zoom-in duration-500">
                 <div className="bg-white rounded-3xl rounded-bl-lg p-4 border border-gray-100 shadow-[0_10px_30px_rgba(0,0,0,0.04)] w-[75%]">
-                  <div className="flex items-center gap-3 pb-3 border-b border-dashed border-gray-200">
-                    <div className="w-9 h-9 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400">
-                      <ReceiptText size={16} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-black text-gray-900">{m.vendor}</p>
-                      <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
-                        Scanned · tonight
-                      </p>
-                    </div>
+                  <div className="pb-3 border-b border-dashed border-gray-200">
+                    <p className="text-sm font-black text-gray-900">{m.vendor}</p>
+                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
+                      Scanned · tonight
+                    </p>
                   </div>
                   <div className="pt-3 flex items-baseline justify-between">
                     <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Total</span>
@@ -237,8 +219,7 @@ export default function AgentChatPage() {
             );
           }
           return m.role === 'agent' ? (
-            <div key={m.id} className="flex items-end gap-2 animate-in fade-in slide-in-from-bottom-2 duration-400">
-              <AgentAvatar />
+            <div key={m.id} className="animate-in fade-in slide-in-from-bottom-2 duration-400">
               <div className="bg-white rounded-3xl rounded-bl-lg px-5 py-3.5 border border-gray-100 max-w-[85%]">
                 <p className="text-sm text-gray-800 font-medium leading-relaxed">{m.text}</p>
               </div>
@@ -286,7 +267,7 @@ export default function AgentChatPage() {
             </button>
           </div>
           {/* Bar */}
-          <div className="bg-white rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.08)] border border-gray-100 pl-2 pr-5 py-2 flex items-center gap-3">
+          <div className="bg-white rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.08)] border border-gray-100 pl-2 pr-2 py-2 flex items-center gap-3">
             <button
               onClick={scanBill}
               className="w-11 h-11 bg-black rounded-full flex items-center justify-center text-white hover:bg-gray-900 transition-all active:scale-90 shrink-0"
@@ -294,8 +275,20 @@ export default function AgentChatPage() {
             >
               <ScanLine size={18} />
             </button>
-            <p className="flex-1 text-sm text-gray-300 font-medium select-none">Message your agent…</p>
-            <Camera size={16} className="text-gray-300" />
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && submitDraft()}
+              placeholder="Message your agent…"
+              className="flex-1 bg-transparent text-sm text-gray-800 font-medium placeholder:text-gray-300 outline-none"
+            />
+            <button
+              onClick={submitDraft}
+              disabled={!draft.trim()}
+              className="w-10 h-10 bg-black rounded-full flex items-center justify-center text-white hover:bg-gray-900 transition-all active:scale-90 disabled:bg-gray-200 disabled:text-gray-400 shrink-0"
+            >
+              <ArrowUp size={16} />
+            </button>
           </div>
         </div>
       </div>

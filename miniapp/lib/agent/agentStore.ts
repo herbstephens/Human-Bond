@@ -22,6 +22,9 @@ export type InterviewQuestion = {
   options: InterviewAnswerOption[];
 };
 
+/** An answer: either a picked option (id set) or free text (id null). */
+export type InterviewAnswer = { id: string | null; text: string };
+
 export const INTERVIEW_QUESTIONS: InterviewQuestion[] = [
   {
     id: 'name',
@@ -29,7 +32,6 @@ export const INTERVIEW_QUESTIONS: InterviewQuestion[] = [
     options: [
       { id: 'world', label: 'Use my World username' },
       { id: 'ben', label: 'Ben' },
-      { id: 'boss', label: '"Boss" works' },
     ],
   },
   {
@@ -39,7 +41,6 @@ export const INTERVIEW_QUESTIONS: InterviewQuestion[] = [
       { id: 'employed', label: 'Employed' },
       { id: 'self', label: 'Self-employed' },
       { id: 'between', label: 'Between jobs' },
-      { id: 'student', label: 'Studying' },
     ],
   },
   {
@@ -48,8 +49,7 @@ export const INTERVIEW_QUESTIONS: InterviewQuestion[] = [
     options: [
       { id: 'lt2k', label: 'Under €2k' },
       { id: '2k4k', label: '€2–4k' },
-      { id: '4k6k', label: '€4–6k' },
-      { id: 'gt6k', label: '€6k+' },
+      { id: 'gt4k', label: '€4k+' },
     ],
   },
   {
@@ -68,7 +68,6 @@ export const INTERVIEW_QUESTIONS: InterviewQuestion[] = [
       { id: 'calm', label: 'I stay calm' },
       { id: 'stress', label: 'Stress, instantly' },
       { id: 'avoid', label: 'I avoid looking at it' },
-      { id: 'plan', label: 'I start planning immediately' },
     ],
   },
   {
@@ -76,7 +75,6 @@ export const INTERVIEW_QUESTIONS: InterviewQuestion[] = [
     ask: 'And your biggest money fear?',
     options: [
       { id: 'emergency', label: 'No emergency buffer' },
-      { id: 'dependent', label: 'Being dependent' },
       { id: 'debt', label: 'Debt' },
       { id: 'conflict', label: 'Fighting about money' },
     ],
@@ -92,36 +90,47 @@ export const INTERVIEW_QUESTIONS: InterviewQuestion[] = [
   },
 ];
 
-/** How the agent mirrors the profile back, per answer. */
-export function profileSummary(answers: Record<string, string>): string[] {
+/** How the agent mirrors the profile back. Custom (typed) answers are quoted verbatim. */
+export function profileSummary(answers: Record<string, InterviewAnswer>): string[] {
+  const a = (qid: string): InterviewAnswer => answers[qid] ?? { id: null, text: '—' };
   const lines: string[] = [];
-  const income =
-    answers.income === 'lt2k' ? 'under €2k' :
-    answers.income === '2k4k' ? '€2–4k' :
-    answers.income === '4k6k' ? '€4–6k' : '€6k+';
-  lines.push(`You bring in ${income} a month and your protected personal budget is ${
-    answers.budget === 'b200' ? '€200' : answers.budget === 'b500' ? '€500' : '€1.000'
-  }.`);
+
+  const income = a('income');
+  const incomeText =
+    income.id === 'lt2k' ? 'under €2k' : income.id === '2k4k' ? '€2–4k' : income.id === 'gt4k' ? '€4k+' : `"${income.text}"`;
+  const budget = a('budget');
+  const budgetText =
+    budget.id === 'b200' ? '€200' : budget.id === 'b500' ? '€500' : budget.id === 'b1000' ? '€1.000' : `"${budget.text}"`;
+  lines.push(`You bring in ${incomeText} a month and your protected personal budget is ${budgetText}.`);
+
+  const stress = a('stress');
   lines.push(
-    answers.stress === 'avoid'
+    stress.id === 'avoid'
       ? 'Big bills make you look away — so I will open them, summarize them in one line, and never ambush you with numbers.'
-      : answers.stress === 'stress'
+      : stress.id === 'stress'
         ? 'Big bills stress you — so I will always lead with "this is handled" before any numbers.'
-        : 'You keep a level head with big bills — I will give it to you straight.',
+        : stress.id === 'calm'
+          ? 'You keep a level head with big bills — I will give it to you straight.'
+          : `About big bills you told me: "${stress.text}" — I will keep that in mind every time one arrives.`,
   );
+
+  const fear = a('fear');
   lines.push(
-    answers.fear === 'conflict'
+    fear.id === 'conflict'
       ? 'Your biggest fear is money conflict — I will route anything sensitive through the trustee before it reaches your partner.'
-      : answers.fear === 'emergency'
+      : fear.id === 'emergency'
         ? 'Your biggest fear is an empty buffer — I will defend the emergency fund before any discretionary spend.'
-        : answers.fear === 'debt'
+        : fear.id === 'debt'
           ? 'You fear debt most — I will flag anything that smells like leverage.'
-          : 'You fear dependence most — I will keep your own claims and your own budget visible at all times.',
+          : `Your biggest money fear, in your words: "${fear.text}". Protecting you from exactly that is my job.`,
   );
-  lines.push(`I ask you first ${
-    answers.threshold === 't50' ? 'for everything over €50' :
-    answers.threshold === 't200' ? 'for everything over €200' : 'only when something looks unusual'
-  }.`);
+
+  const th = a('threshold');
+  lines.push(
+    `I ask you first ${
+      th.id === 't50' ? 'for everything over €50' : th.id === 't200' ? 'for everything over €200' : th.id === 'unusual' ? 'only when something looks unusual' : `— your rule: "${th.text}"`
+    }.`,
+  );
   return lines;
 }
 
@@ -153,7 +162,7 @@ const mid = () => `m${nextId++}-${Date.now()}`;
 type AgentState = {
   // interview
   step: number;
-  answers: Record<string, string>;
+  answers: Record<string, InterviewAnswer>;
   agentReady: boolean;
   /** Demo assumption: the partner finished their interview already. */
   partnerAgentReady: boolean;
@@ -162,7 +171,8 @@ type AgentState = {
   messages: ChatMessage[];
   payments: Record<string, Payment>;
 
-  answer: (questionId: string, optionId: string) => void;
+  /** Answer the current question — via chip (id + label) or typed text (id null). */
+  answer: (questionId: string, answer: InterviewAnswer) => void;
   completeInterview: () => void;
   scanBill: () => void;
   /** User taps "Pay from shared account" on the receipt. */
@@ -185,9 +195,9 @@ export const useAgentStore = create<AgentState>()(
       messages: [],
       payments: {},
 
-      answer: (questionId, optionId) =>
+      answer: (questionId, a) =>
         set((s) => ({
-          answers: { ...s.answers, [questionId]: optionId },
+          answers: { ...s.answers, [questionId]: a },
           step: s.step + 1,
         })),
 
@@ -215,7 +225,7 @@ export const useAgentStore = create<AgentState>()(
         set((s) => ({
           messages: [
             ...s.messages,
-            { id: mid(), role: 'user', kind: 'text', text: '📷 Scanned a bill' },
+            { id: mid(), role: 'user', kind: 'text', text: 'Scanned a bill' },
             receipt,
             {
               id: mid(),

@@ -26,6 +26,7 @@ import {
     Wallet,
 } from "lucide-react";
 import { useVaultSpends } from "@/lib/hooks/useVaultSpends";
+import { useAgentStore } from "@/lib/agent/agentStore";
 import { needsYourSignature } from "@/lib/vault/types";
 import { useWorldProfile, displayName, triggerDirectChat, triggerProfileCard } from "@/lib/worldcoin/useWorldProfile";
 import { isInWorldApp } from "@/lib/worldcoin/initMiniKit";
@@ -103,6 +104,7 @@ export function MarriageDashboard({
     const vaultPartnerB = (marriageView?.partnerB ?? null) as `0x${string}` | null;
     const vaultBondId = (marriageView?.bondId ?? null) as `0x${string}` | null;
     const { spends: vaultSpends } = useVaultSpends(vaultBondId, vaultPartnerA, vaultPartnerB);
+    const agentReady = useAgentStore((s) => s.agentReady);
     const pendingSignatureCount = useMemo(
         () => needsYourSignature(vaultSpends.filter((s) => !s.executed && !s.cancelled), walletAddress).length,
         [vaultSpends, walletAddress],
@@ -583,6 +585,22 @@ export function MarriageDashboard({
 
                 {/* Actions */}
                 <div className="pt-4 space-y-3">
+                    {/* Agent CTA — the next step once the bond exists */}
+                    <button
+                        onClick={() => router.push(agentReady ? "/agent" : "/agent/create")}
+                        className="w-full py-5 px-6 rounded-2xl bg-black text-white hover:bg-gray-900 transition-all flex items-center justify-between group shadow-xl shadow-gray-300 active:scale-[0.98]"
+                    >
+                        <div className="text-left">
+                            <p className="text-[9px] font-bold text-white/50 uppercase tracking-[0.25em] mb-1">
+                                {agentReady ? "Your agent" : "Next step"}
+                            </p>
+                            <p className="text-sm font-black tracking-tight">
+                                {agentReady ? "Talk to your agent" : "Create your agent"}
+                            </p>
+                        </div>
+                        <ChevronRight size={18} className="text-white/40 group-hover:text-white group-hover:translate-x-1 transition-all" />
+                    </button>
+
                     <button
                         onClick={() => router.push("/vault")}
                         className="w-full py-4 px-6 rounded-2xl text-sm font-bold text-gray-700 bg-white border-2 border-gray-100 hover:bg-gray-50 transition-all flex items-center justify-between group"
