@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HumanBond — The Bond That Outlives You</title>
+<style>
+  :root{
+    --bg:#0e0d0b; --panel:rgba(255,255,255,.04); --panel2:rgba(255,255,255,.07);
+    --border:rgba(255,255,255,.10); --border2:rgba(255,255,255,.18);
+    --text:#e9e5dc; --muted:rgba(233,229,220,.58); --faint:rgba(233,229,220,.34);
+    --gold:#c9a35c; --gold-soft:rgba(201,163,92,.16);
+    --life:#8fbf7f; --life-soft:rgba(143,191,127,.14);
+    --heart:#e05c5c; --heart-soft:rgba(224,92,92,.14);
+    --estate:#b0413e; --estate-soft:rgba(176,65,62,.16);
+    --agent:#9b8fd8; --agent-soft:rgba(155,143,216,.14);
+    --serif:Georgia,'Times New Roman',serif;
+    --mono:ui-monospace,'SF Mono',SFMono-Regular,Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.6;
+    background-image:radial-gradient(ellipse 80% 50% at 50% -10%,rgba(201,163,92,.07),transparent);}
+  .wrap{max-width:820px;margin:0 auto;padding:0 24px}
+  section{padding:72px 0;border-bottom:1px solid var(--border)}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);margin-bottom:16px}
+  h1{font-family:var(--serif);font-style:italic;font-weight:400;font-size:clamp(38px,7vw,64px);line-height:1.08;letter-spacing:-.01em}
+  h2{font-family:var(--serif);font-style:italic;font-weight:400;font-size:clamp(26px,4.5vw,36px);line-height:1.15;margin-bottom:10px}
+  .kicker{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--faint);margin-bottom:10px}
+  .lead{font-size:17px;color:var(--muted);max-width:64ch}
+  .lead strong{color:var(--text)}
+  em.line{font-family:var(--serif);color:var(--text)}
+  .mono{font-family:var(--mono)}
+  /* reveal */
+  .rv{opacity:0;transform:translateY(14px);transition:opacity .7s ease,transform .7s ease}
+  .rv.in{opacity:1;transform:none}
+  @media (prefers-reduced-motion:reduce){.rv{opacity:1;transform:none;transition:none}
+    *,*::before,*::after{animation:none!important}}
+
+  /* ---------- hero ---------- */
+  header{padding:96px 0 72px;border-bottom:1px solid var(--border)}
+  .pulseline{display:flex;align-items:center;gap:14px;margin:28px 0 30px}
+  .pulseline .rule{height:1px;flex:1;background:linear-gradient(90deg,transparent,var(--border2))}
+  .pulseline .rule:last-child{background:linear-gradient(90deg,var(--border2),transparent)}
+  .beat{width:10px;height:10px;border-radius:50%;background:var(--heart);position:relative}
+  .beat::after{content:'';position:absolute;inset:-6px;border-radius:50%;border:1px solid var(--heart);
+    animation:ripple 2.2s ease-out infinite}
+  @keyframes ripple{0%{transform:scale(.4);opacity:.9}100%{transform:scale(1.9);opacity:0}}
+
+  /* ---------- product map ---------- */
+  .map{display:flex;flex-direction:column;align-items:stretch}
+  .humans{display:flex;gap:14px;justify-content:center}
+  .human{flex:1;max-width:240px;text-align:center;padding:14px 10px;border:1px solid var(--border2);
+    border-radius:999px;background:var(--panel)}
+  .human b{display:block;font-family:var(--serif);font-style:italic;font-size:18px}
+  .human span{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
+  .conn{display:flex;flex-direction:column;align-items:center;padding:2px 0}
+  .conn .wire{width:1px;height:34px;background:var(--border2);position:relative;overflow:visible}
+  .conn .dot{position:absolute;left:-2.5px;top:0;width:6px;height:6px;border-radius:50%;background:var(--gold);
+    animation:drip 1.8s linear infinite}
+  @keyframes drip{0%{top:-4px;opacity:0}25%{opacity:1}100%{top:100%;opacity:0}}
+  .conn label{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);padding:6px 0}
+  .node{border:1px solid var(--border2);border-radius:14px;padding:18px 20px;background:var(--panel);text-align:center}
+  .node.bond{border-color:rgba(201,163,92,.5);background:var(--gold-soft)}
+  .node.bond b{font-family:var(--serif);font-style:italic;font-size:20px;color:var(--gold)}
+  .node small{display:block;font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px;letter-spacing:.04em}
+  .trust{border:1px solid rgba(155,175,220,.35);border-radius:16px;background:rgba(35,55,90,.22);padding:22px}
+  .trust>b{display:block;text-align:center;font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#b8c8e8;margin-bottom:4px}
+  .trust>.ens{display:block;text-align:center;font-family:var(--mono);font-size:14px;color:var(--text);margin-bottom:18px}
+  .organs{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  .organ{border:1px solid var(--border);border-radius:10px;padding:14px;background:rgba(14,13,11,.45)}
+  .organ b{font-family:var(--serif);font-style:italic;font-size:16px;display:block;margin-bottom:4px}
+  .organ p{font-size:12.5px;color:var(--muted);line-height:1.5}
+  .organ .tag{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+  .inflow{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:2px}
+  .in-card{border:1px dashed var(--border2);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--muted)}
+  .in-card b{color:var(--text);font-weight:600;display:block;font-size:13.5px}
+  .caps{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  .cap{border:1px solid var(--border);border-radius:12px;padding:16px;background:var(--panel)}
+  .cap b{font-family:var(--serif);font-style:italic;font-size:17px;display:block;margin-bottom:4px}
+  .cap p{font-size:13px;color:var(--muted)}
+  .cap.claim b{color:var(--life)} .cap.spend b{color:var(--gold)}
+  .cap.agent b{color:var(--agent)} .cap.heart b{color:var(--heart)}
+  .estate-exit{margin-top:20px;border:1px solid rgba(176,65,62,.55);background:var(--estate-soft);
+    border-radius:12px;padding:16px 20px;text-align:center}
+  .estate-exit b{font-family:var(--mono);letter-spacing:.16em;font-size:12px;color:#e59a97;text-transform:uppercase}
+  .estate-exit p{font-size:13px;color:var(--muted);margin-top:4px}
+
+  /* ---------- promises ---------- */
+  .promises{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:28px}
+  .promise{border:1px solid var(--border);border-radius:12px;padding:18px;background:var(--panel)}
+  .promise b{font-family:var(--serif);font-style:italic;font-size:18px;display:block;margin-bottom:6px;color:var(--gold)}
+  .promise p{font-size:13.5px;color:var(--muted)}
+
+  /* ---------- state machine ---------- */
+  .states{display:flex;flex-direction:column;gap:0;margin-top:30px}
+  .staterow{display:flex;align-items:stretch;gap:0}
+  .state{flex:1;border:1px solid var(--border2);border-radius:12px;padding:16px;background:var(--panel);
+    transition:border-color .5s,background .5s}
+  .state.hot{border-color:var(--gold);background:var(--gold-soft)}
+  .state b{font-family:var(--mono);font-size:12px;letter-spacing:.14em;display:block;margin-bottom:6px}
+  .state p{font-size:12.5px;color:var(--muted);line-height:1.5}
+  .s-alive b{color:var(--life)} .s-chal b{color:var(--gold)}
+  .s-one b{color:#e59a97} .s-both b{color:var(--estate)}
+  .arrow{display:flex;align-items:center;padding:0 8px;color:var(--faint);font-size:18px}
+  .return{margin:14px 0 0;border:1px solid rgba(143,191,127,.45);background:var(--life-soft);
+    border-radius:12px;padding:14px 18px;display:flex;gap:12px;align-items:center}
+  .return .face{width:34px;height:34px;border-radius:50%;border:1px solid var(--life);display:flex;
+    align-items:center;justify-content:center;font-size:15px;flex-shrink:0;animation:breathe 2.6s ease-in-out infinite}
+  @keyframes breathe{0%,100%{box-shadow:0 0 0 0 rgba(143,191,127,.35)}50%{box-shadow:0 0 0 8px rgba(143,191,127,0)}}
+  .return p{font-size:13.5px;color:var(--muted)} .return p b{color:var(--life)}
+  @media (max-width:640px){.staterow{flex-direction:column;gap:10px}.arrow{transform:rotate(90deg);justify-content:center;padding:2px 0}}
+
+  /* ---------- acts ---------- */
+  .act{display:grid;grid-template-columns:64px 1fr;gap:20px;padding:28px 0;border-top:1px solid var(--border)}
+  .act:first-of-type{border-top:none}
+  .act .num{font-family:var(--serif);font-style:italic;font-size:34px;color:var(--gold);line-height:1}
+  .act h3{font-family:var(--serif);font-style:italic;font-weight:400;font-size:22px;margin-bottom:6px}
+  .act .copy{font-size:14.5px;color:var(--muted);margin-bottom:10px;max-width:60ch}
+  .act .meta{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;padding:4px 10px;border-radius:999px;
+    border:1px solid var(--border);color:var(--muted)}
+  .chip.hi{border-color:rgba(201,163,92,.5);color:var(--gold)}
+  .chip.red{border-color:rgba(176,65,62,.55);color:#e59a97}
+  .chip.grn{border-color:rgba(143,191,127,.5);color:var(--life)}
+  .chip.vio{border-color:rgba(155,143,216,.5);color:var(--agent)}
+
+  /* ---------- choreography ---------- */
+  .steps{margin-top:26px;border-left:1px solid var(--border2);padding-left:26px;display:flex;flex-direction:column;gap:18px}
+  .step{position:relative}
+  .step::before{content:'';position:absolute;left:-31px;top:6px;width:9px;height:9px;border-radius:50%;
+    background:var(--bg);border:2px solid var(--gold)}
+  .step b{font-size:14px}
+  .step p{font-size:13px;color:var(--muted)}
+  .step .who{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+  .step.refused::before{border-color:var(--estate)}
+  .step.refused{border:1px solid rgba(176,65,62,.45);background:var(--estate-soft);border-radius:10px;padding:12px 14px;margin-left:-14px}
+
+  /* ---------- tracks / footer ---------- */
+  .tracks{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}
+  .track{border:1px solid var(--border);border-radius:10px;padding:10px 14px;background:var(--panel)}
+  .track b{font-size:13px;display:block}
+  .track span{font-family:var(--mono);font-size:11px;color:var(--gold)}
+  footer{padding:56px 0 80px;color:var(--faint);font-size:12.5px;font-family:var(--mono);letter-spacing:.06em}
+  footer a{color:var(--muted)}
+  @media (max-width:640px){
+    .organs,.caps,.promises,.inflow{grid-template-columns:1fr}
+    .act{grid-template-columns:44px 1fr;gap:14px}
+    section{padding:52px 0} header{padding:64px 0 52px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">HumanBond · ETHGlobal Lisbon '26 · Live on World Chain</div>
+  <h1>The bond that<br>outlives you.</h1>
+  <div class="pulseline"><div class="rule"></div><div class="beat"></div><div class="rule"></div></div>
+  <p class="lead">When two people share a life, their money lives in systems that don't know they exist —
+  separate accounts, paper wills, passwords in drawers, keys that die with their owners.
+  We give the relationship itself an account. It has a name you can tell your employer.
+  It holds what you build together. It asks for a human hand before big money moves.
+  And when you stop showing up — first one of you, then both — it does exactly what you wrote down:
+  no lawyers, no lost keys, no doubt. <strong>Not a wallet with extra steps. A family that works on-chain.</strong></p>
+</header>
+
+<!-- ============ PRODUCT MAP ============ -->
+<section id="map">
+  <div class="kicker rv">The product on one page</div>
+  <h2 class="rv">Two humans. One name.<br>Everything that follows.</h2>
+  <p class="lead rv" style="margin-bottom:34px">Read it top to bottom: the relationship is recorded once — and brings its
+  own economy with it. Money moves in exactly four ways. There is only one red exit.</p>
+
+  <div class="map">
+    <div class="humans rv">
+      <div class="human"><b>Alice</b><span>World ID · Orb</span></div>
+      <div class="human"><b>Ben</b><span>World ID · NFC</span></div>
+    </div>
+    <div class="conn rv"><div class="wire"><div class="dot"></div></div><label>form a bond</label></div>
+    <div class="node bond rv"><b>The Bond</b><small>VowNFT · public partnership credential · one per human</small></div>
+    <div class="conn rv"><div class="wire"><div class="dot" style="animation-delay:.6s"></div></div><label>creates automatically</label></div>
+
+    <div class="inflow rv">
+      <div class="in-card"><b>Anyone pays the name</b>salary · gifts · income → USDC / TIME</div>
+      <div class="in-card"><b>Linked personal wallets</b>pre-approved allowance — sweeps only at death</div>
+    </div>
+    <div class="conn rv"><div class="wire"><div class="dot" style="animation-delay:1.1s"></div></div></div>
+
+    <div class="trust rv">
+      <b>The Family Trust</b>
+      <span class="ens">alice-ben.humanbond.eth</span>
+      <div class="organs">
+        <div class="organ"><b>The Vault</b><p>Holds what the family owns. A Safe — but claims, not custody.</p><span class="tag">Safe · World Chain</span></div>
+        <div class="organ"><b>The Charter</b><p>The rules, the heirs, the percentages. A will that cannot be lost.</p><span class="tag">Walrus · permanent</span></div>
+        <div class="organ"><b>The Family Agent</b><p>Thinks for the family. Signs for nobody. Owned by the trust itself.</p><span class="tag">0G · ERC-7857</span></div>
+      </div>
+    </div>
+
+    <div class="conn rv"><div class="wire"></div><label>money moves in four ways</label></div>
+    <div class="caps rv">
+      <div class="cap claim"><b>Claim</b><p>Each partner takes their 50% — anytime, no co-signature. It is already yours.</p></div>
+      <div class="cap spend"><b>Spend</b><p>Below the threshold: phone only. Above it: hito hardware shows the truth, a human confirms.</p></div>
+      <div class="cap agent"><b>Agent proposes</b><p>Verified human backing only (AgentKit). Both partners confirm on hardware. It never executes alone.</p></div>
+      <div class="cap heart"><b>Heartbeat</b><p>A Selfie Check every 90 days keeps the trust alive. A face, not a password.</p></div>
+    </div>
+
+    <div class="estate-exit rv">
+      <b>When the heartbeats stop → estate mode</b>
+      <p>The only red arrow in the product. Everything it does was decided while everyone was alive.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SIX PROMISES ============ -->
+<section>
+  <div class="kicker rv">What each piece promises</div>
+  <h2 class="rv">Six promises.</h2>
+  <div class="promises">
+    <div class="promise rv"><b>The bond</b><p>Who you are to each other. Public, exclusive, permanent.</p></div>
+    <div class="promise rv"><b>The vault</b><p>What you own together. Yours to claim, never locked behind the other's key.</p></div>
+    <div class="promise rv"><b>The charter</b><p>What you agreed. Will included, impossible to lose.</p></div>
+    <div class="promise rv"><b>The agent</b><p>Who does the work. Thinks for the family, signs for nobody.</p></div>
+    <div class="promise rv"><b>The heartbeat</b><p>The proof you're still here. A face, not a password.</p></div>
+    <div class="promise rv"><b>Estate mode</b><p>The promise kept. Exactly what you wrote, exactly when it matters.</p></div>
+  </div>
+</section>
+
+<!-- ============ STATE MACHINE ============ -->
+<section>
+  <div class="kicker rv">The core mechanic</div>
+  <h2 class="rv">Nothing about death<br>is decided at death.</h2>
+  <p class="lead rv">Every rule was set while both partners were alive — the four states merely execute what was agreed.
+  Watch the highlight walk through a life.</p>
+
+  <div class="states rv">
+    <div class="staterow">
+      <div class="state s-alive" data-s="0"><b>BOTH ALIVE</b><p>Partners claim 50/50 · spend via hito tiers · the agent proposes.</p></div>
+      <div class="arrow">→</div>
+      <div class="state s-chal" data-s="1"><b>CHALLENGE</b><p>A heartbeat was missed. The trust waits, asks for a face, waits again.</p></div>
+      <div class="arrow">→</div>
+      <div class="state s-one" data-s="2"><b>ONE DECEASED</b><p>Survivor claims per the rules. Linked wallets are gathered into the trust.</p></div>
+      <div class="arrow">→</div>
+      <div class="state s-both" data-s="3"><b>BOTH DECEASED</b><p>Heirs claim their share. NFC proves their age. The agent passes on.</p></div>
+    </div>
+    <div class="return">
+      <div class="face">☺</div>
+      <p><b>The way back matters most.</b> As long as you can look into a camera, no missed timer can bury you —
+      a live Selfie Check cancels the death state. A face beats a clock, and no key, stolen or lost, can fake either.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ THE SIX ACTS ============ -->
+<section>
+  <div class="kicker rv">The demo — six acts, one life, under three minutes</div>
+  <h2 class="rv">A family, on-chain.</h2>
+  <p class="lead rv" style="margin-bottom:8px">The first four acts make the audience love the trust; the last two show it keeping
+  its promise. That order <em class="line">is</em> the pitch — nobody cares that software survives its users,
+  until they've watched a family live in it.</p>
+
+  <div class="act rv"><div class="num">I</div><div>
+    <h3>Founding</h3>
+    <p class="copy">Two minutes ago, these were two strangers to the chain. Now they leave with a name, a vault, and a will.
+    The founding must feel like a ceremony, not a setup wizard — the wedding, the bank appointment and the notary visit
+    collapsed into one flow.</p>
+    <div class="meta"><span class="chip">S1–S5</span><span class="chip hi">ENS subname</span><span class="chip hi">Walrus charter</span><span class="chip">Safe deploy</span><span class="chip">hito pairing</span></div>
+  </div></div>
+
+  <div class="act rv"><div class="num">II</div><div>
+    <h3>Daily life</h3>
+    <p class="copy">Money is where trust gets real: getting paid, taking your half without asking anyone, buying coffee
+    without friction — and hitting a hardware wall exactly when the amount deserves one.
+    If the audience believes the Tuesday, they'll believe the funeral.</p>
+    <div class="meta"><span class="chip">S6–S10</span><span class="chip grn">claim 50%</span><span class="chip hi">hito WYSIWYS</span><span class="chip">spend stats</span></div>
+  </div></div>
+
+  <div class="act rv"><div class="num">III</div><div>
+    <h3>The family grows</h3>
+    <p class="copy">One screen, one slider — and the couple becomes a family. Adding an heir should feel as light as adding
+    a contact, because the heaviness is carried by the protocol, not the user. Carla doesn't need a wallet, an app,
+    or even to know this happened. She just needs to exist.</p>
+    <div class="meta"><span class="chip">S11–S12</span><span class="chip hi">charter v2 on Walrus</span><span class="chip">pending heir · NFC 18+</span></div>
+  </div></div>
+
+  <div class="act rv"><div class="num">IV</div><div>
+    <h3>The family agent</h3>
+    <p class="copy">The trust gets staff. The family agent works for the charter, not for either partner — it can think,
+    draft and propose, but the only hands that can move money are human hands on hardware. Two prize tracks in one scene:
+    an agent that must prove its human backing, thinking where its thoughts can be verified.</p>
+    <div class="meta"><span class="chip">S13–S15</span><span class="chip vio">0G TEE inference</span><span class="chip vio">World AgentKit</span><span class="chip hi">double hito confirm</span><span class="chip red">refused bot beat</span></div>
+  </div></div>
+
+  <div class="act rv"><div class="num">V</div><div>
+    <h3>The first death</h3>
+    <p class="copy">The act nobody builds features for — and the reason we exist. One partner goes silent. The system
+    doesn't panic: it waits, asks for a face, waits again. Only then does it act — gathers what was promised into the
+    trust and hands the survivor exactly what was agreed. Grief comes with enough paperwork; this act deletes that part.</p>
+    <div class="meta"><span class="chip">S16–S17</span><span class="chip grn">resurrection twist</span><span class="chip red">collectFromDeceased()</span></div>
+  </div></div>
+
+  <div class="act rv"><div class="num">VI</div><div>
+    <h3>The bond outlives them</h3>
+    <p class="copy">The last act inverts the product: its users are gone, and it still works. Carla has never touched
+    this app before today — she inherits with a passport tap. No probate court, no safe-deposit box, no uncle with a
+    USB stick. The audience doesn't hear the slogan anymore; they just watched it happen.</p>
+    <div class="meta"><span class="chip">S18–S19</span><span class="chip grn">heir claim</span><span class="chip vio">agent passes on · ERC-7857</span><span class="chip">subgraph closing shot</span></div>
+  </div></div>
+</section>
+
+<!-- ============ CHOREOGRAPHY ============ -->
+<section>
+  <div class="kicker rv">Act IV, slowed down</div>
+  <h2 class="rv">Autonomy upstream,<br>a trust anchor downstream.</h2>
+  <p class="lead rv">The agent may think, propose and manage. Only a human with hardware in hand may execute.</p>
+  <div class="steps">
+    <div class="step rv"><span class="who">Ben → personal agent</span><b>"Set aside 100 USDC a month for Carla."</b><p>Every member may talk to the agents. Only the process may move money.</p></div>
+    <div class="step rv"><span class="who">personal agent → family agent</span><b>The request travels on Ben's behalf.</b><p>Agent-to-agent, human intent attached.</p></div>
+    <div class="step rv"><span class="who">family agent → world agentkit</span><b>Human backing is verified.</b><p>Is this agent acting for a real, unique, bonded human? Yes — proceed.</p></div>
+    <div class="step rv"><span class="who">family agent · 0g tee</span><b>The charter is consulted, the proposal drafted.</b><p>TEE-verified inference — the decision itself carries a signature.</p></div>
+    <div class="step rv"><span class="who">safe → both hito devices</span><b>Two screens light up with the truth.</b><p>Real recipient, real amount — rendered by hardware the phone can't repaint.</p></div>
+    <div class="step rv"><span class="who">alice ✓ · ben ✓</span><b>Two confirmations. Execution.</b><p>The only path money ever takes.</p></div>
+    <div class="step refused rv"><span class="who">the negative case — 10 seconds of the demo</span><b>An unbacked bot asks for the same thing. AgentKit refuses.</b><p>No human backing → no proposal rights. This beat <em>is</em> the $8k track.</p></div>
+  </div>
+</section>
+
+<!-- ============ TRACKS ============ -->
+<section>
+  <div class="kicker rv">Built this weekend, entered in</div>
+  <h2 class="rv">One story, seven doors.</h2>
+  <div class="tracks rv">
+    <div class="track"><b>World AgentKit</b><span>$8,000 · human-backed agents</span></div>
+    <div class="track"><b>0G Best AI Product</b><span>$6,000 · verified inference</span></div>
+    <div class="track"><b>The Graph</b><span>$4,000 · public estate registry</span></div>
+    <div class="track"><b>ENS</b><span>$2,000 · the name that outlives you</span></div>
+    <div class="track"><b>Walrus</b><span>$2,000 · the will that can't be lost</span></div>
+    <div class="track"><b>World Selfie Check</b><span>$1,750 · proof of life, not login</span></div>
+    <div class="track"><b>World Identity NFC</b><span>$1,750 · age-gated inheritance</span></div>
+  </div>
+</section>
+
+<footer>
+  HumanBond · built on TIME Protocol · live on World Chain Mainnet<br>
+  ETHGlobal Lisbon, July 24–26 2026 — Herb · Franco · Francesca · Leon · Mikhail<br>
+  source of truth: <span class="mono">docs/plans/2026-07-24-demo-script.md</span>
+</footer>
+
+</div>
+<script>
+  // scroll reveal
+  const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.12});
+  document.querySelectorAll('.rv').forEach(el=>io.observe(el));
+  // state machine: walk a life, then resurrect, then walk to the end
+  const seq=[0,1,0,1,2,3];let i=0;
+  const states=document.querySelectorAll('.state');
+  if(!matchMedia('(prefers-reduced-motion: reduce)').matches){
+    setInterval(()=>{states.forEach(s=>s.classList.remove('hot'));
+      states[seq[i%seq.length]].classList.add('hot');i++;},2200);
+  }else{states[0].classList.add('hot');}
+</script>
+</body>
+</html>
