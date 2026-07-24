@@ -98,7 +98,7 @@ contract AutomationFlowTest is Test {
         vm.prank(requester);
         humanBond.requestDissolution(partner);
         vm.prank(requester);
-        humanBond.executeDissolution(partner);
+        humanBond.executeDissolution(requester, partner);
     }
 
     //test_<unitUnderTest>_<stateOrCondition>_<expectedOutcome/Behaviour>
@@ -563,22 +563,61 @@ contract AutomationFlowTest is Test {
     function test_executeDissolution_reverts_ifNoActiveBond() public {
         vm.prank(leticia);
         vm.expectRevert(HumanBond.HumanBond__NoActiveBond.selector);
-        humanBond.executeDissolution(bob);
+        humanBond.executeDissolution(leticia, bob);
     }
 
     function test_executeDissolution_reverts_ifNoDissolutionRequest() public bondedCouple {
         vm.prank(leticia);
         vm.expectRevert(HumanBond.HumanBond__NoDissolutionRequest.selector);
-        humanBond.executeDissolution(bob);
+        humanBond.executeDissolution(leticia, bob);
     }
 
-    function test_executeDissolution_reverts_ifNotRequester() public bondedCouple {
+    /// The dissolution is unilateral: once requested and matured, the non-requesting partner
+    /// cannot block it — they can only finalize it.
+    function test_executeDissolution_canBeExecutedByOtherPartner() public bondedCouple {
+        humanBond.setDissolutionDelay(3 days);
+
         vm.prank(leticia);
         humanBond.requestDissolution(bob);
 
+        skip(3 days + 1);
+
         vm.prank(bob);
-        vm.expectRevert(HumanBond.HumanBond__NotYourBond.selector);
-        humanBond.executeDissolution(leticia);
+        humanBond.executeDissolution(leticia, bob);
+
+        assertEq(humanBond.isBonded(leticia, bob), false);
+    }
+
+    /// Permissionless finalization is what makes the dissolution effectively automatic: it must
+    /// not stall just because neither partner sends the second transaction.
+    function test_executeDissolution_canBeExecutedByStranger() public bondedCouple {
+        address keeper = makeAddr("keeper");
+        humanBond.setDissolutionDelay(3 days);
+
+        vm.prank(leticia);
+        humanBond.requestDissolution(bob);
+
+        skip(3 days + 1);
+
+        vm.prank(keeper);
+        humanBond.executeDissolution(leticia, bob);
+
+        assertEq(humanBond.isBonded(leticia, bob), false);
+    }
+
+    /// Address order must not matter — bondId is order-independent.
+    function test_executeDissolution_argumentOrderDoesNotMatter() public bondedCouple {
+        humanBond.setDissolutionDelay(3 days);
+
+        vm.prank(leticia);
+        humanBond.requestDissolution(bob);
+
+        skip(3 days + 1);
+
+        vm.prank(bob);
+        humanBond.executeDissolution(bob, leticia);
+
+        assertEq(humanBond.isBonded(leticia, bob), false);
     }
 
     function test_executeDissolution_reverts_ifDelayNotMet() public bondedCouple {
@@ -591,10 +630,29 @@ contract AutomationFlowTest is Test {
 
         vm.prank(leticia);
         vm.expectRevert(HumanBond.HumanBond__DissolutionDelayNotMet.selector);
-        humanBond.executeDissolution(bob);
+        humanBond.executeDissolution(leticia, bob);
+    }
+
+    /// The cancel window closes when the delay elapses, otherwise the requester could park a
+    /// matured request and cancel it whenever someone tried to finalize it.
+    function test_cancelDissolutionRequest_reverts_ifDelayElapsed() public bondedCouple {
+        humanBond.setDissolutionDelay(3 days);
+
+        vm.prank(leticia);
+        humanBond.requestDissolution(bob);
+
+        skip(3 days + 1);
+
+        vm.prank(leticia);
+        vm.expectRevert(HumanBond.HumanBond__DissolutionDelayElapsed.selector);
+        humanBond.cancelDissolutionRequest(bob);
     }
 
     function test_cancelDissolutionRequest_cancelsSuccessfully() public bondedCouple {
+        // Needs a real delay: the cancel window is only open while the delay is running, so with
+        // setUp's delay of 0 there is nothing to cancel — the request is executable immediately.
+        humanBond.setDissolutionDelay(3 days);
+
         vm.prank(leticia);
         humanBond.requestDissolution(bob);
 
@@ -1238,12 +1296,12 @@ contract AutomationFlowTest is Test {
         skip(5 days);
         vm.prank(leticia);
         vm.expectRevert(HumanBond.HumanBond__DissolutionDelayNotMet.selector);
-        humanBond.executeDissolution(bob);
+        humanBond.executeDissolution(leticia, bob);
 
         // After the full delay it succeeds
         skip(5 days + 1);
         vm.prank(leticia);
-        humanBond.executeDissolution(bob);
+        humanBond.executeDissolution(leticia, bob);
         assertEq(humanBond.isBonded(leticia, bob), false);
     }
 
