@@ -10,6 +10,35 @@ input: docs/plans/2026-07-24-ethglobal-lisbon-36h-plan.md
 
 **Framing:** this is not a couple's wallet demo. It is the life of a **family trust**: founded by two humans, grown by heirs, managed by a **family agent**, and — when its founders die — passed on intact. *The bond that outlives you.*
 
+## The Product on One Page — everything the living trust does
+
+```mermaid
+flowchart TB
+    P1[Alice · World ID] & P2[Ben · World ID] -->|form a bond| B[Bond · VowNFT<br/>public partnership credential<br/>1 per human]
+    B -->|creates automatically| V
+    subgraph T[THE FAMILY TRUST · alice-ben.humanbond.eth]
+        direction TB
+        V[(Vault · Safe)]
+        CH[Charter on Walrus<br/>rules · heirs · percentages]
+        FA[Family Agent · 0G iNFT<br/>owned by the Safe<br/>both partners authorized]
+        V --- CH
+        V --- FA
+    end
+    IN[Anyone pays the name<br/>salary · gifts · income] -->|USDC · TIME| V
+    PW[Linked personal wallets] -.->|pre-approved allowance<br/>sweeps only at death| V
+    V --> C1[Claim<br/>each partner 50%<br/>anytime, no co-sign]
+    V --> C2[Spend<br/>below X: phone only<br/>above X: hito on-device confirm]
+    FA -->|proposes, never executes<br/>AgentKit: human-backed only| C3[Proposal inbox<br/>both confirm via hito]
+    C3 --> V
+    HB[Selfie Check heartbeat<br/>every 90 days] -.->|keeps the trust alive| V
+    HR[Heirs: Carla 100%<br/>pending until NFC 18+] -.-> CH
+    V ==>|heartbeats stop| E[ESTATE MODE<br/>state machine below]
+    style T fill:#14324f,color:#ffffff
+    style E fill:#5c2a2a,color:#ffffff
+```
+
+## The Demo Arc
+
 ```mermaid
 flowchart LR
     A1["Act 1 · Founding<br/>bond + Safe + ENS + charter"] --> A2["Act 2 · Daily money<br/>receive · claim · spend"]
@@ -79,22 +108,6 @@ stateDiagram-v2
 | **S8 Claim** | Ben claims his 50% to his personal wallet — one tap, no co-signature. *Claims, not custody.* | `claim()` on vault |
 | **S9 Spend small** | Alice pays $8 (below threshold) — phone only, instant | Safe tx |
 | **S10 Spend large** | Alice tries $500 → **hito lights up**, shows real recipient + amount on its own display (WYSIWYS), she confirms on-device | Safe tx w/ hardware signer (W2) |
-
-**Money flow (Acts 2, 5, 6 in one picture):**
-
-```mermaid
-flowchart TD
-    E[Employer / anyone] -->|USDC to alice-ben.humanbond.eth| V[(Trust Vault<br/>Safe)]
-    AW[Alice's personal wallet] -.->|pre-approved allowance<br/>while alive| V
-    V -->|claim 50% anytime| A[Alice]
-    V -->|claim 50% anytime| B[Ben]
-    V -->|spend below X: phone only| P1[payment]
-    V -->|spend above X: hito confirm| P2[payment]
-    AW ==>|ONE_DECEASED:<br/>collectFromDeceased| V
-    V ==>|BOTH_DECEASED:<br/>heir claims %| C[Carla]
-    linkStyle 6 stroke:#c0392b
-    linkStyle 7 stroke:#27ae60
-```
 
 ## Act 3 — The Family Grows (Scene 5a: Heirs)
 
