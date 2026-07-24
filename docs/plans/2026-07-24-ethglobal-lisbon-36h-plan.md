@@ -2,104 +2,95 @@
 date: 2026-07-24
 topic: ethglobal-lisbon-36h-plan
 author: Leon (Product / PM / UX)
-status: draft — for task assignment in tonight's team round
+status: v2 — demo-first restructure after Fri team decisions (agents Sat, Plan A confirmed, Mischa on contracts)
 input: docs/brainstorms/2026-07-24-bond-trust-inheritance-brainstorm.md
+deadline: SUBMISSION SUNDAY 09:00 — video + texts must be DONE SATURDAY NIGHT
 ---
 
-# HumanBond — 36h Execution Plan, ETHGlobal Lisbon
+# HumanBond — The Demo Is the Plan
 
-**One line for the team:** Before this weekend the bond is something you *have*. After this weekend it is something you *use* — it has a name, holds money, both partners spend and claim from it, and (roadmap) it outlives you.
+**The exclusive sentence:** *The bond that outlives you.*
+**The strategy:** every sponsor integration is a chapter of ONE demo story, not a feature list. We think in scenes; every task exists because a scene needs it.
 
 ---
 
-## Now → After
+## The Demo — Five Scenes (~3 min)
 
-| | **NOW (before hackathon — live on mainnet)** | **AFTER (Sunday submission)** |
-|---|---|---|
-| Bond | Propose/accept with World ID Orb, VowNFT, MilestoneNFT, dissolution | unchanged (Continuity anchor — don't touch what's live) |
-| Shared wallet | Safe creation exists but **optional**, disconnected from bond flow | **Safe ships automatically with every bond** |
-| Address | none | **`alice-bob.humanbond.eth`** registered at bond creation, resolves to the Safe |
-| Money in | USDC only, split behavior undocumented | USDC (+ TIME) accrue in the vault; **each partner claims 50% anytime**; per-partner monthly spend stat |
-| Identity | Tier 4 Orb only | **+ Selfie Check (Tier 1) and NFC passport (Tier 2)** sign-up |
-| Documents | NFT metadata only | **Vow + partnership charter permanent on Walrus** |
-| Queryability | contract calls only | **Public subgraph on The Graph** |
-| Inheritance | does not exist | **Opt-in question at onboarding + beneficiary UI preview** (labeled roadmap) — pitch phase "The bond that outlives you" |
+| # | Scene | What the audience sees | Sponsor visible |
+|---|---|---|---|
+| 1 | **Bond** | Two Orb/NFC-verified humans form a bond → VowNFT; Safe vault + `alice-bob.humanbond.eth` + charter on Walrus appear automatically | ENS · Walrus · World (tier gate: Selfie is NOT enough to open a shared wallet) |
+| 2 | **Shared money** | USDC sent to the ENS name → accrues in the vault → partner claims 50% on the phone; per-partner spend stat | — (the claim primitive) |
+| 3 | **Hardware trust** | hito is linked to the trust; threshold set in onboarding; small spend passes phone-only, large spend → hito prompt, confirmed on-device | hito (WYSIWYS) |
+| 4 | **Agents** (Saturday) | Leon asks his personal agent → it asks the trust agent → trust agent (0G, TEE-signed) checks the charter, verifies via **AgentKit** that the requesting agent is backed by a real bonded human → proposes on the Safe → BOTH partners confirm via hito → executes | World AgentKit ($8k!) · 0G |
+| 5 | **The bond that outlives you** | Heirs + % set in UI; Selfie Check as 90-day proof-of-life (demo interval: 2 min); heartbeat lapses → death state → heir claims. Twist: the "deceased" returns and cancels death with a live Selfie Check | World Selfie (as heartbeat — the team's own decision, and exactly the "not generic login" the track demands) |
 
-## Requirements
+**Fallback rule:** if Scene 4 slips, Scenes 1+2+3+5 are still a complete, prize-worthy demo. Scene 4 must never endanger the spine.
 
-**Weekend — MUST (prize anchors):**
-- R1: Bond creation auto-creates the Safe vault (no longer optional)
-- R2: ENS subname registered at bond creation, resolving to the Safe
-- R3: USDC sent to the ENS address accrues in the vault — **no auto-split**
-- R4: Each partner can claim 50% of vault balance at any time
-- R5: Selfie Check + NFC Credentials integrated in sign-up
-- R6: Vow + charter stored on Walrus, referenced from VowNFT metadata
-- R7: Subgraph indexes bond lifecycle events, publicly queryable
+## Wallet Workstream (Mischa) — explicit, per Leon's spec
 
-**Weekend — SHOULD (differentiators, cheap):**
-- R8: Inheritance opt-in question in onboarding ("Is this the bond your life savings should flow to when you die?")
-- R9: Beneficiary designation UI (roadmap-labeled preview, no contract)
-- R10: Per-partner monthly spend stat in the vault UI
+- **W1 — Link trust:** pair hito with the Safe (manually first, per Fri conversation)
+- **W2 — Spending:** threshold from onboarding enforced; above X → hito confirmation
+- **W3 — Agent proposal → wallet confirm:** trust-agent proposals land as Safe proposals; hito displays and confirms
+- **W4 — Full choreography:** human → personal agent → trust agent → 0G proposal → BOTH partners confirm on their hito devices
 
-**Weekend — STRETCH (gated, see timeline):**
-- R11: 0G agent v0 — reads bond state via subgraph, produces one proposal via TEE-verified 0G inference
-- R12: hito signs a Tier-2 Safe confirmation live on stage (feasibility: only Mischa can judge)
+W1+W2 = Scene 3 (P0-adjacent). W3+W4 = Scene 4 (Saturday).
 
-**Roadmap — pitch slides ONLY, zero build:**
-- Heartbeat + death states, World-ID "I'm alive" veto, beneficiary claims via nullifier, sweep allowances, hito tier policy, agent charter execution
+## Contract Workstream (Mischa) — design principles
 
-## Task Plan — Who / When / How Realistic
+1. **One generic claims table, not hardcoded 50/50:** member/heir = same table with (address, basis points, state). Alive-state claimants = members, death-state claimants = heirs. This makes multi-member trusts and heirs the SAME contract feature — and keeps "invite more people to the trust" a config change later, not a rebuild.
+2. **Vault ≠ Bond:** the vault module must not depend on bond internals — the bond instantiates it. (Enables business/community trusts later without touching the live bond contract.)
+3. **HeartbeatRegistry:** `checkIn()` (World-ID/Selfie-gated), configurable interval (90 days prod / 2 min demo), `isDeceased()` view + challenge window. Holds no funds — low risk.
+4. **Optional if trivial — vesting parameter:** claimable share ramps with bond age ("no one drains 50% on the first date" — Fri idea). One uint, else roadmap.
+5. The live mainnet bond contract is **never touched**.
 
-Realism: ✅ high · 🟡 medium (needs first-hour feasibility check) · 🔴 low / gated
+## Task Matrix
 
-| # | Task | Owner | Prize | Realism | Est. |
+| # | Task | Scene | Owner | Realism | When |
 |---|---|---|---|---|---|
-| T1 | Safe auto-create wired into bond flow + claim-50% function (Safe SDK, **avoid new Solidity** — Safe creation code already exists) | Mischa | — (enables all) | ✅ | 6–10h |
-| T2 | ENS subname via Durin at bond creation → Safe address | Franco | ENS $2k | ✅ | 4–8h |
-| T3 | Walrus upload of vow + charter at bond creation | Francesca | Walrus $2k | ✅ | 3–5h |
-| T4 | Subgraph: BondCreated/Dissolved/YieldClaimed etc. | Francesca | Graph $4k | 🟡 verify World Chain support tonight | 3–6h |
-| T5 | Selfie Check + NFC sign-up (beta APIs — timebox 4h, World booth if stuck) | Franco | World 2×$3.5k | 🟡 | 4–8h |
-| T6 | Onboarding: inheritance question + beneficiary UI + spend stat (copy: Leon) | Leon + Franco | — (demo & story) | ✅ | 3–4h |
-| T7 | End-to-end demo path: create bond → ENS appears → send USDC → partner claims 50% | all | — (the demo) | ✅ | integration |
-| T8 | 0G agent v0 | Francesca | 0G $6k | 🔴 gated Sat 15:00 | 6–10h |
-| T9 | hito Tier-2 confirm demo | Mischa | — (stage wow) | 🟡 Mischa judges | ? |
-| T10 | Pitch deck + 3-min video + per-track submission texts | Herb + Leon | all | ✅ | Sun AM |
+| T1 | Vault contract (generic claims table, states, claim fn) | 1/2/5 | Mischa | ✅ confirmed Fri | tonight |
+| T2 | ENS subname at bond creation → Safe | 1 | Franco | ✅ | tonight |
+| T3 | Walrus: charter (incl. heir allocations) at creation | 1/5 | Francesca | ✅ | tonight |
+| T4 | World verification changes (Orb/NFC tier gate for wallet) | 1 | Franco | ✅ ("today" per Fri convo) | tonight |
+| T5 | HeartbeatRegistry + Selfie check-in wiring | 5 | Mischa + Franco | 🟡 | Sat AM |
+| T6 | Heir UI (add heirs, % sliders, pending entry for wallet-less kids) + inheritance opt-in question + spend stat | 5/2 | Leon (UX/copy) + Franco | ✅ | Sat AM |
+| T7 | W1+W2 hito link + threshold enforcement | 3 | Mischa | 🟡 manual first | Sat AM |
+| T8 | Trust agent v0 on 0G (reads vault state, TEE-signed proposal) | 4 | Francesca | 🟡 | Sat |
+| T9 | Personal agent (thin chat client per human) + AgentKit human-backing verification | 4 | Franco + Francesca | 🟡 SDK unknowns | Sat |
+| T10 | W3+W4 agent→Safe→hito wiring | 4 | Mischa | 🟡 | Sat PM |
+| T11 | Graph subgraph (bond + vault + death events) | pitch "public registry" | whoever has slack | optional | Sat |
+| T12 | Demo identities: pre-created bonds (1 bond per World ID — judges can't bond spontaneously!), demo heartbeat interval, dry-runs | all | Leon | ✅ | Sat PM |
+| T13 | Video (<3 min) + per-track submission texts + deck | — | Herb + Leon | ✅ | **Sat NIGHT — deadline is Sun 09:00** |
 
-## Timeline & Gates
+## Prize Mapping (corrected Fri — brief numbers were outdated)
 
-**Tonight (Fri):**
-1. Team round on the brainstorm doc → assign T1–T10, resolve the 3 open decisions (contract ownership, 0G go/no-go direction, roadmap slide)
-2. Mischa writes down what the current USDC split code actually does (blocks T1)
-3. First-hour feasibility checks: The Graph × World Chain (T4) · Durin testnet/mainnet (T2) · 0G booth: can a Safe own an ERC-7857? (T8)
-4. Env sharing: World App ID etc. for everyone's local setup
-
-**Sat 09:00–13:00:** T1–T4 build in parallel · Leon writes UX copy + specs for T6 · Herb + Leon pitch skeleton
-**Sat 13:00:** integration checkpoint — T1+T2 must connect (bond → Safe → ENS)
-**Sat 15:00 — GATE:** T8 go/no-go: **only if T1–T4 are green.** No exceptions — the brief's rule stands: two clean wins beat seven reaches
-**Sat 15:00–21:00:** T5, T6, stretch tasks · **Sat 21:00: record backup video of the working demo flow** (non-negotiable — mainnet demos fail on stage)
-**Sun 08:00–12:00:** T10 — each prize track needs its own submission text; video <3 min; demo dry-run ×2
-
-## Pitch — Before / Built / Vision
-
-**For the team (how to talk about it):** one sentence per layer, no protocol lecture — "We made the bond usable: it has a name (ENS), a wallet (Safe), money flows in and both claim (vault), documents live forever (Walrus), anyone can verify it (Graph), and joining got easier (Selfie/NFC)."
-
-**For the judges (Continuity structure):**
-1. **Before the hackathon:** live on World Chain mainnet — bond registry, VowNFT, TIME token, mini app in the World App store. Show worldscan + app store, 30 seconds.
-2. **Built this weekend:** the bond got an *economy* — demo T7 live: create → ENS → pay → claim. Each sponsor integration gets its 20 seconds inside the one flow (not as a feature list).
-3. **Vision (one slide):** "The bond that outlives you" — heartbeat, World-ID alive-veto, beneficiaries via nullifier, the auditable AI executor. Explicitly labeled roadmap; judges reward honesty about what's built vs. planned.
-
-| Track | What we show | Proof |
+| Track | $ | Our entry |
 |---|---|---|
-| World Selfie / NFC | Tier 1/2 sign-up in the live flow | app demo |
-| ENS | subname minted during bond creation | resolver on-chain |
-| Walrus | charter blob ID in VowNFT metadata | Walrus explorer |
-| The Graph | live query against our subgraph | playground |
-| 0G (if built) | TEE-signed proposal in the vault UI | signed response |
+| **World AgentKit New Use Cases** | **$8,000** | Scene 4: trust grants proposal rights only to agents proving human backing of a bonded member — literally the track description |
+| World Selfie Check (Continuity variant exists) | $1,750 / $875×2 | Selfie as **proof-of-life heartbeat**, not login — the non-generic use the track demands |
+| World Identity Check NFC (Continuity variant exists) | $1,750 / $875×2 | NFC as tier gate for wallet creation + age gate for heirs |
+| ENS | $2,000 | Scene 1: the address that outlives you |
+| Walrus | $2,000 | Scene 1/5: the will that can't be lost |
+| The Graph | $4,000 | T11 if capacity: the public estate registry |
+| 0G Best AI Product | $6,000 | Scene 4 trust agent (requires real 0G Compute inference + live link + video) |
 
-## Risks
+## Schedule
 
-1. **Contract ownership still unassigned** (Leticia gone) → mitigate: T1 uses Safe SDK, weekend stays Solidity-free; decide owner tonight anyway
-2. **Beta API friction (Selfie/NFC)** → timebox 4h, then World booth, then drop to one of the two tracks
-3. **The Graph × World Chain unsupported** → check tonight; if negative, drop T4 (don't substitute a non-Graph indexer — the prize requires The Graph)
-4. **Mainnet demo failure on stage** → backup video Sat 21:00, tiny amounts, dry-runs Sunday
-5. **Inheritance scope creep** — the excitement is the danger; everything beyond R8–R10 is slides. The doc's rule is the law of the weekend.
+- **Tonight (Fri):** T1–T4 foundations. Booth runs: World (what happens if Selfie re-verify is missed?) · 0G (can two humans manage one agent / can a Safe own an ERC-7857?)
+- **Sat 09:00–13:00:** T5–T7 (inheritance + hito complete)
+- **Sat 13:00 — CHECKPOINT:** Scenes 1/2/3/5 must run end-to-end. Only then:
+- **Sat 13:00–19:00:** T8–T10 agents (+T11 if slack)
+- **Sat 19:00 — FEATURE FREEZE.** T12 dry-runs, **record backup video of every scene**
+- **Sat night:** T13 — video cut, submission texts per track, deck
+- **Sun 08:00:** final submission check. 09:00 deadline.
+
+## Open Decisions / Risks
+
+1. **AgentKit SDK reality** — nobody has touched it yet; Franco timeboxes a spike Sat 09:00, go/no-go for Scene 4 at the 13:00 checkpoint
+2. **Selfie re-verify semantics** (World booth) — defines what "missed heartbeat" means product-wise (insurance analogy from Fri: no renewal → no coverage)
+3. **0G × Safe ownership** (0G booth) — decides whether the trust owns the agent on-chain now or in the pitch only
+4. **Minors:** Orb allows 14+ in some jurisdictions (Portugal!) — heir age gate must come from NFC tier, not Orb. Affects T6 copy.
+5. **Sun-09:00 trap:** anything not demoable by Sat 19:00 does not exist. The video is the product.
+
+## Bond vs. Trust (settled framing)
+
+**One human = one bond (the relationship credential: vows, milestones, TIME yield, public partnership status, dissolution, inheritance flag) — but N trusts (the money vehicles: members, claims, spending policy, agent, heirs).** "More bonds" was the wrong ask; **more trusts + trust membership invites** is the right one, enabled by contract principle #1 above, shipped after the hackathon.

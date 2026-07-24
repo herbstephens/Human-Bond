@@ -130,6 +130,17 @@ One sentence for the pitch: **autonomy upstream requires a trust anchor downstre
 
 **Position:** the brief said skip 0G — but that predates Francesca (AI) joining the team. Decision for tonight: either Francesca owns a minimal v0 (agent reads bond state via the subgraph, drafts the death-verification decision through 0G inference) as an **optional stretch after ENS + Walrus are safe** — or 0G stays a named roadmap phase. It must not endanger the two clean wins.
 
+## Addendum — Fri Evening (team round + venue findings)
+
+- **Selfie Check = proof-of-life heartbeat** (team decision, on-site): "Selfie as login doesn't make sense — we need it as heartbeat." 90-day re-verify, insurance framing (no renewal → no coverage). This merges the World Selfie track with the inheritance mechanic.
+- **World AgentKit track discovered ($8,000 — the dominant World prize):** "verify human-backed agents before granting access/authorization rights." Our trust is a textbook use case: only agents provably backed by a bonded human get proposal rights; execution stays behind hito confirmation. Saturday = agents day.
+- **Agent stack:** each human gets a thin **personal agent**; the trust owns the **trust agent** (0G). Choreography: human → personal agent → trust agent → AgentKit-verified proposal → both partners confirm via hito.
+- **Tier gate:** opening a shared wallet requires Orb or NFC tier — Selfie alone is not enough. Note: Orb allows 14+ in some jurisdictions (incl. Portugal), so the heir age gate must come from NFC, not Orb.
+- **Bond ≠ Trust, settled:** the bond is the exclusive relationship credential (vows, milestones, TIME yield, public partnership status, dissolution, inheritance flag — inheritance is NOT the only difference). The trust is the money vehicle (members, claims, policy, agent, heirs). One human: **1 bond, N trusts** — "more people in the trust" = trust membership, not more bonds. Contract consequence: one generic claims table (member/heir × state × bps), so multi-member comes free later.
+- **Vesting idea (first-date conversation):** "no one drains 50% of our wallet on the first day" — claimable share could ramp with bond age. Time as the trust parameter fits the protocol poetically. Weekend: only if it is one uint in the vault; else roadmap.
+- **Routing not splitting (settled earlier today):** income destination is a free choice of address (private wallet vs. trust) — no percentage configuration. The protocol enforces only what it mints: Work TIME routes through the partner bond when one exists (roadmap); USDC routing was never enforceable, so free choice there is honesty, not a concession.
+- **Reality check driving all of it:** nobody gets paid in crypto for work today — the two real use cases are **shared wallet + inheritance**. "The bond that outlives you" is the exclusive sentence, and this weekend it becomes a live demo, not a slide (see docs/plans/2026-07-24-ethglobal-lisbon-36h-plan.md).
+
 ## Open Questions (need Herb)
 
 - **50/50 is brand ideology.** Configurable percentages enable business bonds and estates but dilute the equal-partner story. Grundsatz question, not a feature question.
