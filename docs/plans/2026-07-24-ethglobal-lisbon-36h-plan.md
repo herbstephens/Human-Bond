@@ -26,6 +26,8 @@ deadline: SUBMISSION SUNDAY 09:00 — video + texts must be DONE SATURDAY NIGHT
 
 **Fallback rule:** if Scene 4 slips, Scenes 1+2+3+5 are still a complete, prize-worthy demo. Scene 4 must never endanger the spine.
 
+**Detailed storyboard:** [`2026-07-24-demo-script.md`](./2026-07-24-demo-script.md) — the full lifecycle as a **family trust** saga (founding → daily money → heirs → family agent → first death incl. collecting the deceased's linked funds → second death → heirs claim), screen-by-screen (S1–S19) with build mapping. **Screens get built from that document.**
+
 ## Wallet Workstream (Mischa) — explicit, per Leon's spec
 
 - **W1 — Link trust:** pair hito with the Safe (manually first, per Fri conversation)
@@ -35,7 +37,7 @@ deadline: SUBMISSION SUNDAY 09:00 — video + texts must be DONE SATURDAY NIGHT
 
 W1+W2 = Scene 3 (P0-adjacent). W3+W4 = Scene 4 (Saturday).
 
-## Contract Workstream (Mischa) — design principles
+## Contract Workstream — design principles
 
 1. **One generic claims table, not hardcoded 50/50:** member/heir = same table with (address, basis points, state). Alive-state claimants = members, death-state claimants = heirs. This makes multi-member trusts and heirs the SAME contract feature — and keeps "invite more people to the trust" a config change later, not a rebuild.
 2. **Vault ≠ Bond:** the vault module must not depend on bond internals — the bond instantiates it. (Enables business/community trusts later without touching the live bond contract.)
@@ -60,6 +62,8 @@ W1+W2 = Scene 3 (P0-adjacent). W3+W4 = Scene 4 (Saturday).
 | T11 | Graph subgraph (bond + vault + death events) | pitch "public registry" | whoever has slack | optional | Sat |
 | T12 | Demo identities: pre-created bonds (1 bond per World ID — judges can't bond spontaneously!), demo heartbeat interval, dry-runs | all | Leon | ✅ | Sat PM |
 | T13 | Video (<3 min) + per-track submission texts + deck | — | Herb + Leon | ✅ | **Sat NIGHT — deadline is Sun 09:00** |
+| T14 | Sweep: `collectFromDeceased(token, from)` — allowance-based, death-gated (demo: Alice's wallet pre-approves the vault) | 5 (S17) | Mischa | ✅ one function | Sat AM |
+| T15 | Death-state UI: heartbeat warning/countdown, mourning trust home, heir claim screen | 5 (S16–S19) | Franco + Leon | ✅ | Sat AM/PM |
 
 ## Prize Mapping (corrected Fri — brief numbers were outdated)
 
@@ -87,7 +91,7 @@ W1+W2 = Scene 3 (P0-adjacent). W3+W4 = Scene 4 (Saturday).
 
 1. **AgentKit SDK reality** — nobody has touched it yet; Franco timeboxes a spike Sat 09:00, go/no-go for Scene 4 at the 13:00 checkpoint
 2. **Selfie re-verify semantics** (World booth) — defines what "missed heartbeat" means product-wise (insurance analogy from Fri: no renewal → no coverage)
-3. **0G × Safe ownership** (0G booth) — decides whether the trust owns the agent on-chain now or in the pitch only
+3. **0G × Safe ownership — largely resolved by docs:** ERC-7857 has `authorizeUsage(tokenId, executor, permissions)` — the Safe owns the family-agent iNFT and authorizes BOTH partners as executors, no ownership transfer needed; contract ownership is supported. Remaining booth question: how is the sealed metadata key managed when the owner is a contract (TEE oracle?), and does one TEE-verified inference call qualify for Best AI Product?
 4. **Minors:** Orb allows 14+ in some jurisdictions (Portugal!) — heir age gate must come from NFC tier, not Orb. Affects T6 copy.
 5. **Sun-09:00 trap:** anything not demoable by Sat 19:00 does not exist. The video is the product.
 
