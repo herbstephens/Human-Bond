@@ -42,7 +42,7 @@ W1+W2 = Scene 3 (P0-adjacent). W3+W4 = Scene 4 (Saturday).
 1. **One generic claims table, not hardcoded 50/50:** member/heir = same table with (address, basis points, state). Alive-state claimants = members, death-state claimants = heirs. This makes multi-member trusts and heirs the SAME contract feature — and keeps "invite more people to the trust" a config change later, not a rebuild.
 2. **Vault ≠ Bond:** the vault module must not depend on bond internals — the bond instantiates it. (Enables business/community trusts later without touching the live bond contract.)
 3. **HeartbeatRegistry:** `checkIn()` (World-ID/Selfie-gated), configurable interval (90 days prod / 2 min demo), `isDeceased()` view + challenge window. Holds no funds — low risk.
-4. **Optional if trivial — vesting parameter:** claimable share ramps with bond age ("no one drains 50% on the first date" — Fri idea). One uint, else roadmap.
+4. **Vesting: CUT from the weekend** (was "optional if trivial"). Gap analysis: it contaminates the death-state logic (does vesting continue during ONE_DECEASED? how does it apply to heirs?). Roadmap slide only.
 5. The live mainnet bond contract is **never touched**.
 
 ## Task Matrix
@@ -94,6 +94,31 @@ W1+W2 = Scene 3 (P0-adjacent). W3+W4 = Scene 4 (Saturday).
 3. **0G × Safe ownership — largely resolved by docs:** ERC-7857 has `authorizeUsage(tokenId, executor, permissions)` — the Safe owns the family-agent iNFT and authorizes BOTH partners as executors, no ownership transfer needed; contract ownership is supported. Remaining booth question: how is the sealed metadata key managed when the owner is a contract (TEE oracle?), and does one TEE-verified inference call qualify for Best AI Product?
 4. **Minors:** Orb allows 14+ in some jurisdictions (Portugal!) — heir age gate must come from NFC tier, not Orb. Affects T6 copy.
 5. **Sun-09:00 trap:** anything not demoable by Sat 19:00 does not exist. The video is the product.
+
+## Gap Analysis (spec-flow, Sat 09:00) — resolutions to build in
+
+**Contract-blocking — decide BEFORE T1/W1 starts (Mischa + Leon, first thing):**
+
+- **G-CLAIM · Claim accounting:** naive `balance/2` breaks the moment one partner claims and the other spends (double-claim from the remainder). Spec: **cumulative accounting** — `claimable = totalReceived × bps − alreadyClaimed`; spends debit the **spender's** share (the per-member spend stat implies exactly this).
+- **G-MODULE · Native Safe threshold cannot survive a death:** a 2-of-2 Safe can never be reconfigured after Alice dies — the change itself would need her signature. Execute everything through a **custom Safe module whose signature policy reads HeartbeatRegistry state**, not native thresholds.
+- **G-SIGNERS · hito topology:** per partner one phone key + one hito key as owners; the module enforces which combination per amount; **single threshold X this weekend** (drop tier Y).
+
+**Demo-killers — T12 prep (Leon):**
+
+- **G-CLOCK:** with a 2-min interval both partners go amber during Acts 1–4, and the scripted double-lapse adds ~5 min of waiting. Heartbeat interval + challenge window must be **runtime-adjustable per partner**, armed at the start of Act 5.
+- **G-BONDS · Rehearsals burn bonds:** every dry-run permanently consumes a verified World-ID pair (1 bond per human, live contract untouchable) and collides on the ENS label. Check tonight whether dissolution frees an ID for re-bonding; otherwise stock N fresh verified pairs with per-run ENS labels and **reserve one unbonded pair exclusively for showtime**.
+
+**Small build additions (fold into tasks):**
+
+- Death-state transitions need **explicit transactions** — a view emits no events: challenge-start fires automatically from the app, "declare lapsed" is a button (T5)
+- **Prefund every demo EOA** (Alice, Ben, Carla, employer) in the deploy script — an empty wallet fails silently on stage (T12/P4)
+- **Survivor rule hardcoded**: survivor claims 100%, and that line is printed in the charter blob — visibly "written down while alive" (T1/T3)
+- Carla claims in **wallet-address mode on a third phone** (the two mirrored phones are Alice and Ben) (T6/T12)
+- **Pre-test the employer wallet's ENS resolution** on World Chain Sat PM; fallback: resolve in our own UI, send to raw address, keep the name on screen (T2/T12)
+- **Incoming-proposal screen** on the partner's phone (polling is fine) — the S2→S3 handoff is exactly what the audience watches (T6)
+- **Canned rogue-bot trigger** + AgentKit refusal card — the prize-critical 10 seconds needs an actor (T9)
+- **hito retry/decline path:** "resend to device" button; decline = proposal stays pending; rehearse one deliberate failure (T7)
+- **`require(state == BOTH_ALIVE)` on heir/charter writes** — else the survivor can rewrite the estate after the first death, contradicting "nothing about death is decided at death" (T1)
 
 ## Prerequisites — verify in the FIRST HOUR (Sat 09:00–10:00)
 
