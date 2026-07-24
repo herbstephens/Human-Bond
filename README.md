@@ -38,14 +38,15 @@ Contracts authored and deployed by [@leticarolina](https://github.com/leticaroli
 
 ## ETHGlobal Lisbon 2026 — July 24–26
 
-HumanBond is our submission to **ETHGlobal Lisbon** under the **Continuity Track** — recognising that the most interesting work onchain is sustained, ongoing software with real users, not just 36-hour demos.
+HumanBond is our submission to **ETHGlobal Lisbon** under the **Continuity Track**.
 
 **What we're building at the hackathon:**
-- Income split feature: `finalizeWorkAndDistribute()` — 50/50 Work TIME split on payment receipt (Leticia)
-- Age Grant visualisation UI — showing governance endowment at verification (Franco)
-- ENS subname integration — `partner1-partner2.humanbond.eth` shared receiving address (Franco)
-- Walrus storage — permanent VowNFT metadata and partnership charter (Franco)
+- Income split feature: `finalizeWorkAndDistribute()` — 50/50 Work TIME split on payment receipt
+- Age Grant visualisation UI — showing governance endowment at verification
+- ENS subname integration — `partner1-partner2.humanbond.eth` shared receiving address
+- Walrus storage — permanent VowNFT metadata and partnership charter
 - The Graph subgraph — Partnership Registry queryable by any application
+- World 'Selfie Check' and 'NFC Credential' implementation
 
 **Prize tracks:**
 
