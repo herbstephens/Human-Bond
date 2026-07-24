@@ -2,7 +2,7 @@
 date: 2026-07-24
 topic: bond-trust-inheritance
 author: Leon (Product / PM / UX)
-status: proposal — for team discussion tonight
+status: v2 — updated after on-site team conversation + 0G workshop, Jul 24
 ---
 
 # The Bond Is a Trust — Inheritance as the Next Protocol Phase
@@ -53,6 +53,53 @@ The simultaneous-death case (state 3) is not an edge case bolted on — it is si
 
 **Inheritance itself is a roadmap phase, not weekend scope** — positioned after Stellar settlement (Oct), pitched as: *"The bond that outlives you."* It also closes a genuine protocol-level hole: TIME streams 1 TIME/day to every verified human for life — nothing in the protocol defines what happens to the stream, the Age Grant, or governance weight at death. HumanBond is the natural home for TIME's end-of-life semantics.
 
+## Decisions — Team Conversation, Jul 24 (on-site)
+
+1. **Shared wallet ships with the bond.** The Safe (multisig) is no longer optional — it is created automatically at bond formation, and the ENS subname appears at that moment, not later.
+2. **Claim model adopted** ("the most elegant flow"): payments/salary arrive at the bond ENS address, each partner can claim 50% at any time; the survivor claims when the partner is deceased. Rationale: easier accounting than auto-split, and the vault lets partners **build shared wealth** instead of instantly atomizing it.
+3. **Inheritance becomes one onboarding question** at bond creation: *"Is this the bond your life savings should flow to when you die?"* Opt-in, one sentence.
+4. **Work/TIME platform is out of weekend scope.** Demo shows the utility ("pay someone → funds land at the bond → partner claims 50%"), not the platform. The mechanics stay underneath.
+5. **UI addition:** per-partner monthly spend stat ("you have X left of your share this month").
+
+**Corrections to the "Before" state** (the current build knows more than the brief): shared wallet is a **Safe**; **USDC is the only supported token** so far and has some existing direct-split behavior — the exact current behavior (split on receipt vs. on dissolution) must be pinned down in writing; a **spending-limits concept** exists (small amounts single-signer, larger amounts require both partners).
+
+## TIME Semantics (settled)
+
+- **Daily UBI TIME (1/human/day) goes to each person's own wallet, individually. Never split.** (Confirmed.)
+- **Work TIME:** per the TIME architecture, 1 TIME = 1 verified hour — so 8 hours of work cost **8 TIME** (+ optionally USDC), not 8/24 of one. Hard cap: ≤23 Work TIME/day (24 minus the 1 UBI).
+- **Work TIME is partnership income** → it flows to the bond vault and is claimable 50/50 — the same claim primitive as USDC.
+- **Should the ENS address receive TIME? Yes.** TIME is an ERC-20 on World Chain; the vault treats it exactly like USDC under the claim rules. One primitive, two assets — no special case needed.
+
+## Security Tiers — Where the Hito Hardware Wallet Fits (Mikhail)
+
+Threat model: someone holds your phone and knows your PIN (or the hot wallet is compromised) → they can drain the trust through World App in seconds. Answer: a three-tier spending policy on the Safe, thresholds **self-defined per bond**:
+
+| Tier | Amount | Required to sign |
+|---|---|---|
+| 1 | below X | one partner, phone only |
+| 2 | above X | + **hito hardware confirmation** |
+| 3 | above Y | **both bond holders** (+ hito) |
+
+Hito is the **transaction-security layer of the living trust — not the inheritance mechanism** (see next section for why).
+
+## Sweep Problem — Mischa's Three Options, Compared
+
+| Option | Mechanism | Verdict |
+|---|---|---|
+| a) Give heirs wallet access after death | key handover / social recovery | ❌ Recreates the exact seed-phrase problem inheritance is meant to solve: all-or-nothing access, no partial allocations, no minor gate, no audit trail |
+| b) Auto-send all funds to the ENS address at death | allowances / smart-account module granted **while alive**, exercisable only in death state, opt-in per wallet and token | ✅ **Recommended** for linked external wallets. Limitation: native ETH needs a smart account (allowances only cover tokens) |
+| c) Access to the ENS address via hito hardware wallet | physical device as key to the vault | ❌ As death mechanism: a lost/broken device is a single physical point of failure (raised in the room). Hito's place is the spending tiers above |
+
+**Core principle: heirs inherit *claims*, not *keys*.** The vault switches claim rights by state (alive → one deceased → both deceased); nobody ever needs the deceased's keys. Options (a) and (c) are key-inheritance thinking; the protocol's whole point is rule-inheritance.
+
+## 0G — Verified AI Trust Manager (post-workshop idea)
+
+**The idea:** the trust gets an auditable AI executor — it monitors heartbeat/death evidence, executes payouts per the charter, potentially manages vault assets. 0G's TEE-sealed verifiable inference is what makes "verified" real: every executor decision is provable, which is exactly what you want from the entity that decides whether you are dead. *"The executor is an auditable AI, not an uncle."*
+
+**Prize reality (checked Jul 24):** 0G "Best AI Product" is $6,000 (3k/2k/1k) and requires a **working demo with actual 0G Compute inference**, live link, public repo, <3-min video. That is real build scope, not a pitch slide. Continuity track ($1,500) requires a prior 0G submission — we have none.
+
+**Position:** the brief said skip 0G — but that predates Francesca (AI) joining the team. Decision for tonight: either Francesca owns a minimal v0 (agent reads bond state via the subgraph, drafts the death-verification decision through 0G inference) as an **optional stretch after ENS + Walrus are safe** — or 0G stays a named roadmap phase. It must not endanger the two clean wins.
+
 ## Open Questions (need Herb)
 
 - **50/50 is brand ideology.** Configurable percentages enable business bonds and estates but dilute the equal-partner story. Grundsatz question, not a feature question.
@@ -61,4 +108,4 @@ The simultaneous-death case (state 3) is not an edge case bolted on — it is si
 
 ## Proposed Next Step
 
-Agree tonight: (a) pull-based claims as the incoming-funds answer for the ENS address, (b) inheritance/trust as the named roadmap phase in the pitch, (c) contract ownership. Then the 36 hours stay exactly as planned — two clean Continuity wins.
+~~(a) pull-based claims as the incoming-funds answer~~ ✅ **decided Jul 24** — claim model adopted. Still open for tonight: (b) inheritance/trust as the named roadmap phase in the pitch, (c) contract ownership (a new contract is needed for the claim model — "whole new contract" per the conversation), (d) 0G go/no-go for Francesca, (e) pin down in writing what the current USDC split code actually does. Then the 36 hours stay on track — two clean Continuity wins.
