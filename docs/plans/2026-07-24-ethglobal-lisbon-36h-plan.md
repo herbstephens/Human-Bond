@@ -95,6 +95,42 @@ W1+W2 = Scene 3 (P0-adjacent). W3+W4 = Scene 4 (Saturday).
 4. **Minors:** Orb allows 14+ in some jurisdictions (Portugal!) — heir age gate must come from NFC tier, not Orb. Affects T6 copy.
 5. **Sun-09:00 trap:** anything not demoable by Sat 19:00 does not exist. The video is the product.
 
+## Prerequisites — verify in the FIRST HOUR (Sat 09:00–10:00)
+
+Access and accounts nobody has confirmed yet. Each unverified item silently blocks a task.
+
+| # | Prerequisite | Blocks | Check |
+|---|---|---|---|
+| P1 | **Who controls `humanbond.eth`?** Durin subnames need the parent name + L2 resolver setup — and does Durin support World Chain at all? Fallback: offchain resolver (CCIP-read) | T2 (ENS, Scene 1) | Herb/Franco |
+| P2 | **World Dev Portal:** is our app enrolled in the Selfie Check beta, NFC beta, AND AgentKit? Betas usually need allowlisting — request access TONIGHT, not Sat | T4, T5, T9 | Franco |
+| P3 | **Safe Transaction Service on World Chain?** The proposal inbox (S15) needs off-chain proposal queueing — if the service doesn't run on World Chain, we self-host or queue on-chain | T1, T10, W3 | Mischa |
+| P4 | **Deployer wallet + gas:** who deploys vault + heartbeat to World Chain, with what funded key? Plus test USDC for demo wallets | T1, T5, T12 | Mischa |
+| P5 | **0G account funded** (prepaid ledger needs ≥3 0G) + decision where the family agent process runs (laptop vs. deployed — it must be alive Sunday 09:00) | T8 | Francesca |
+| P6 | **Walrus needs SUI/WAL for storage** — testnet is fine, but keys must exist | T3 | Francesca |
+| P7 | **Graph Studio supports World Chain?** + deploy key | T11 | whoever takes T11 |
+| P8 | **hito × World Chain:** does the device sign for our chain ID, and how does the app talk to it (WalletConnect/SDK)? | T7, W1–W4 | Mischa |
+| P9 | `.env.local` shared with every dev; `contracts/lib` installed (forge deps are missing from the repo) | everyone | tonight |
+
+## Definition of Done (per scene)
+
+A scene is DONE when it runs end-to-end on the demo devices **and is captured on backup video**. Not before.
+
+- **Scene 1:** bond → Safe + ENS resolves + charter blob retrievable from Walrus
+- **Scene 2:** external USDC transfer arrives → each partner claims 50% to their own wallet
+- **Scene 3:** spend below threshold passes phone-only; above threshold requires hito on-device confirm
+- **Scene 4:** agent proposal created via real 0G inference, AgentKit verification shown (incl. one refused bot), executed after both hito confirms
+- **Scene 5:** heartbeat lapse → challenge → Selfie-Check cancel works; then real lapse → death state → sweep pulls pre-approved funds → heir claims
+
+## Submission Deliverables (owner: Leon + Herb — Sat night)
+
+Prize tracks demand more than a video. Missing any of these forfeits the track:
+
+1. ETHGlobal project page + public repo link + demo video <3 min
+2. **0G:** proof of Compute usage (inference logs/signatures) + live link + team Telegram & X handles
+3. **World Selfie/NFC beta tracks: written testing documentation with developer AND user feedback** — a real deliverable, drafted during the build (collect friction notes as we go, don't reconstruct at 2am)
+4. **AgentKit:** working end-to-end flow demonstrable live, not only on video
+5. Per-track submission text (each sponsor form is separate)
+
 ## Bond vs. Trust (settled framing)
 
 **One human = one bond (the relationship credential: vows, milestones, TIME yield, public partnership status, dissolution, inheritance flag) — but N trusts (the money vehicles: members, claims, spending policy, agent, heirs).** "More bonds" was the wrong ask; **more trusts + trust membership invites** is the right one, enabled by contract principle #1 above, shipped after the hackathon.
