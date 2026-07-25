@@ -119,7 +119,16 @@ contract HumanBond is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     ///      never create a new one.
     mapping(bytes32 => uint256) public bondEpoch;
 
-    uint256[28] private __gap;
+    /// @notice When true, propose()/accept() require a valid on-chain World ID proof (the default,
+    ///         trustless behaviour). When false, the on-chain proof check is skipped and the caller
+    ///         is trusted to have been verified off-chain (backend cloud verify via /api/v4/verify).
+    /// @dev Exists to support credentials that cannot be verified on-chain today — notably Selfie
+    ///      Check, which has no v4 on-chain issuance and is the lowest bonding tier. Defaults to
+    ///      true so the trustless path is the out-of-the-box behaviour; the owner flips it only for
+    ///      environments that gate bonding in the backend.
+    bool public requireOnchainProof;
+
+    uint256[27] private __gap;
 
     /* ----------------------------- EVENTS ----------------------------- */
     event ProposalCreated(address indexed proposer, address indexed proposed, uint256 timestamp);
@@ -134,6 +143,7 @@ contract HumanBond is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     );
     event DissolutionRequestCancelled(address indexed partnerA, address indexed partnerB, uint256 timestamp);
     event WorldIdUpdated(address indexed newWorldId);
+    event RequireOnchainProofUpdated(bool required);
     event RebondCooldownUpdated(uint256 newCooldown);
     event DayDurationUpdated(uint256 newDayDuration);
     event YearDurationUpdated(uint256 newYearDuration);
@@ -167,6 +177,7 @@ contract HumanBond is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         yearDuration = 365 days;
         rebondCooldown = 30 days;
         dissolutionDelay = 3 days;
+        requireOnchainProof = true;
     }
 
     function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
@@ -194,10 +205,11 @@ contract HumanBond is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         if (activeBondOf[msg.sender] != bytes32(0) || activeBondOf[proposed] != bytes32(0)) {
             revert HumanBond__UserAlreadyBonded();
         }
-        uint256 signalHash = abi.encodePacked(msg.sender).hashToField();
-
-        // Verify proposer is a real human via World ID
-        worldId.verifyProof(root, GROUP_ID, signalHash, proposerNullifier, externalNullifierPropose, proof);
+        // Verify proposer is a real human via World ID (unless bonding is gated off-chain).
+        if (requireOnchainProof) {
+            uint256 signalHash = abi.encodePacked(msg.sender).hashToField();
+            worldId.verifyProof(root, GROUP_ID, signalHash, proposerNullifier, externalNullifierPropose, proof);
+        }
 
         proposals[msg.sender] = Proposal({proposer: msg.sender, proposed: proposed, timestamp: block.timestamp});
 
@@ -213,7 +225,6 @@ contract HumanBond is Initializable, OwnableUpgradeable, UUPSUpgradeable {
     /// @param proof The zero-knowledge proof array.
     function accept(address proposer, uint256 root, uint256 acceptorNullifier, uint256[8] calldata proof) external {
         Proposal storage proposal = proposals[proposer];
-        uint256 signalHash = abi.encodePacked(msg.sender).hashToField();
 
         if (block.timestamp - lastDissolutionTimestamp[msg.sender] < rebondCooldown) {
             revert HumanBond__CooldownActive();
@@ -226,14 +237,11 @@ contract HumanBond is Initializable, OwnableUpgradeable, UUPSUpgradeable {
             revert HumanBond__UserAlreadyBonded();
         } //not reaching, propose function reverts before
 
-        worldId.verifyProof(
-            root,
-            GROUP_ID,
-            signalHash, // signal = sender address
-            acceptorNullifier,
-            externalNullifierAccept,
-            proof
-        );
+        // Verify acceptor is a real human via World ID (unless bonding is gated off-chain).
+        if (requireOnchainProof) {
+            uint256 signalHash = abi.encodePacked(msg.sender).hashToField(); // signal = sender address
+            worldId.verifyProof(root, GROUP_ID, signalHash, acceptorNullifier, externalNullifierAccept, proof);
+        }
 
         // Create bond ID
         bytes32 bondId = _getBondId(proposer, msg.sender);
@@ -523,6 +531,14 @@ contract HumanBond is Initializable, OwnableUpgradeable, UUPSUpgradeable {
         if (_worldId == address(0)) revert HumanBond__InvalidAddress();
         worldId = IWorldID(_worldId);
         emit WorldIdUpdated(_worldId);
+    }
+
+    /// @notice Owner toggles whether propose()/accept() enforce an on-chain World ID proof.
+    /// @dev Set to false to gate bonding off-chain (backend cloud verify) — required for tiers
+    ///      that have no on-chain verification path today, e.g. Selfie Check. Default is true.
+    function setRequireOnchainProof(bool _required) external onlyOwner {
+        requireOnchainProof = _required;
+        emit RequireOnchainProofUpdated(_required);
     }
 
     /// @notice Owner can update the rebond cooldown period.
