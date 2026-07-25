@@ -261,6 +261,9 @@ export default function AgentChatPage() {
   const defaultBondId = useAgentStore((s) => s.defaultBondId);
   const defaultPartner = bonds.find((b) => b.id === defaultBondId)?.partner ?? 'Alice';
   const [draft, setDraft] = useState('');
+  // Openers are conversation STARTERS: gone once the human said anything, any
+  // flow left artifacts (receipts/proposals/grants), or an opener was tapped.
+  const [openersUsed, setOpenersUsed] = useState(false);
   const [showSelfie, setShowSelfie] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -480,29 +483,31 @@ export default function AgentChatPage() {
               </AliveCta>
             </div>
           ) : null}
-          {/* Openers only when the agent is truly idle — they vanish the moment a flow runs */}
-          {!agentBusy && !typingIndicator && !executing && !openProposal && !offerGrant && !offerPay && !pendingReceipt && (
+          {/* Openers only at the very START of the conversation and while idle */}
+          {!openersUsed &&
+            !messages.some((m) => m.kind !== 'text' || m.role === 'user') &&
+            !agentBusy && !typingIndicator && !executing && !openProposal && !offerGrant && !offerPay && !pendingReceipt && (
           <div className="flex flex-wrap gap-2 justify-end">
             <button
-              onClick={scanBill}
+              onClick={() => { setOpenersUsed(true); scanBill(); }}
               className="px-4 py-2 bg-white/70 border border-gray-200 rounded-full text-[11px] font-bold text-gray-600 hover:bg-white transition-all"
             >
               Pay a receipt
             </button>
             <button
-              onClick={buyShared}
+              onClick={() => { setOpenersUsed(true); buyShared(); }}
               className="px-4 py-2 bg-white/70 border border-gray-200 rounded-full text-[11px] font-bold text-gray-600 hover:bg-white transition-all"
             >
               Buy for us
             </button>
             <button
-              onClick={buyPersonal}
+              onClick={() => { setOpenersUsed(true); buyPersonal(); }}
               className="px-4 py-2 bg-white/70 border border-gray-200 rounded-full text-[11px] font-bold text-gray-600 hover:bg-white transition-all"
             >
               Buy for me
             </button>
             <button
-              onClick={askFinances}
+              onClick={() => { setOpenersUsed(true); askFinances(); }}
               className="px-4 py-2 bg-white/70 border border-gray-200 rounded-full text-[11px] font-bold text-gray-600 hover:bg-white transition-all"
             >
               Our finances

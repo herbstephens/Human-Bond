@@ -417,8 +417,10 @@ export default function AgentCreatePage() {
         <div ref={endRef} />
       </main>
 
-      {/* Answer chips above a real input — interview phase only */}
-      {inInterview && !done && current && (
+      {/* Answer chips above a real input — interview phase only. Gated on the
+          LIVE question having arrived: answering earlier let the static fallback
+          text speak and made parallel fetches land out of order. */}
+      {inInterview && !done && current && liveAsk[current.id] && (
         <div className="fixed bottom-0 inset-x-0 bg-gradient-to-t from-[#E8E8E8] via-[#E8E8E8] to-transparent pt-10 pb-8 px-6">
           <div className="max-w-lg mx-auto space-y-3">
             <div className="flex flex-wrap gap-2 justify-end">
