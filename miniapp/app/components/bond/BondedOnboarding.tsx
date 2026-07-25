@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useWorldProfile } from '@/lib/worldcoin/useWorldProfile';
 import { useAgentStore } from '@/lib/agent/agentStore';
+import { AliveCta } from '@/app/components/agent/AliveCta';
 
 export function BondedOnboarding({ partnerAddress }: { partnerAddress: string | null }) {
   const router = useRouter();
@@ -84,12 +85,12 @@ export function BondedOnboarding({ partnerAddress }: { partnerAddress: string | 
           <span className="font-black text-gray-900">One thing left.</span> Your personal agent
           handles the money between you two — so you never have to argue about it.
         </p>
-        <button
+        <AliveCta
           onClick={() => router.push(agentReady ? '/agent' : '/agent/create')}
-          className="w-full bg-black text-white px-8 py-6 rounded-[1.75rem] text-sm font-black uppercase tracking-[0.2em] hover:bg-gray-900 transition-all duration-300 shadow-2xl shadow-gray-300 hover:-translate-y-1 active:translate-y-0 active:scale-[0.98]"
+          className="w-full px-8 py-6 rounded-[1.75rem] text-sm tracking-[0.2em]"
         >
           {agentReady ? 'Talk to your agent' : 'Create your agent'}
-        </button>
+        </AliveCta>
       </div>
     </div>
   );

@@ -329,7 +329,7 @@ export const useAgentStore = create<AgentState>()(
             {
               type: 'text',
               thinking: true,
-              text: 'Reading it… restaurant receipt — Cervejaria Ramiro, Lisbon. Two covers, tonight. For both of you → not your personal budget. This goes to the trustee.',
+              text: 'Reading it… restaurant receipt — Cervejaria Ramiro, Lisbon. Two covers, tonight. For both of you → not your personal budget. One for me and Alice’s agent to settle.',
             },
             { type: 'text', text: 'Want me to settle it fairly between the two of you?' },
           ]);
@@ -368,7 +368,7 @@ export const useAgentStore = create<AgentState>()(
             {
               type: 'text',
               thinking: true,
-              text: 'Tickets for two → that’s for both of you, not your personal budget. Taking it to the trustee.',
+              text: 'Tickets for two → that’s for both of you, not your personal budget. I’ll work this out with Alice’s agent.',
             },
           ]);
           if (!s.pullGranted) {
@@ -407,7 +407,7 @@ export const useAgentStore = create<AgentState>()(
             {
               type: 'text',
               thinking: true,
-              text: 'Negotiating with the trustee… I argued your cash flow is tight this month. The trustee compared incomes — Alice earns more right now — and came back with: you 10%, Alice 90%.',
+              text: 'Talking to Alice’s agent… I argued your cash flow is tight this month; she pointed to the income picture — Alice earns more right now. We agreed: you 10%, Alice 90%. The trustee only executes what we settled.',
             },
             {
               type: 'action',

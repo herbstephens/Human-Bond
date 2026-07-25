@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowUp, Check, ScanLine } from 'lucide-react';
 import { useAgentStore, type ChoreoStage, type Payment } from '@/lib/agent/agentStore';
+import { AliveCta } from '@/app/components/agent/AliveCta';
 
 // ---------------------------------------------------------------------------
 
@@ -40,7 +41,6 @@ function TypingText({ text, className }: { text: string; className?: string }) {
  * it walks through pull → paid.
  */
 function ProposalCard({ payment }: { payment: Payment }) {
-  const { confirmOnHito, renegotiate } = useAgentStore();
   const p = payment;
   const isProposed = p.stage === 'proposed';
   const isPaid = p.stage === 'paid';
@@ -65,7 +65,7 @@ function ProposalCard({ payment }: { payment: Payment }) {
       <div className={`px-6 py-4 flex items-center justify-between gap-4 ${isPaid ? 'bg-emerald-50' : 'bg-amber-50'}`}>
         <div>
           <p className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">
-            {isProposed ? 'Proposal · negotiated by your agents' : 'Payment'}
+            {isProposed ? 'Your agent ↔ Alice’s agent · trustee executes' : 'Payment'}
           </p>
           <p className="text-[13px] font-black text-gray-900 mt-0.5">{p.label}</p>
         </div>
@@ -92,23 +92,13 @@ function ProposalCard({ payment }: { payment: Payment }) {
         )}
       </div>
 
-      {/* Awaiting the human: hito release + the feelings loop */}
+      {/* Awaiting the human — actions live at the bottom bar, per chat rule #2 */}
       {isProposed && (
-        <div className="px-6 py-5 space-y-2.5">
-          <button
-            onClick={() => confirmOnHito(p.id)}
-            className="w-full bg-black text-white px-6 py-4 rounded-2xl text-[11px] font-black uppercase tracking-[0.15em] hover:bg-gray-900 transition-all active:scale-[0.97] shadow-lg"
-          >
-            Release on your hito
-          </button>
-          {!p.renegotiated && (
-            <button
-              onClick={() => renegotiate(p.id)}
-              className="w-full px-6 py-3 rounded-2xl text-[11px] font-bold text-gray-500 hover:text-gray-800 hover:bg-gray-50 transition-all"
-            >
-              I don’t feel good about this
-            </button>
-          )}
+        <div className="px-6 py-4">
+          <p className="text-[10px] font-bold text-amber-600 uppercase tracking-[0.2em] flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+            Waiting for your release ↓
+          </p>
         </div>
       )}
 
@@ -194,12 +184,11 @@ function BornOverlay({ onHello }: { onHello: () => void }) {
       <p className="mt-4 text-sm text-gray-500 font-medium max-w-[300px] leading-relaxed animate-in fade-in duration-1000 delay-300">
         A personality on-chain. It belongs to no one but you — and it moves with you, wherever you go.
       </p>
-      <button
-        onClick={onHello}
-        className="mt-10 w-full max-w-xs bg-black text-white px-8 py-5 rounded-[1.75rem] text-sm font-black uppercase tracking-[0.2em] hover:bg-gray-900 transition-all shadow-2xl shadow-gray-300 active:scale-[0.98] animate-in fade-in slide-in-from-bottom-2 duration-1000 delay-500"
-      >
-        Say hello
-      </button>
+      <div className="mt-10 w-full max-w-xs animate-in fade-in slide-in-from-bottom-2 duration-1000 delay-500">
+        <AliveCta onClick={onHello} className="w-full px-8 py-5 rounded-[1.75rem] text-sm tracking-[0.2em]">
+          Say hello
+        </AliveCta>
+      </div>
     </div>
   );
 }
@@ -242,6 +231,8 @@ export default function AgentChatPage() {
   if (!agentReady) return null;
   if (bornPending) return <BornOverlay onHello={celebrateBorn} />;
 
+  const { renegotiate, confirmOnHito } = useAgentStore();
+  const openProposal = Object.values(payments).find((p) => p.stage === 'proposed');
   const lastAgentText = [...messages].reverse().find((m) => m.kind === 'text' && m.role === 'agent');
   const offerPay =
     !agentBusy &&
@@ -271,6 +262,16 @@ export default function AgentChatPage() {
     setDraft('');
     // Context-aware: an affirmative answers the open question, not the void.
     const affirmative = /^(y(es|ep|eah)?|ok(ay)?|sure|ja|jo|go|do it|grant(ed)?|release)\b/i.test(text);
+    const uneasy = /don.?t feel|not (feeling|good|okay)|unwohl|nicht gut/i.test(text);
+    if (openProposal && !agentBusy && uneasy && !openProposal.renegotiated) {
+      renegotiate(openProposal.id);
+      return;
+    }
+    if (openProposal && !agentBusy && affirmative) {
+      say(text);
+      confirmOnHito(openProposal.id);
+      return;
+    }
     if (offerGrant && affirmative) {
       grantPull(text);
       return;
@@ -384,33 +385,43 @@ export default function AgentChatPage() {
       {/* Input bar — contextual answers ALWAYS live here, right above the input */}
       <div className="fixed bottom-0 inset-x-0 bg-gradient-to-t from-[#E8E8E8] via-[#E8E8E8] to-transparent pt-10 pb-8 px-6">
         <div className="max-w-lg mx-auto space-y-3">
-          {/* Contextual answers to the agent's open question */}
-          {offerPay && (
-            <div className="flex gap-2 justify-end animate-in fade-in slide-in-from-bottom-2 duration-400">
+          {/* Contextual answers to the agent's open question — priority: proposal > grant > settle */}
+          {openProposal && !agentBusy ? (
+            <div className="flex gap-2 justify-end items-center animate-in fade-in slide-in-from-bottom-2 duration-400">
+              {!openProposal.renegotiated && (
+                <button
+                  onClick={() => renegotiate(openProposal.id)}
+                  className="px-4 py-3 rounded-2xl text-[11px] font-bold text-gray-400 hover:text-gray-600 bg-white/70 border border-gray-200 transition-all"
+                >
+                  I don’t feel good about this
+                </button>
+              )}
+              <AliveCta
+                onClick={() => confirmOnHito(openProposal.id)}
+                className="px-5 py-3.5 rounded-2xl text-[11px] tracking-[0.15em]"
+              >
+                Release on your hito
+              </AliveCta>
+            </div>
+          ) : offerGrant ? (
+            <div className="flex justify-end animate-in fade-in slide-in-from-bottom-2 duration-400">
+              <AliveCta onClick={() => grantPull()} className="px-5 py-3.5 rounded-2xl text-[11px] tracking-[0.15em]">
+                Grant pull access
+              </AliveCta>
+            </div>
+          ) : offerPay ? (
+            <div className="flex gap-2 justify-end items-center animate-in fade-in slide-in-from-bottom-2 duration-400">
               <button
                 onClick={() => say('Not now.')}
                 className="px-4 py-3 rounded-2xl text-[11px] font-bold text-gray-400 hover:text-gray-600 bg-white/70 border border-gray-200 transition-all"
               >
                 Not now
               </button>
-              <button
-                onClick={() => requestPay()}
-                className="bg-black text-white px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-[0.15em] hover:bg-gray-900 transition-all active:scale-95 shadow-lg"
-              >
+              <AliveCta onClick={() => requestPay()} className="px-5 py-3.5 rounded-2xl text-[11px] tracking-[0.15em]">
                 Yes — settle it fairly
-              </button>
+              </AliveCta>
             </div>
-          )}
-          {offerGrant && (
-            <div className="flex justify-end animate-in fade-in slide-in-from-bottom-2 duration-400">
-              <button
-                onClick={() => grantPull()}
-                className="bg-black text-white px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-[0.15em] hover:bg-gray-900 transition-all active:scale-95 shadow-lg"
-              >
-                Grant pull access
-              </button>
-            </div>
-          )}
+          ) : null}
           <div className="flex flex-wrap gap-2 justify-end">
             <button
               onClick={scanBill}
