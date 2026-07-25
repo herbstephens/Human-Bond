@@ -29,9 +29,6 @@ import { useVaultSpends } from "@/lib/hooks/useVaultSpends";
 import { needsYourSignature } from "@/lib/vault/types";
 import { useWorldProfile, displayName, triggerDirectChat, triggerProfileCard } from "@/lib/worldcoin/useWorldProfile";
 import { isInWorldApp } from "@/lib/worldcoin/initMiniKit";
-// Temporary Hito handoff probe — also rendered on the unbonded home screen and at
-// /hito, so it is reachable in any bond state. Remove all three once we're done.
-import { HitoLinkTest } from "./HitoLinkTest";
 
 type ClaimState = "idle" | "sending" | "success" | "error";
 type DissolutionTxState = "idle" | "sending" | "success" | "error";
@@ -433,9 +430,6 @@ export function MarriageDashboard({
                     )}
                 </div>
             )}
-
-            {/* Temporary — see import note */}
-            <HitoLinkTest />
 
             {/* Bond Status Card */}
             <div className="bg-white rounded-[2rem] p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100 space-y-8 relative overflow-hidden">
