@@ -59,6 +59,7 @@ export default function BondProfilePage() {
   const [heirShare, setHeirShare] = useState(100);
   const [confirmRemove, setConfirmRemove] = useState<Heir | null>(null);
   const [panel, setPanel] = useState<'none' | 'deposit' | 'order'>('none');
+  const [ruleDraft, setRuleDraft] = useState('');
   const [depositAmount, setDepositAmount] = useState('250');
   const [orderAmount, setOrderAmount] = useState(String(standingOrders[bond.id] ?? 0));
   const endRef = useRef<HTMLDivElement>(null);
@@ -154,7 +155,6 @@ export default function BondProfilePage() {
     setHeirName('');
   };
 
-  const [ruleDraft, setRuleDraft] = useState('');
   const submitRule = () => {
     const text = ruleDraft.trim();
     if (!text) return;
