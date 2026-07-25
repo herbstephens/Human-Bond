@@ -235,7 +235,7 @@ export function CreateProposalForm() {
               left. What you begin today, your heirs will one day hold.
             </p>
             <p className="text-[12px] font-medium text-gray-400 max-w-[310px] mx-auto pt-1">
-              Your agents look after the money, so you can look after each other.
+              Your agents handle the money, so it never comes between you.
             </p>
           </div>
         </div>
