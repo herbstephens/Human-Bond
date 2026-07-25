@@ -13,6 +13,15 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+function debugMockAgent(message: string, data?: unknown): void {
+  if (process.env.NODE_ENV === 'production') return;
+  if (data === undefined) {
+    console.info(`[agent-mock] ${message}`);
+    return;
+  }
+  console.info(`[agent-mock] ${message}`, data);
+}
+
 // ---------------------------------------------------------------------------
 // Interview
 
@@ -442,6 +451,7 @@ export const useAgentStore = create<AgentState>()(
           const s = get();
           const receipt = s.pendingReceipt;
           if (!receipt) return;
+          debugMockAgent('requestPay handler called (mock flow)', receipt);
           s.say(userText ?? 'Yes — settle it.');
           if (!s.pullGranted) {
             s._enqueue([
@@ -521,6 +531,7 @@ export const useAgentStore = create<AgentState>()(
 
         buyShared: () => {
           const s = get();
+          debugMockAgent('Buy for us button called (mock flow bypasses 0G tools)');
           s.say('Buy two Kalorama festival tickets for us — about 120 USDC.');
           s._enqueue([
             {
@@ -567,6 +578,12 @@ export const useAgentStore = create<AgentState>()(
           const partner = bond?.partner ?? 'Alice';
           const shareYou = Math.round(amountUsdc * 10) / 100;
           const sharePartner = Math.round(amountUsdc * 90) / 100;
+          debugMockAgent('mock proposal created', {
+            paymentId: id,
+            label,
+            recipientEns,
+            amountUsdc,
+          });
           get()._enqueue([
             {
               type: 'text',
@@ -630,12 +647,15 @@ export const useAgentStore = create<AgentState>()(
         },
 
         confirmOnHito: (paymentId) => {
-          const advance = (stage: ChoreoStage) =>
+          debugMockAgent('Release on your hito button called (simulated)', { paymentId });
+          const advance = (stage: ChoreoStage) => {
+            debugMockAgent(`mock payment advanced to ${stage}`, { paymentId });
             set((s) => {
               const p = s.payments[paymentId];
               if (!p) return s;
               return { payments: { ...s.payments, [paymentId]: { ...p, stage } } };
             });
+          };
           advance('confirmed');
           setTimeout(() => advance('pulled'), 1500);
           setTimeout(() => advance('paid'), 3000);
@@ -698,7 +718,16 @@ export const useAgentStore = create<AgentState>()(
               set({ typingIndicator: false });
               get()._enqueue([{ type: 'text', text: j.say }]);
               const a = j.action;
-              if (a?.type === 'propose_shared' && typeof a.amountUsdc === 'number') {
+              if (process.env.NODE_ENV !== 'production') {
+                console.info('[agent-tools] browser received action', a);
+              }
+              if (a?.type === 'propose_spend' && typeof a.amountUsdc === 'number') {
+                if (process.env.NODE_ENV !== 'production') {
+                  console.info('[agent-tools] propose_spend handler called', {
+                    recipient: a.recipient,
+                    amountUsdc: a.amountUsdc,
+                  });
+                }
                 const st = get();
                 const active = st.bonds.filter((b) => b.status === 'active');
                 const target =
@@ -711,7 +740,12 @@ export const useAgentStore = create<AgentState>()(
                 if (balance < a.amountUsdc && !st.pullGranted) {
                   // The vault can't cover it — THIS is the moment pull access exists for.
                   set(() => ({
-                    pendingReceipt: { vendor: a.label ?? 'Shared purchase', amountUsdc: a.amountUsdc, recipientEns: a.recipientEns ?? 'merchant.eth', bond },
+                    pendingReceipt: {
+                      vendor: a.label ?? 'Shared purchase',
+                      amountUsdc: a.amountUsdc,
+                      recipientEns: a.recipient ?? 'merchant.eth',
+                      bond,
+                    },
                   }));
                   st._enqueue([
                     {
@@ -720,8 +754,26 @@ export const useAgentStore = create<AgentState>()(
                     },
                   ]);
                 } else {
-                  st.proposeShared(a.label ?? 'Shared purchase', a.recipientEns ?? 'merchant.eth', a.amountUsdc, a.detail ?? undefined, bond);
+                  st.proposeShared(
+                    a.label ?? 'Shared purchase',
+                    a.recipient ?? 'merchant.eth',
+                    a.amountUsdc,
+                    a.detail ?? undefined,
+                    bond,
+                  );
                 }
+              } else if (a?.type === 'cancel_spend' && typeof a.spendId === 'string') {
+                if (process.env.NODE_ENV !== 'production') {
+                  console.info('[agent-tools] cancel_spend handler called', {
+                    spendId: a.spendId,
+                  });
+                }
+                get()._enqueue([
+                  {
+                    type: 'text',
+                    text: `I prepared cancellation of ${a.spendId.slice(0, 10)}… for your review. No transaction has been sent.`,
+                  },
+                ]);
               }
             })
             .catch((e: Error) => {
