@@ -17,6 +17,7 @@ import { useAgentStore } from '@/lib/agent/agentStore';
 
 export const LIVE_BOND_ID = 'main';
 
+/** Returns the live vault (address, balance, ensLabel) for direct reads. */
 export function useLiveBondSync() {
   const { dashboard, marriageView } = useMarriage();
   const partnerA = (marriageView?.partnerA ?? null) as `0x${string}` | null;
@@ -38,4 +39,6 @@ export function useLiveBondSync() {
       ...(vault.ensLabel ? { bondEnsLabel: vault.ensLabel } : {}),
     });
   }, [vault?.isCreated, vault?.balance, vault?.ensLabel, profile.username]);
+
+  return { vault: vault ?? null, partnerUsername: profile.username ?? null };
 }

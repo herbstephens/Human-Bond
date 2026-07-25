@@ -45,11 +45,18 @@ export default function BondProfilePage() {
   const router = useRouter();
   // Live mode: mirror the real bond (partner, ENS, on-chain USDC balance) into
   // the store — this page then renders chain truth, starting at zero.
-  useLiveBondSync();
+  const { vault: liveVault } = useLiveBondSync();
+  const [copiedAddr, setCopiedAddr] = useState(false);
+  const copyVaultAddress = () => {
+    if (!liveVault?.address) return;
+    void navigator.clipboard.writeText(liveVault.address);
+    setCopiedAddr(true);
+    setTimeout(() => setCopiedAddr(false), 2000);
+  };
   const params = useParams<{ bondId: string }>();
   const {
     agentReady, answers, payments, heirs, addHeir, requestRemoveHeir,
-    vaultBalances, deposits, standingOrders, deposit, setStandingOrder,
+    vaultBalances, deposits, standingOrders, deposit, setStandingOrder, bondEnsLabel,
     investments, invest, bonds, bondRules, addBondRule, removeBondRule,
   } = useAgentStore();
   const bond = bonds.find((b) => b.id === params.bondId) ?? bonds[0];
@@ -395,11 +402,27 @@ export default function BondProfilePage() {
           <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between relative z-10">
             <div>
               <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Receive · give this to anyone</p>
-              <p className="text-[12px] font-mono font-bold text-amber-100">ben-{bond.partner.toLowerCase()}.humanbond.eth</p>
+              <p className="text-[12px] font-mono font-bold text-amber-100">
+                {bondEnsLabel ?? `ben-${bond.partner.toLowerCase()}`}.humanbond.eth
+              </p>
+              {!USE_MOCKS && liveVault?.address && (
+                <p className="text-[9px] font-mono text-gray-500 mt-0.5 break-all">{liveVault.address}</p>
+              )}
             </div>
-            <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">fed by standing orders</span>
+            {USE_MOCKS ? (
+              <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">fed by standing orders</span>
+            ) : (
+              <button
+                onClick={copyVaultAddress}
+                className="shrink-0 px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] bg-white/10 text-white border border-white/15 hover:bg-white/20 transition-all active:scale-95"
+              >
+                {copiedAddr ? 'Copied ✓' : 'Copy address'}
+              </button>
+            )}
           </div>
-          {/* Money in: one-time or recurring */}
+          {/* Money in: the mock playground simulates transfers; live money
+              arrives by sending USDC to the address above — no fake deposits. */}
+          {USE_MOCKS && (
           <div className="mt-4 flex gap-2 relative z-10">
             <button
               onClick={() => setPanel(panel === 'deposit' ? 'none' : 'deposit')}
@@ -418,6 +441,7 @@ export default function BondProfilePage() {
               Standing order{(standingOrders[bond.id] ?? 0) > 0 ? ` · ${standingOrders[bond.id]}/mo` : ''}
             </button>
           </div>
+          )}
           {panel !== 'none' && (
             <div className="mt-3 bg-white/5 border border-white/10 rounded-xl p-4 space-y-3 relative z-10 animate-in fade-in duration-300">
               <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">

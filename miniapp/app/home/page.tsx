@@ -86,6 +86,11 @@ export default function HomePage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
+  // Bonded ceremony is a one-time moment — afterwards login goes straight to
+  // the dashboard. Live only: the mock playground keeps replaying the ring.
+  const [ceremonySeen] = useState(
+    () => typeof window !== 'undefined' && localStorage.getItem('hb-bond-ceremony-seen') === '1'
+  );
   // After an accept, the flag used to trigger a heart overlay saying "You're
   // Bonded!" — right before BondedOnboarding says it again. One screen too many:
   // now the flag only holds the loading state until the bond is visible on-chain,
@@ -146,6 +151,13 @@ export default function HomePage() {
       setLocalProposalCancelled(false);
     }
   }, [hasPendingProposal, localProposalCancelled]);
+
+  // Ceremony seen + wallet exists → the dashboard IS /profile (bonds overview).
+  useEffect(() => {
+    if (!USE_MOCKS && isConnected && (dashboard?.isBonded ?? false) && vaultCreated && ceremonySeen) {
+      router.replace('/profile');
+    }
+  }, [isConnected, dashboard?.isBonded, vaultCreated, ceremonySeen, router]);
 
   // Detect World App on client to conditionally show chat buttons
   const [isWorldApp, setIsWorldApp] = useState(false);

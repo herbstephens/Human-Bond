@@ -74,6 +74,12 @@ export function BondedOnboarding({ partnerAddress }: { partnerAddress: string | 
     if (created && ensLabel) setBondEnsLabel(ensLabel);
   }, [created, ensLabel, setBondEnsLabel]);
 
+  // The ceremony plays ONCE: once the wallet exists, later logins land on the
+  // dashboard (/profile) directly — home checks this flag.
+  useEffect(() => {
+    if (created) localStorage.setItem('hb-bond-ceremony-seen', '1');
+  }, [created]);
+
   // The Safe needs a few blocks after submission before vaultOf(bondId) returns
   // it. Poll so the screen flips on its own instead of looking frozen.
   const [awaitingCreation, setAwaitingCreation] = useState(false);
