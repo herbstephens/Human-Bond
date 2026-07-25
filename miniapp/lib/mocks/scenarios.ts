@@ -32,7 +32,8 @@ export const SCENARIOS: { id: Scenario; label: string }[] = [
   { id: "dissolutionPending", label: "Disolución pendiente" },
 ];
 
-export const DEFAULT_SCENARIO: Scenario = "married";
+// Demo starts EMPTY: login → 'Create your first bond' → bond creation → bonded.
+export const DEFAULT_SCENARIO: Scenario = "single";
 
 export type ScenarioData = {
   dashboard: UserDashboard | null;

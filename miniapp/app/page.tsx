@@ -129,7 +129,7 @@ export default function Home() {
             </h1>
 
             <p className="text-sm font-medium text-gray-500 leading-relaxed max-w-[280px] mx-auto">
-              The first protocol for eternalizing relationships on Worldchain. Verify your love, earn TIME.
+              One shared address for the people you trust. Your agents handle the money — you stay human.
             </p>
           </div>
 
