@@ -15,6 +15,7 @@ import { useState, useEffect } from "react";
 import { MiniKit, VerificationLevel } from "@worldcoin/minikit-js";
 import { CONTRACT_ADDRESSES, HUMAN_BOND_ABI, WORLD_APP_CONFIG } from "@/lib/contracts";
 import { useAuthStore } from "@/state/authStore";
+import { useMarriage } from "@/lib/marriage/context";
 import { isInWorldApp } from "@/lib/worldcoin/initMiniKit";
 import { Sparkles, ScanFace, MessageCircle } from "lucide-react";
 import Image from "next/image";
@@ -49,6 +50,20 @@ export function CreateProposalForm() {
   const [showPrenup, setShowPrenup] = useState(false);
 
   const { walletAddress, setWalletAddress } = useAuthStore();
+
+  // The contract enforces hard rules the form must SAY instead of letting the tx
+  // fail mute: one active bond per human, one outgoing proposal, and a re-bond
+  // cooldown after dissolution. Testers read a silent revert as "the app is broken".
+  const { dashboard, hasPendingProposal, cooldown } = useMarriage();
+  const blockReason = !USE_MOCKS
+    ? dashboard?.isBonded
+      ? 'You already have an active bond. The protocol allows one bond per human — dissolve it before proposing again.'
+      : hasPendingProposal
+        ? 'You already have an outgoing proposal. Cancel it from Home before proposing to someone else.'
+        : cooldown?.isActive
+          ? 'Your re-bond cooldown is still running. You can propose again once it ends — the countdown is on Home.'
+          : null
+    : null;
 
   // Warm the partner's World profile cache once the proposal succeeds
   useWorldProfile(state === 'success' ? resolvedAddress : null);
@@ -225,17 +240,33 @@ export function CreateProposalForm() {
           <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center shadow-lg border border-gray-100 p-2.5">
             <Image src="/Isotype.png" alt="HumanBond" width={44} height={44} className="w-full h-full object-contain" />
           </div>
-          <div className="text-center space-y-2">
+          <div className="text-center space-y-3">
             <h1 className="text-4xl font-black text-black tracking-tighter">
-              Create Bond
+              This is a beginning.
             </h1>
-            <p className="text-[13px] font-medium text-gray-500 leading-relaxed max-w-[300px] mx-auto">
-              You&apos;re creating <span className="font-bold text-gray-700">one shared address on Worldchain</span> that
-              belongs to you both. Your partner signs to bring it to life, your charter sets the
-              rules — and your personal agents handle the money inside them.
-            </p>
+            <div className="pt-1 space-y-1.5 max-w-[240px] mx-auto text-left">
+              <p className="text-[13px] font-medium text-gray-500">Unlock your Bond Agent to:</p>
+              {[
+                'Less mental load',
+                'Fewer everyday decisions',
+                'Stay on top of things',
+                'More time for what matters',
+              ].map((line) => (
+                <div key={line} className="flex items-start gap-2">
+                  <span className="w-1 h-1 rounded-full bg-gray-400 mt-[7px] shrink-0" />
+                  <p className="text-[13px] font-medium text-gray-500">{line}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
+
+        {blockReason && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="text-xs font-black text-amber-800">Proposals are paused for you</p>
+            <p className="text-[11px] font-medium text-amber-700 mt-0.5">{blockReason}</p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-4">
@@ -299,7 +330,7 @@ export function CreateProposalForm() {
           <button
             type="submit"
             className="group w-full bg-black text-white px-8 py-5 rounded-3xl text-sm font-black uppercase tracking-widest hover:bg-gray-900 transition-all duration-300 shadow-xl shadow-gray-100 flex items-center justify-center gap-3 hover:-translate-y-1 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={!resolvedAddress || isResolving || isLoading || !isWorldApp}
+            disabled={!resolvedAddress || isResolving || isLoading || !isWorldApp || !!blockReason}
           >
             {isLoading ? (
               <>

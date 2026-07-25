@@ -13,6 +13,14 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, ArrowUp, Lock, MessageCircle, Plus, X } from 'lucide-react';
 import { AliveCta } from '@/app/components/agent/AliveCta';
+import { useMarriage } from '@/lib/marriage/context';
+import { useUsdcBalance } from '@/lib/hooks/useUsdcBalance';
+import { useLiveBondSync } from '@/lib/agent/useLiveBondSync';
+import { useWorldProfile } from '@/lib/worldcoin/useWorldProfile';
+import { formatUsdc } from '@/lib/vault/usdc';
+import { USE_MOCKS } from '@/lib/config';
+import { useRouteGuard } from '@/lib/hooks/useLiveStage';
+import { ENS_PARENT } from '@/lib/contracts/registrar';
 import { SelfieCheckOverlay } from '@/app/components/agent/SelfieCheck';
 import {
   HEARTBEAT_CYCLE_DAYS,
@@ -75,22 +83,32 @@ export default function ProfilePage() {
     heartbeatDaysLeft,
     heartbeatChecked,
     bonds,
+    bondEnsLabel,
     addBond,
     addFact,
     removeFact,
   } = useAgentStore();
+  // Live: this page is the dashboard — it reads the chain directly. The sync
+  // also mirrors the ONE real bond into the store (Mika & co are mock-only).
+  useLiveBondSync();
+  const { address } = useMarriage();
+  const { balance: walletUsdc } = useUsdcBalance(address);
+  const { profile: myProfile } = useWorldProfile(address ?? '');
   const [draft, setDraft] = useState('');
   const [showSelfie, setShowSelfie] = useState(false);
   const [addingBond, setAddingBond] = useState(false);
   const [bondPartner, setBondPartner] = useState('');
   const [bondType, setBondType] = useState<Bond['type']>('business');
 
-  // Guard in an effect (never during render — the store hydrates client-side).
+  // Live routing belongs to the contract (lib/hooks/useLiveStage.ts): it sends
+  // anyone below the dashboard stage back to /home — and /home, reading the SAME
+  // contract, will not bounce them here again. Mock keeps its local agent gate.
+  const stage = useRouteGuard('/profile');
   useEffect(() => {
-    if (!agentReady) router.replace('/home');
+    if (USE_MOCKS && !agentReady) router.replace('/home');
   }, [agentReady, router]);
 
-  if (!agentReady) return null;
+  if (USE_MOCKS ? !agentReady : stage !== 'dashboard') return null;
   if (showSelfie)
     return (
       <SelfieCheckOverlay
@@ -101,7 +119,9 @@ export default function ProfilePage() {
       />
     );
 
-  const name = answers.name?.text?.replace(/^just call me /i, '') || 'Ben';
+  const name = USE_MOCKS
+    ? answers.name?.text?.replace(/^just call me /i, '') || 'Ben'
+    : myProfile.username ?? answers.name?.text?.replace(/^just call me /i, '') ?? 'you';
 
   // Learned facts fall out of what actually happened in the chat.
   const learned: BrainFact[] = Object.values(payments)
@@ -157,7 +177,9 @@ export default function ProfilePage() {
           </p>
         </div>
         <div className="text-right">
-          <p className="text-sm font-black text-gray-900 font-mono">1,240.00</p>
+          <p className="text-sm font-black text-gray-900 font-mono">
+            {USE_MOCKS ? '1,240.00' : walletUsdc !== null ? formatUsdc(walletUsdc) : '0.00'}
+          </p>
           <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Your wallet · USDC</p>
         </div>
       </header>
@@ -276,7 +298,7 @@ export default function ProfilePage() {
                   <div>
                     <p className="text-sm font-black text-gray-900">You &amp; {b.partner}</p>
                     <p className="text-[10px] font-mono font-bold text-gray-400 mt-0.5">
-                      ben-{b.partner.toLowerCase().split(/\s+/)[0]}.humanbond.eth
+                      {!USE_MOCKS && bondEnsLabel ? bondEnsLabel : `ben-${b.partner.toLowerCase().split(/\s+/)[0]}`}.{ENS_PARENT}
                     </p>
                   </div>
                   <span
@@ -291,11 +313,13 @@ export default function ProfilePage() {
                 </div>
                 <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
                   <p className="text-[11px] font-medium text-gray-400">
-                    {isInheritance
-                      ? hasTickets
-                        ? 'Standing orders · 2× Kalorama ticket NFT in the vault'
-                        : 'Fed by standing orders from both of you'
-                      : 'No activity yet'}
+                    {!USE_MOCKS
+                      ? 'Live on Worldchain — shared vault'
+                      : isInheritance
+                        ? hasTickets
+                          ? 'Standing orders · 2× Kalorama ticket NFT in the vault'
+                          : 'Fed by standing orders from both of you'
+                        : 'No activity yet'}
                   </p>
                   <p className="text-[11px] font-black text-gray-900 font-mono">
                     {(vaultBalances[b.id] ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} USDC
@@ -305,8 +329,9 @@ export default function ProfilePage() {
             );
           })}
 
-          {/* Start a new bond — inheritance is unique, everything else is open. */}
-          {addingBond ? (
+          {/* Start a new bond — mock choreography; live bonding runs through the
+              real proposal flow. */}
+          {USE_MOCKS && (addingBond ? (
             <div className="bg-white rounded-2xl px-5 py-4 border border-gray-200 space-y-3">
               <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">New bond</p>
               <input
@@ -362,7 +387,7 @@ export default function ProfilePage() {
               <Plus size={14} />
               <span className="text-[11px] font-black uppercase tracking-[0.15em]">Start a new bond</span>
             </button>
-          )}
+          ))}
 
           <p className="text-[10px] text-gray-400 font-medium px-1">
             Your estate flows to your <span className="font-bold text-gray-500">inheritance bond</span> —

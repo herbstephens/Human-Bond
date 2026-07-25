@@ -413,7 +413,7 @@ export default function AgentCreatePage() {
                   <p className="text-sm text-gray-800 font-medium">{liveAsk[qid] ?? q.ask}</p>
                 </div>
                 <div className="flex justify-end">
-                  <div className="bg-[#1A1A1A] text-white rounded-3xl rounded-br-lg px-5 py-3 max-w-[85%]">
+                  <div className="bg-gray-500 text-white rounded-3xl rounded-br-lg px-5 py-3 max-w-[85%]">
                     <p className="text-sm font-bold">{label}</p>
                   </div>
                 </div>

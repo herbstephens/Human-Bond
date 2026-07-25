@@ -15,7 +15,14 @@ import { AlertTriangle, ArrowLeft, ArrowUp, Bell, Check, Landmark, MessageCircle
 import { AliveCta } from '@/app/components/agent/AliveCta';
 import { useAgentStore, type Heir } from '@/lib/agent/agentStore';
 import { USE_MOCKS } from '@/lib/config';
+import { useRouteGuard } from '@/lib/hooks/useLiveStage';
+import { ENS_PARENT } from '@/lib/contracts/registrar';
 import { useLiveBondSync } from '@/lib/agent/useLiveBondSync';
+import { useMarriage } from '@/lib/marriage/context';
+import { useBondVault } from '@/lib/hooks/useBondVault';
+import { useVaultActions } from '@/lib/hooks/useVaultActions';
+import { VaultBalanceCard } from '@/app/components/vault/VaultBalanceCard';
+import { SendFundsForm } from '@/app/components/vault/SendFundsForm';
 
 // --- tiny self-contained chat for the trustee room ------------------------
 
@@ -46,13 +53,37 @@ export default function BondProfilePage() {
   // Live mode: mirror the real bond (partner, ENS, on-chain USDC balance) into
   // the store — this page then renders chain truth, starting at zero.
   useLiveBondSync();
+  // Live money view: Franco's working vault card (balance · address · send),
+  // backed by the same react-query key the sync uses — one chain read.
+  const { dashboard: liveDash, marriageView } = useMarriage();
+  const livePartnerAddr = (liveDash?.partner ?? null) as `0x${string}` | null;
+  const lPartnerA = (marriageView?.partnerA ?? null) as `0x${string}` | null;
+  const lPartnerB = (marriageView?.partnerB ?? null) as `0x${string}` | null;
+  const lBondId = (marriageView?.bondId ?? null) as `0x${string}` | null;
+  const { vault: liveVault, refetch: refetchLiveVault } = useBondVault(lPartnerA, lPartnerB, lBondId);
+  const [sendOpen, setSendOpen] = useState(false);
+  const {
+    state: spendState, error: spendError, txError: spendTxError, proposeSpend, reset: resetSpend,
+  } = useVaultActions({
+    bondId: lBondId,
+    partnerA: lPartnerA,
+    partnerB: lPartnerB,
+    partner: livePartnerAddr,
+    onDone: () => void refetchLiveVault(),
+  });
   const params = useParams<{ bondId: string }>();
   const {
     agentReady, answers, payments, heirs, addHeir, requestRemoveHeir,
-    vaultBalances, deposits, standingOrders, deposit, setStandingOrder,
+    vaultBalances, deposits, standingOrders, deposit, setStandingOrder, bondEnsLabel,
     investments, invest, bonds, bondRules, addBondRule, removeBondRule,
   } = useAgentStore();
-  const bond = bonds.find((b) => b.id === params.bondId) ?? bonds[0];
+  // The live store starts EMPTY until useLiveBondSync mirrors the chain — a
+  // direct navigation can render before that. The placeholder keeps the first
+  // render alive just long enough for the route guard to redirect; it is never
+  // shown at the dashboard stage, where sync has always run.
+  const bond = bonds.find((b) => b.id === params.bondId) ??
+    bonds[0] ??
+    ({ id: params.bondId, partner: 'partner', type: 'inheritance', status: 'active' } as const);
   const isInheritance = bond.type === 'inheritance';
   const balance = vaultBalances[bond.id] ?? 0;
   const invested = investments[bond.id];
@@ -79,8 +110,11 @@ export default function BondProfilePage() {
   const chatFieldRef = useRef<HTMLInputElement>(null);
   const [chatBarVisible, setChatBarVisible] = useState(true);
 
+  // Live routing belongs to the contract (lib/hooks/useLiveStage.ts) — /bond/*
+  // lives on the dashboard surface. Mock keeps its local agent gate.
+  useRouteGuard('/bond');
   useEffect(() => {
-    if (!agentReady) router.replace('/home');
+    if (USE_MOCKS && !agentReady) router.replace('/home');
   }, [agentReady, router]);
 
   // PROACTIVE: the trustee consulted both agents overnight — the humans get
@@ -366,7 +400,25 @@ export default function BondProfilePage() {
       </header>
 
       <main className="flex-1 overflow-y-auto px-6 pb-16 space-y-8 max-w-lg w-full mx-auto">
-        {/* Balance — the bank card, in crypto terms */}
+        {/* Money view. LIVE: the real vault card — balance from chain, bond
+            address with copy, real send flow (partner approves above the free
+            limit). MOCK: the dark playground bank card below. */}
+        {!USE_MOCKS && liveVault?.isCreated ? (
+          <section className="space-y-3">
+            <VaultBalanceCard vault={liveVault} partnerName={bond.partner} onSend={() => setSendOpen(true)} />
+            <SendFundsForm
+              open={sendOpen}
+              onOpenChange={setSendOpen}
+              vault={liveVault}
+              partnerName={bond.partner}
+              txState={spendState}
+              error={spendError}
+              txError={spendTxError}
+              onSend={proposeSpend}
+              onReset={resetSpend}
+            />
+          </section>
+        ) : (
         <section className="bg-[#1A1A1A] rounded-[2rem] p-6 relative overflow-hidden">
           <div className="absolute -top-12 -right-12 w-32 h-32 bg-amber-500/10 blur-[50px]" />
           <p className="text-[9px] font-bold text-gray-500 uppercase tracking-[0.25em] relative z-10">Parked in the vault</p>
@@ -395,11 +447,15 @@ export default function BondProfilePage() {
           <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between relative z-10">
             <div>
               <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Receive · give this to anyone</p>
-              <p className="text-[12px] font-mono font-bold text-amber-100">ben-{bond.partner.toLowerCase()}.humanbond.eth</p>
+              <p className="text-[12px] font-mono font-bold text-amber-100">
+                {bondEnsLabel ?? `ben-${bond.partner.toLowerCase()}`}.{ENS_PARENT}
+              </p>
             </div>
             <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">fed by standing orders</span>
           </div>
-          {/* Money in: one-time or recurring */}
+          {/* Money in: the mock playground simulates transfers; live money
+              arrives by sending USDC to the address above — no fake deposits. */}
+          {USE_MOCKS && (
           <div className="mt-4 flex gap-2 relative z-10">
             <button
               onClick={() => setPanel(panel === 'deposit' ? 'none' : 'deposit')}
@@ -418,6 +474,7 @@ export default function BondProfilePage() {
               Standing order{(standingOrders[bond.id] ?? 0) > 0 ? ` · ${standingOrders[bond.id]}/mo` : ''}
             </button>
           </div>
+          )}
           {panel !== 'none' && (
             <div className="mt-3 bg-white/5 border border-white/10 rounded-xl p-4 space-y-3 relative z-10 animate-in fade-in duration-300">
               <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
@@ -446,6 +503,7 @@ export default function BondProfilePage() {
             </div>
           )}
         </section>
+        )}
 
         {/* Trustee room */}
         <section className="space-y-3">
@@ -463,7 +521,7 @@ export default function BondProfilePage() {
                 </div>
               ) : (
                 <div key={m.id} className="flex justify-end">
-                  <div className="bg-[#1A1A1A] text-white rounded-2xl rounded-br-md px-4 py-2.5 max-w-[90%]">
+                  <div className="bg-gray-500 text-white rounded-2xl rounded-br-md px-4 py-2.5 max-w-[90%]">
                     <p className="text-[13px] font-bold">{m.text}</p>
                   </div>
                 </div>
@@ -752,19 +810,16 @@ export default function BondProfilePage() {
         </section>
       </main>
 
-      {/* Floating hand-off to the trustee — Claude-app-style pill, only while
-          the inline chat input is scrolled out of view. Sits left of the mock
+      {/* Floating hand-off to YOUR OWN agent — Claude-app-style pill, only while
+          the trustee input is scrolled out of view. Sits left of the mock
           panel toggle in dev so the two never overlap. */}
       {!chatBarVisible && (
         <button
-          onClick={() => {
-            chatFieldRef.current?.focus({ preventScroll: true });
-            chatBarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }}
+          onClick={() => router.push('/agent')}
           className={`fixed bottom-5 ${USE_MOCKS ? 'right-20' : 'right-5'} z-40 flex items-center gap-2 bg-[#1A1A1A] text-white pl-3.5 pr-4 py-2.5 rounded-full shadow-[0_10px_30px_rgba(0,0,0,0.25)] active:scale-95 transition-all animate-in fade-in slide-in-from-bottom-2 duration-300`}
         >
           <MessageCircle size={14} />
-          <span className="text-[11px] font-bold">Ask the trustee</span>
+          <span className="text-[11px] font-bold">Message your agent</span>
         </button>
       )}
 

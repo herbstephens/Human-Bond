@@ -417,7 +417,7 @@ export default function AgentChatPage() {
           }
           return (
             <div key={m.id} className="flex justify-end animate-in fade-in slide-in-from-bottom-2 duration-400">
-              <div className="bg-[#1A1A1A] text-white rounded-3xl rounded-br-lg px-5 py-3 max-w-[85%]">
+              <div className="bg-gray-500 text-white rounded-3xl rounded-br-lg px-5 py-3 max-w-[85%]">
                 <p className="text-sm font-bold">{m.text}</p>
               </div>
             </div>

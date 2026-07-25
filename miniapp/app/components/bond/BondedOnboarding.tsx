@@ -74,6 +74,12 @@ export function BondedOnboarding({ partnerAddress }: { partnerAddress: string | 
     if (created && ensLabel) setBondEnsLabel(ensLabel);
   }, [created, ensLabel, setBondEnsLabel]);
 
+  // The ceremony plays ONCE: once the wallet exists, later logins land on the
+  // dashboard (/profile) directly — home checks this flag.
+  useEffect(() => {
+    if (created) localStorage.setItem('hb-bond-ceremony-seen', '1');
+  }, [created]);
+
   // The Safe needs a few blocks after submission before vaultOf(bondId) returns
   // it. Poll so the screen flips on its own instead of looking frozen.
   const [awaitingCreation, setAwaitingCreation] = useState(false);
@@ -129,15 +135,26 @@ export function BondedOnboarding({ partnerAddress }: { partnerAddress: string | 
     return () => clearTimeout(t);
   }, [handoff, bondHref, router]);
 
-  // Staged reveal: ring closes + address is born → headline → next step
-  const [phase, setPhase] = useState(0);
+  // Staged reveal: ring closes + address is born → headline → next step.
+  // The ceremony plays ONCE per bond: /home unmounts and remounts this screen on
+  // every loading-gate flip, and replaying the 2.8s assembly each time reads as a
+  // ghost reload. After the first run the screen opens settled (phase 3).
+  const seenKey = bondId ? `humanbond:onboard-seen:${bondId}` : null;
+  const [phase, setPhase] = useState(() =>
+    seenKey && typeof window !== 'undefined' && sessionStorage.getItem(seenKey) ? 3 : 0,
+  );
   useEffect(() => {
+    if (phase === 3) return; // already settled — nothing to animate
     const t = [
       setTimeout(() => setPhase(1), 1300), // address appears in the ring
       setTimeout(() => setPhase(2), 2000), // headline + subtitle
-      setTimeout(() => setPhase(3), 2800), // spark + copy + CTA
+      setTimeout(() => {
+        setPhase(3); // spark + copy + CTA
+        if (seenKey) sessionStorage.setItem(seenKey, '1');
+      }, 2800),
     ];
     return () => t.forEach(clearTimeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const ctaLabel = isConfirming

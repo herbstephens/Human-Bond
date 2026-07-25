@@ -17,6 +17,7 @@ import { useAgentStore } from '@/lib/agent/agentStore';
 
 export const LIVE_BOND_ID = 'main';
 
+/** Returns the live vault (address, balance, ensLabel) for direct reads. */
 export function useLiveBondSync() {
   const { dashboard, marriageView } = useMarriage();
   const partnerA = (marriageView?.partnerA ?? null) as `0x${string}` | null;
@@ -30,6 +31,22 @@ export function useLiveBondSync() {
     const username = profile.username ?? 'partner';
     const partner = username.charAt(0).toUpperCase() + username.slice(1);
     const balanceUsdc = Number(vault.balance) / 1e6;
+
+    // Idempotence guard: this hook mounts on several pages at once and re-runs on
+    // every balance refetch. Writing an identical-but-new `bonds` array each time
+    // re-rendered every store subscriber — visible as ghost flashes. Only write
+    // when something REAL changed.
+    const s = useAgentStore.getState();
+    const current = s.bonds[0];
+    const unchanged =
+      s.bonds.length === 1 &&
+      current?.id === LIVE_BOND_ID &&
+      current?.partner === partner &&
+      (s.vaultBalances[LIVE_BOND_ID] ?? 0) === balanceUsdc &&
+      s.defaultBondId === LIVE_BOND_ID &&
+      (!vault.ensLabel || s.bondEnsLabel === vault.ensLabel);
+    if (unchanged) return;
+
     useAgentStore.setState({
       bonds: [{ id: LIVE_BOND_ID, partner, type: 'inheritance', status: 'active' }],
       vaultBalances: { [LIVE_BOND_ID]: balanceUsdc },
@@ -38,4 +55,6 @@ export function useLiveBondSync() {
       ...(vault.ensLabel ? { bondEnsLabel: vault.ensLabel } : {}),
     });
   }, [vault?.isCreated, vault?.balance, vault?.ensLabel, profile.username]);
+
+  return { vault: vault ?? null, partnerUsername: profile.username ?? null };
 }
