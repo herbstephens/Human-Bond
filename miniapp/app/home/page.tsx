@@ -46,6 +46,7 @@ const MarriageDashboard = dynamic(
 );
 
 import { BondCelebrationOverlay } from "../components/marriage/BondCelebrationOverlay";
+import { BondedOnboarding } from "../components/bond/BondedOnboarding";
 import { BondDissolutionOverlay } from "../components/marriage/BondDissolutionOverlay";
 // Temporary Hito handoff probe. Lives on the unbonded screen on purpose, so it can
 // be tested without an active bond. Remove once the integration is settled.
@@ -484,16 +485,10 @@ export default function HomePage() {
           </div>
         ) : (
           <div className={`w-full max-w-lg mx-auto space-y-4 ${showCelebration ? "" : "animate-in fade-in zoom-in duration-700"}`}>
+            {/* Demo focus: post-bond ONBOARDING, not a dashboard. The full
+                MarriageDashboard (wallet, gallery, milestones, TIME) returns later. */}
             {dashboard && isConnected && (
-              <MarriageDashboard
-                dashboard={dashboard}
-                onRefresh={refetch}
-                onDissolved={handleDissolved}
-                onDissolutionFailed={handleDissolutionFailed}
-                marriageView={marriageView}
-                dissolutionRequest={dissolutionRequest}
-                isMarriageLoading={isMarriageLoading}
-              />
+              <BondedOnboarding partnerAddress={dashboard.partner} />
             )}
             {notifStatus === 'not_granted' && (
               <button
