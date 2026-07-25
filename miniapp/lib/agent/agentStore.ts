@@ -138,11 +138,24 @@ export function profileSummary(answers: Record<string, InterviewAnswer>): string
 /** A fact in your second brain — what the agent knows, with provenance. */
 export type BrainFact = { id: string; text: string; source: string };
 
-/** Your bonds. One human can hold several; the inheritance bond is the default. */
-export const BONDS = [
-  { id: 'alice', partner: 'Alice', type: 'inheritance' as const },
-  { id: 'mika', partner: 'Mika', type: 'business' as const },
+/** Your bonds. One human can hold several; the inheritance bond is the default.
+ *  A bond doesn't exist until BOTH humans sign — new ones wait on the partner. */
+export type Bond = {
+  id: string;
+  partner: string;
+  type: 'inheritance' | 'business' | 'friends';
+  status: 'active' | 'awaiting-partner';
+};
+
+export const BONDS: Bond[] = [
+  { id: 'alice', partner: 'Alice', type: 'inheritance', status: 'active' },
+  { id: 'mika', partner: 'Mika', type: 'business', status: 'active' },
 ];
+
+/** Proof of life runs on a 90-day dead-man's timer. The demo starts near the
+ *  end of a cycle so the reset can be played through once: red → check → 90. */
+export const HEARTBEAT_CYCLE_DAYS = 90;
+export const HEARTBEAT_START_DAYS_LEFT = 4;
 
 /** Parked vault balances (mock) — fed by standing orders from both partners. */
 export const VAULT_BALANCES: Record<string, number> = { alice: 10000, mika: 0 };
@@ -238,6 +251,10 @@ type AgentState = {
   /** Proof of life: has the agent pinged you, and did you check in? */
   lifePingDone: boolean;
   heartbeatOk: boolean;
+  /** Days until the dead-man's timer runs out — green far out, red near zero. */
+  heartbeatDaysLeft: number;
+  /** All bonds you hold — starts with the two mock bonds, grows via addBond. */
+  bonds: Bond[];
   /** Which bond requests route to by default — the inheritance bond, if one exists. */
   defaultBondId: string;
 
@@ -276,6 +293,8 @@ type AgentState = {
   /** The agent writes YOU first: proof-of-life reminder + trustee heads-up. */
   lifePing: () => void;
   heartbeatChecked: () => void;
+  /** Start a new bond — it only comes alive once the partner signs too. */
+  addBond: (partner: string, type: Bond['type']) => void;
   setDefaultBond: (bondId: string) => void;
   resetAgent: () => void;
 
@@ -345,6 +364,8 @@ export const useAgentStore = create<AgentState>()(
         investments: {},
         lifePingDone: false,
         heartbeatOk: false,
+        heartbeatDaysLeft: HEARTBEAT_START_DAYS_LEFT,
+        bonds: [...BONDS],
         defaultBondId: 'alice',
         pullGranted: false,
         pendingReceipt: null,
@@ -661,23 +682,41 @@ export const useAgentStore = create<AgentState>()(
 
         lifePing: () => {
           if (get().lifePingDone) return;
+          const days = get().heartbeatDaysLeft;
           set(() => ({ lifePingDone: true }));
           get()._enqueue([
             {
               type: 'text',
-              text: 'One thing from my side today: your 90-day proof of life is due — ten seconds, look into the camera, done. It keeps every claim and the will exactly as you set them. And a heads-up: the trustee sent you and Alice an opportunity — I already checked it, your buffer stays untouched.',
+              text: `One thing from my side today: your proof-of-life timer runs out in ${days} days — ten seconds, look into the camera, and it resets to 90. It keeps every claim and the will exactly as you set them. And a heads-up: the trustee sent you and Alice an opportunity — I already checked it, your buffer stays untouched.`,
             },
           ]);
         },
 
         heartbeatChecked: () => {
-          set(() => ({ heartbeatOk: true }));
+          set(() => ({ heartbeatOk: true, heartbeatDaysLeft: HEARTBEAT_CYCLE_DAYS }));
           get()._enqueue([
             {
               type: 'text',
-              text: 'Alive and verified — heartbeat renewed on-chain, Alice can see it’s green. Next check in 90 days; I’ll remind you.',
+              text: 'Alive and verified — heartbeat renewed on-chain, Alice can see it’s green. Your timer is back to 90 days; I’ll remind you before it gets tight.',
             },
           ]);
+        },
+
+        addBond: (partner, type) => {
+          const id = `b-${mid()}`;
+          set((s) => ({
+            bonds: [...s.bonds, { id, partner, type, status: 'awaiting-partner' as const }],
+            vaultBalances: { ...s.vaultBalances, [id]: 0 },
+            standingOrders: { ...s.standingOrders, [id]: 0 },
+          }));
+          // A bond exists only once BOTH humans sign — the partner accepts on their device.
+          setTimeout(
+            () =>
+              set((s) => ({
+                bonds: s.bonds.map((b) => (b.id === id ? { ...b, status: 'active' as const } : b)),
+              })),
+            4200,
+          );
         },
 
         setDefaultBond: (bondId) => set(() => ({ defaultBondId: bondId })),
@@ -706,6 +745,8 @@ export const useAgentStore = create<AgentState>()(
             investments: {},
             lifePingDone: false,
             heartbeatOk: false,
+            heartbeatDaysLeft: HEARTBEAT_START_DAYS_LEFT,
+            bonds: [...BONDS],
           }));
         },
       };
@@ -729,6 +770,8 @@ export const useAgentStore = create<AgentState>()(
         investments: s.investments,
         lifePingDone: s.lifePingDone,
         heartbeatOk: s.heartbeatOk,
+        heartbeatDaysLeft: s.heartbeatDaysLeft,
+        bonds: s.bonds,
         defaultBondId: s.defaultBondId,
         pullGranted: s.pullGranted,
         pendingReceipt: s.pendingReceipt,

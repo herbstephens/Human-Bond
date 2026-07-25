@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, ArrowLeft, ArrowUp, Bell, Check, Landmark, X } from 'lucide-react';
 import { AliveCta } from '@/app/components/agent/AliveCta';
-import { BONDS, useAgentStore, type Heir } from '@/lib/agent/agentStore';
+import { useAgentStore, type Heir } from '@/lib/agent/agentStore';
 
 // --- tiny self-contained chat for the trustee room ------------------------
 
@@ -40,14 +40,13 @@ type YieldState = 'none' | 'proposed' | 'you-ok' | 'done';
 export default function BondProfilePage() {
   const router = useRouter();
   const params = useParams<{ bondId: string }>();
-  const bond = BONDS.find((b) => b.id === params.bondId) ?? BONDS[0];
-  const isInheritance = bond.type === 'inheritance';
-
   const {
     agentReady, answers, payments, heirs, addHeir, requestRemoveHeir,
     vaultBalances, deposits, standingOrders, deposit, setStandingOrder,
-    investments, invest,
+    investments, invest, bonds,
   } = useAgentStore();
+  const bond = bonds.find((b) => b.id === params.bondId) ?? bonds[0];
+  const isInheritance = bond.type === 'inheritance';
   const balance = vaultBalances[bond.id] ?? 0;
   const invested = investments[bond.id];
   const liquid = balance - (invested?.amount ?? 0);

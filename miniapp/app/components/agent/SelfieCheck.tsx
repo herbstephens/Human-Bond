@@ -42,7 +42,7 @@ export function SelfieCheckOverlay({ onDone }: { onDone: () => void }) {
       </h1>
       <p className="mt-3 text-sm text-gray-400 font-medium max-w-[280px] leading-relaxed">
         {verified
-          ? 'Heartbeat renewed on-chain — for every bond you hold, at once. Next check: 90 days.'
+          ? 'Heartbeat renewed on-chain — for every bond you hold, at once. Timer reset: 90 days on the clock.'
           : 'A face, not a password. One check covers all your bonds.'}
       </p>
       {verified && (

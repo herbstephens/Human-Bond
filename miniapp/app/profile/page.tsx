@@ -11,13 +11,14 @@
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, ArrowUp, Check, Lock, MessageCircle, X } from 'lucide-react';
+import { ArrowLeft, ArrowUp, Lock, MessageCircle, Plus, X } from 'lucide-react';
 import { AliveCta } from '@/app/components/agent/AliveCta';
 import { SelfieCheckOverlay } from '@/app/components/agent/SelfieCheck';
 import {
-  BONDS,
+  HEARTBEAT_CYCLE_DAYS,
   INTERVIEW_QUESTIONS,
   useAgentStore,
+  type Bond,
   type BrainFact,
 } from '@/lib/agent/agentStore';
 
@@ -71,12 +72,18 @@ export default function ProfilePage() {
     payments,
     vaultBalances,
     heartbeatOk,
+    heartbeatDaysLeft,
     heartbeatChecked,
+    bonds,
+    addBond,
     addFact,
     removeFact,
   } = useAgentStore();
   const [draft, setDraft] = useState('');
   const [showSelfie, setShowSelfie] = useState(false);
+  const [addingBond, setAddingBond] = useState(false);
+  const [bondPartner, setBondPartner] = useState('');
+  const [bondType, setBondType] = useState<Bond['type']>('business');
 
   // Guard in an effect (never during render — the store hydrates client-side).
   useEffect(() => {
@@ -119,6 +126,19 @@ export default function ProfilePage() {
     setDraft('');
   };
 
+  const submitBond = () => {
+    const partner = bondPartner.trim();
+    if (!partner) return;
+    addBond(partner, bondType);
+    setBondPartner('');
+    setAddingBond(false);
+  };
+
+  // Dead-man's timer: calm and green far out, louder and redder as it runs down.
+  const daysLeft = heartbeatDaysLeft;
+  const timerPct = Math.max(0.02, Math.min(1, daysLeft / HEARTBEAT_CYCLE_DAYS));
+  const zone: 'green' | 'amber' | 'red' = daysLeft > 30 ? 'green' : daysLeft > 7 ? 'amber' : 'red';
+
   return (
     <div className="min-h-screen bg-[#E8E8E8] flex flex-col">
       {/* Header — you */}
@@ -143,37 +163,107 @@ export default function ProfilePage() {
       </header>
 
       <main className="flex-1 overflow-y-auto px-6 pb-40 pt-6 space-y-8 max-w-lg w-full mx-auto">
-        {/* Proof of life — PERSON-level: one check keeps every bond alive */}
-        {heartbeatOk ? (
-          <div className="bg-white rounded-2xl border border-emerald-100 px-5 py-3.5 flex items-center gap-3">
-            <div className="w-7 h-7 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
-              <Check size={13} className="text-emerald-500" />
+        {/* Proof of life — PERSON-level dead-man's timer. Always visible: the
+            countdown is the product. Green far out, red when it gets tight. */}
+        <div
+          className={`bg-white rounded-2xl border p-5 space-y-3 transition-colors duration-700 ${
+            zone === 'red'
+              ? 'border-red-300 shadow-[0_0_0_3px_rgba(239,68,68,0.10)]'
+              : zone === 'amber'
+                ? 'border-amber-200 shadow-[0_0_0_3px_rgba(245,158,11,0.08)]'
+                : 'border-emerald-100'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  zone === 'red'
+                    ? 'bg-red-500 animate-pulse'
+                    : zone === 'amber'
+                      ? 'bg-amber-500 animate-pulse'
+                      : 'bg-emerald-500'
+                }`}
+              />
+              <p
+                className={`text-[10px] font-black uppercase tracking-[0.2em] ${
+                  zone === 'red' ? 'text-red-600' : zone === 'amber' ? 'text-amber-600' : 'text-emerald-600'
+                }`}
+              >
+                {zone === 'green' ? 'Proof of life ✓' : 'Proof of life due'}
+              </p>
             </div>
-            <p className="text-[12px] font-medium text-gray-700 flex-1">
-              <span className="font-black">Proof of life ✓</span> — covers all your bonds. Next check in 90 days.
+            <p
+              className={`text-sm font-black font-mono tabular-nums ${
+                zone === 'red' ? 'text-red-600' : zone === 'amber' ? 'text-amber-600' : 'text-emerald-600'
+              }`}
+            >
+              {daysLeft} {daysLeft === 1 ? 'day' : 'days'}
             </p>
           </div>
-        ) : (
-          <div className="bg-white rounded-2xl border border-amber-200 shadow-[0_0_0_3px_rgba(245,158,11,0.08)] p-5 space-y-3">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-600">Proof of life due</p>
-            </div>
-            <p className="text-[12px] font-medium text-gray-600 leading-relaxed">
-              One Selfie Check keeps every bond you hold — claims, will, heartbeat — exactly as you set them.
-              Ten seconds, all bonds at once.
-            </p>
+
+          {/* The timer bar — drains over 90 days, refills on a Selfie Check. */}
+          <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-1000 ${
+                zone === 'red' ? 'bg-red-500' : zone === 'amber' ? 'bg-amber-400' : 'bg-emerald-400'
+              }`}
+              style={{ width: `${timerPct * 100}%` }}
+            />
+          </div>
+
+          <p className="text-[12px] font-medium text-gray-600 leading-relaxed">
+            {zone === 'red'
+              ? 'Almost out. At zero your bonds stop trusting silence — Alice gets asked, the estate clock starts. Ten seconds resets you to 90 days.'
+              : zone === 'amber'
+                ? 'Getting closer. One Selfie Check resets the timer to 90 days — for every bond you hold, at once.'
+                : 'All green — one check covers every bond you hold. Your agent reminds you before it gets tight.'}
+          </p>
+
+          {zone === 'green' ? (
+            <button
+              onClick={() => setShowSelfie(true)}
+              className="text-[11px] font-bold text-gray-400 hover:text-gray-600 underline underline-offset-2 transition-colors"
+            >
+              Check early
+            </button>
+          ) : (
             <AliveCta onClick={() => setShowSelfie(true)} className="w-full px-5 py-3.5 rounded-xl text-[11px] tracking-[0.15em]">
               Do the Selfie Check
             </AliveCta>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Your bonds */}
         <section className="space-y-3">
           <h2 className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-400">Your bonds</h2>
-          {BONDS.map((b) => {
+          {bonds.map((b) => {
             const isInheritance = b.type === 'inheritance';
+            const pending = b.status === 'awaiting-partner';
+            const typeLabel = b.type.charAt(0).toUpperCase() + b.type.slice(1);
+            if (pending)
+              return (
+                <div
+                  key={b.id}
+                  className="w-full bg-white/60 rounded-2xl px-5 py-4 border border-dashed border-amber-300"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-black text-gray-900">You &amp; {b.partner}</p>
+                      <p className="text-[10px] font-bold text-amber-600 mt-0.5 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        Invite sent — waiting for {b.partner} to sign
+                      </p>
+                    </div>
+                    <span className="text-[9px] font-black uppercase tracking-widest rounded-full px-2.5 py-1 border text-amber-600 bg-amber-50 border-amber-200">
+                      {typeLabel}
+                    </span>
+                  </div>
+                  <p className="mt-3 pt-3 border-t border-amber-100 text-[11px] font-medium text-gray-400">
+                    A bond only exists once both of you sign — the shared address forms then.
+                  </p>
+                </div>
+              );
             return (
               <Link
                 href={`/bond/${b.id}`}
@@ -186,7 +276,7 @@ export default function ProfilePage() {
                   <div>
                     <p className="text-sm font-black text-gray-900">You &amp; {b.partner}</p>
                     <p className="text-[10px] font-mono font-bold text-gray-400 mt-0.5">
-                      ben-{b.partner.toLowerCase()}.humanbond.eth
+                      ben-{b.partner.toLowerCase().split(/\s+/)[0]}.humanbond.eth
                     </p>
                   </div>
                   <span
@@ -196,7 +286,7 @@ export default function ProfilePage() {
                         : 'text-gray-400 bg-gray-50 border-gray-200'
                     }`}
                   >
-                    {isInheritance ? 'Inheritance' : 'Business'}
+                    {typeLabel}
                   </span>
                 </div>
                 <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
@@ -214,6 +304,66 @@ export default function ProfilePage() {
               </Link>
             );
           })}
+
+          {/* Start a new bond — inheritance is unique, everything else is open. */}
+          {addingBond ? (
+            <div className="bg-white rounded-2xl px-5 py-4 border border-gray-200 space-y-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">New bond</p>
+              <input
+                value={bondPartner}
+                onChange={(e) => setBondPartner(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && submitBond()}
+                placeholder="Partner — e.g. Joana, or her World username"
+                autoFocus
+                className="w-full bg-gray-50 rounded-xl px-4 py-3 text-[13px] text-gray-800 font-medium placeholder:text-gray-300 outline-none border border-gray-100 focus:border-gray-300 transition-colors"
+              />
+              <div className="flex flex-wrap gap-2">
+                {(['business', 'friends'] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setBondType(t)}
+                    className={`text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1.5 border transition-colors ${
+                      bondType === t
+                        ? 'bg-black text-white border-black'
+                        : 'bg-white text-gray-400 border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+                <span className="text-[10px] font-black uppercase tracking-widest rounded-full px-3 py-1.5 border text-gray-300 border-gray-100 bg-gray-50 cursor-not-allowed">
+                  Inheritance
+                </span>
+              </div>
+              <p className="text-[10px] text-gray-400 font-medium">
+                You already hold an inheritance bond — your estate lives there. One per human.
+              </p>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={submitBond}
+                  disabled={!bondPartner.trim()}
+                  className="flex-1 bg-black text-white rounded-xl px-5 py-3 text-[11px] font-black uppercase tracking-[0.15em] hover:bg-gray-900 transition-all active:scale-[0.98] disabled:bg-gray-200 disabled:text-gray-400"
+                >
+                  Send bond invite
+                </button>
+                <button
+                  onClick={() => setAddingBond(false)}
+                  className="text-[11px] font-bold text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={() => setAddingBond(true)}
+              className="w-full rounded-2xl px-5 py-4 border border-dashed border-gray-300 text-gray-400 hover:border-gray-400 hover:text-gray-600 transition-colors flex items-center justify-center gap-2"
+            >
+              <Plus size={14} />
+              <span className="text-[11px] font-black uppercase tracking-[0.15em]">Start a new bond</span>
+            </button>
+          )}
+
           <p className="text-[10px] text-gray-400 font-medium px-1">
             Your estate flows to your <span className="font-bold text-gray-500">inheritance bond</span> —
             who gets what is written inside its charter (heirs &amp; shares). Tap a bond to open its dashboard.
