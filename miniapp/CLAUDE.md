@@ -15,7 +15,7 @@ For local testing with World App, use ngrok to expose the dev server — the con
 
 ## Architecture
 
-**HumanBond** is a blockchain-based matrimonial protocol on **Worldchain Mainnet** (Chain ID: 480). Users verify their identity via World ID, then create/accept marriage proposals on-chain, mint Vow NFTs as marriage certificates, and earn TIME tokens through milestone NFTs.
+**HumanBond** is a blockchain-based partnership protocol on **Worldchain Mainnet** (Chain ID: 480). Users verify their identity via World ID, then create/accept partnership proposals on-chain, mint Vow NFTs as partnership certificates, and earn TIME tokens through milestone NFTs.
 
 ### Tech Stack
 - **Framework:** Next.js (App Router), React 19, TypeScript
@@ -44,7 +44,7 @@ HumanBond proxy, BondVaultModule, HumanBondRegistrar, and SafeProxyFactory
 
 ### ENS subnames (Bond names)
 
-When a couple creates their shared wallet, they may also claim a `<label>.humanbond.eth` subname,
+When a partnership creates their shared wallet, they may also claim a `<label>.humanbond.eth` subname,
 owned by the Safe and resolving to it. It is the third call of the vault-creation batch
 (`lib/vault/createVault.ts`), added only when a name is chosen. Naming UI + live availability are in
 `CreateVaultOnboarding` via `useEnsAvailability`; label rules in `lib/ens/label.ts`. One name per
