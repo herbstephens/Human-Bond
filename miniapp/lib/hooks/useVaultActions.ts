@@ -75,15 +75,16 @@ export function useVaultActions({ bondId, partnerA, partnerB, partner, onDone }:
   );
 
   /**
-   * @param ensLabel Optional, already-normalised ENS label. When present, the couple's
-   *   `<label>.humanbond.eth` subname is claimed as the third call of the same batch — so
-   *   the wallet and the name come into existence together, or not at all.
+   * @param ensLabel Already-normalised ENS label — mandatory. Every vault claims its
+   *   `<label>.humanbond.eth` subname as the third call of the same batch, so the wallet
+   *   and the name come into existence together, or not at all. Callers that let the
+   *   user skip naming must resolve an automatic label first (lib/ens/autoLabel.ts).
    */
   const createVault = useCallback(
-    (ensLabel?: string) =>
+    (ensLabel: string) =>
       run(async () => {
         if (USE_MOCKS) {
-          await simulateTx(undefined, ensLabel ? `Create wallet + name it ${ensLabel}` : "Create shared wallet");
+          await simulateTx(undefined, `Create wallet + name it ${ensLabel}`);
           // Dev preview: name the wallet "gaserror" to see the insufficient-gas error UI locally,
           // without actually running a wallet out of gas. Mock-only.
           if (ensLabel === 'gaserror') {

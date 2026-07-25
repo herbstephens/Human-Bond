@@ -17,6 +17,7 @@ import { useBondVault } from "@/lib/hooks/useBondVault";
 import { useVaultSpends } from "@/lib/hooks/useVaultSpends";
 import { useVaultActions } from "@/lib/hooks/useVaultActions";
 import { useWorldProfile, displayName } from "@/lib/worldcoin/useWorldProfile";
+import { resolveAutoLabel, useSuggestedLabel } from "@/lib/ens/autoLabel";
 import { needsYourSignature } from "@/lib/vault/types";
 import { VaultBalanceCard } from "@/app/components/vault/VaultBalanceCard";
 import { SendFundsForm } from "@/app/components/vault/SendFundsForm";
@@ -42,11 +43,19 @@ export default function VaultPage() {
 
     const partner = (dashboard?.partner ?? null) as `0x${string}` | null;
     const { profile: partnerProfile } = useWorldProfile(partner ?? "");
+    const { profile: myProfile } = useWorldProfile(address ?? "");
     const partnerName = displayName(partner ?? "", partnerProfile.username);
 
     const partnerA = (marriageView?.partnerA ?? null) as `0x${string}` | null;
     const partnerB = (marriageView?.partnerB ?? null) as `0x${string}` | null;
     const bondId = (marriageView?.bondId ?? null) as `0x${string}` | null;
+
+    // Usernames in bond order (partner A first), so both partners' devices derive
+    // the same automatic ENS label regardless of who is looking at the screen.
+    const iAmPartnerA = !!address && !!partnerA && address.toLowerCase() === partnerA.toLowerCase();
+    const usernameA = iAmPartnerA ? myProfile.username : partnerProfile.username;
+    const usernameB = iAmPartnerA ? partnerProfile.username : myProfile.username;
+    const suggestedLabel = useSuggestedLabel(usernameA, usernameB, bondId);
 
     const { vault, isLoading: isVaultLoading, refetch: refetchVault } = useBondVault(partnerA, partnerB, bondId);
     const { spends, refetch: refetchSpends } = useVaultSpends(bondId, partnerA, partnerB);
@@ -72,12 +81,16 @@ export default function VaultPage() {
     // than clearing the flag in an effect) keeps the success path free of setState-in-effect.
     const isConfirming = awaitingCreation && !!vault && !vault.isCreated;
 
+    // The name is mandatory: when the couple left the field empty, resolve an
+    // automatic label (usernames first, bondId fallback) before building the batch.
     const handleCreateVault = useCallback(
         async (ensLabel?: string) => {
-            const ok = await createVault(ensLabel);
+            if (!bondId) return;
+            const label = ensLabel ?? (await resolveAutoLabel(usernameA, usernameB, bondId));
+            const ok = await createVault(label);
             if (ok && !USE_MOCKS) setAwaitingCreation(true);
         },
-        [createVault],
+        [createVault, bondId, usernameA, usernameB],
     );
 
     useEffect(() => {
@@ -145,6 +158,7 @@ export default function VaultPage() {
                         error={error}
                         txError={txError}
                         isConfirming={isConfirming}
+                        suggestedLabel={suggestedLabel}
                         onCreate={handleCreateVault}
                     />
                 ) : null}

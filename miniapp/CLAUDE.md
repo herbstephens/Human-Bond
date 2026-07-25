@@ -54,11 +54,13 @@ HumanBond proxy, BondVaultModule, HumanBondRegistrar, and SafeProxyFactory
 
 ### ENS subnames (Bond names)
 
-When a couple creates their shared wallet, they may also claim a `<label>.humanbond.eth` subname,
-owned by the Safe and resolving to it. It is the third call of the vault-creation batch
-(`lib/vault/createVault.ts`), added only when a name is chosen. Naming UI + live availability are in
-`CreateVaultOnboarding` via `useEnsAvailability`; label rules in `lib/ens/label.ts`. One name per
-bond instance, no renames. Registry lives on Worldchain (Durin L2Registry
+Every shared wallet is created with a `<label>.humanbond.eth` subname, owned by the Safe and
+resolving to it. It is the (mandatory) third call of the vault-creation batch
+(`lib/vault/createVault.ts`). The onboarding field is pre-filled with an auto-generated label —
+`<usernameA>-<usernameB>` from the couple's World usernames, with numbered variants and a
+`bond-<bondId hex>` fallback (`lib/ens/autoLabel.ts`) — so a couple that never touches the field
+still gets a name. Naming UI + live availability are in `CreateVaultOnboarding` via
+`useEnsAvailability`; label rules in `lib/ens/label.ts`. One name per bond instance, no renames. Registry lives on Worldchain (Durin L2Registry
 `0x3DbB5CE73f3C1cb63D61A6Db73668D4cE10f371B` under `humanbond.eth`).
 
 ### Shared Wallet (Bond Vault)

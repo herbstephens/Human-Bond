@@ -20,7 +20,10 @@ interface CreateVaultOnboardingProps {
     txError?: FriendlyTxError | null;
     /** True once the create tx is submitted and we're waiting for the Safe to appear on-chain. */
     isConfirming?: boolean;
-    /** Optional ENS label — when present, the subname is claimed in the same batch. */
+    /** Auto-generated label the field starts with, already checked available. Null while resolving. */
+    suggestedLabel?: string | null;
+    /** ENS label to claim in the batch. Undefined means "pick one automatically" — the name is
+     *  always claimed; the caller resolves the automatic label before building the transaction. */
     onCreate: (ensLabel?: string) => void;
 }
 
@@ -29,9 +32,11 @@ interface CreateVaultOnboardingProps {
  * single cent goes in — especially the 50/50 split and the USDC-only limit.
  * Finding those out at a dissolution would be the worst possible time.
  *
- * The couple also chooses their shared ENS name here. It is claimed in the same
- * transaction as the wallet, owned by the Safe, and cannot be renamed — so the
- * choice is made once, up front, with a live availability check.
+ * The couple's shared ENS name is claimed in the same transaction as the wallet,
+ * always: the field is pre-filled from their World usernames and they can edit
+ * it, but leaving it empty just means the automatic name is used. Owned by the
+ * Safe and never renameable — so the choice is surfaced up front, with a live
+ * availability check.
  */
 export function CreateVaultOnboarding({
     predictedAddress,
@@ -40,18 +45,22 @@ export function CreateVaultOnboarding({
     error,
     txError,
     isConfirming = false,
+    suggestedLabel = null,
     onCreate,
 }: CreateVaultOnboardingProps) {
     const isSending = txState === "sending";
     // Either waiting for the World App signature (isSending) or for the Safe to be mined (isConfirming).
     const busy = isSending || isConfirming;
 
-    const [nameInput, setNameInput] = useState("");
-    const availability = useEnsAvailability(nameInput);
+    // null = untouched: the field tracks the async suggestion until the user types.
+    const [nameInput, setNameInput] = useState<string | null>(null);
+    const shownInput = nameInput ?? suggestedLabel ?? "";
+    const availability = useEnsAvailability(shownInput);
 
-    const hasName = nameInput.trim().length > 0;
+    const hasName = shownInput.trim().length > 0;
     const nameReady = availability.status === "available";
-    // A typed-but-not-yet-valid name blocks submission; an empty field is fine (wallet without a name).
+    // A typed-but-not-yet-valid name blocks submission; an empty field is fine — the
+    // name is then generated automatically, never skipped.
     const blockedByName = hasName && !nameReady;
 
     const handleCreate = () => {
@@ -116,8 +125,8 @@ export function CreateVaultOnboarding({
                 <div className="space-y-2">
                     <div className="flex items-center gap-2 px-1">
                         <AtSign size={14} className="text-gray-400" />
-                        <p className="text-xs font-bold text-gray-800">Choose your shared name</p>
-                        <span className="text-[10px] font-medium text-gray-400">optional</span>
+                        <p className="text-xs font-bold text-gray-800">Your shared name</p>
+                        <span className="text-[10px] font-medium text-gray-400">edit it if you like</span>
                     </div>
                     <div
                         className={`flex items-center rounded-2xl border px-4 py-3 transition-colors ${
@@ -129,7 +138,7 @@ export function CreateVaultOnboarding({
                         }`}
                     >
                         <input
-                            value={nameInput}
+                            value={shownInput}
                             onChange={(e) => setNameInput(e.target.value)}
                             placeholder="franco-maria"
                             spellCheck={false}
@@ -158,6 +167,7 @@ export function CreateVaultOnboarding({
                         {(availability.status === "idle" || availability.status === "checking") && (
                             <span className="text-gray-400">
                                 Owned by your shared wallet. Chosen once — it can&apos;t be renamed later.
+                                Left empty, one is picked for you.
                             </span>
                         )}
                     </p>
@@ -187,7 +197,7 @@ export function CreateVaultOnboarding({
                     ) : (
                         <>
                             <Wallet size={18} />
-                            <span>{nameReady ? "Create wallet & claim name" : "Create shared wallet"}</span>
+                            <span>Create wallet & claim name</span>
                         </>
                     )}
                 </button>

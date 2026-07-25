@@ -1,14 +1,15 @@
 /**
  * Builds the transaction batch that brings a bond vault into existence.
  *
- * Up to three calls in one MiniKit transaction, executed in order:
+ * Three calls in one MiniKit transaction, executed in order:
  *   1. SafeProxyFactory.createProxyWithNonce — deploys the Safe, and via the
  *      setup() delegatecall enables our module in the same transaction.
  *   2. BondVaultModule.registerVault — links the Safe to the bond.
  *   3. HumanBondRegistrar.register — claims the couple's ENS subname, pointing
- *      it at the Safe. Only added when the couple chose a name; register()
+ *      it at the Safe. Always present: every vault is born with a name (chosen
+ *      by the couple or auto-generated, see lib/ens/autoLabel.ts). register()
  *      requires the vault from step 2 to already exist, which the batch order
- *      guarantees.
+ *      guarantees — wallet and name come into existence together, or not at all.
  *
  * All three entrypoints must be whitelisted in the World Developer Portal.
  * ModuleSetup does not: it is reached by delegatecall, never called directly.
@@ -37,9 +38,10 @@ export async function buildCreateVaultTx(
   partnerA: `0x${string}`,
   partnerB: `0x${string}`,
   bondId: `0x${string}`,
-  /** Normalised ENS label. When present, register() is appended as the 3rd call. */
-  ensLabel?: string,
+  /** Normalised ENS label — mandatory, every vault is created with its subname. */
+  ensLabel: string,
 ): Promise<{ transaction: CreateVaultTx[]; vaultAddress: `0x${string}` }> {
+  if (!ensLabel) throw new Error('An ENS label is required to create the vault');
   const initializer = buildSafeInitializer(partnerA, partnerB);
 
   // Read the epoch once and reuse it, so the address we predict and the address the factory
@@ -64,16 +66,13 @@ export async function buildCreateVaultTx(
       functionName: 'registerVault',
       args: [bondId, vaultAddress],
     },
-  ];
-
-  if (ensLabel) {
-    transaction.push({
+    {
       address: BOND_REGISTRAR_ADDRESS,
       abi: BOND_REGISTRAR_ABI,
       functionName: 'register',
       args: [ensLabel],
-    });
-  }
+    },
+  ];
 
   return { vaultAddress, transaction };
 }
