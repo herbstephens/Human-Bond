@@ -46,13 +46,16 @@ export default function BondProfilePage() {
   const {
     agentReady, answers, payments, heirs, addHeir, requestRemoveHeir,
     vaultBalances, deposits, standingOrders, deposit, setStandingOrder,
+    investments, invest,
   } = useAgentStore();
   const balance = vaultBalances[bond.id] ?? 0;
+  const invested = investments[bond.id];
+  const liquid = balance - (invested?.amount ?? 0);
 
   const [msgs, setMsgs] = useState<RoomMsg[]>([]);
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState('');
-  const [yieldState, setYieldState] = useState<YieldState>('none');
+  const [yieldState, setYieldState] = useState<YieldState>(() => (invested ? 'done' : 'none'));
   const [heirName, setHeirName] = useState('');
   const [heirShare, setHeirShare] = useState(100);
   const [confirmRemove, setConfirmRemove] = useState<Heir | null>(null);
@@ -72,22 +75,26 @@ export default function BondProfilePage() {
     if (!agentReady || greeted.current || !isInheritance) return;
     greeted.current = true;
     setBusy(true);
+    const alreadyInvested = Boolean(invested);
     const t1 = setTimeout(() => {
       setMsgs([
         {
           id: rid++,
           who: 'trustee',
-          text: 'I spoke with both your agents this morning and scanned the market against your profiles. One thing fits — I sent it to both of you.',
+          text: alreadyInvested
+            ? 'All quiet. The 8,000 your agents placed are earning at 4.1% — projection on track, buffer untouched. I’ll report at month’s end.'
+            : 'Your agents and I settled on one package this morning — matched to both profiles, market-checked. It’s on its way to both of you now.',
           typed: true,
         },
       ]);
       setBusy(false);
     }, 900);
-    const t2 = setTimeout(() => setYieldState('proposed'), 5200);
+    const t2 = alreadyInvested ? undefined : setTimeout(() => setYieldState('proposed'), 5200);
     return () => {
       clearTimeout(t1);
-      clearTimeout(t2);
+      if (t2) clearTimeout(t2);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentReady, isInheritance]);
 
   // Scroll only within reach of the chat — never yank the page to the bottom.
@@ -113,7 +120,8 @@ export default function BondProfilePage() {
     setYieldState('you-ok');
     setTimeout(() => {
       setYieldState('done');
-      pushTrustee('Alice released on her device too. 8,000 USDC are earning for the family now — I’ll report monthly, and your buffer stays untouched.');
+      invest(bond.id, 8000, 4.1);
+      pushTrustee('Alice confirmed too. 8,000 USDC are earning for the family now — you can see where the money lives right up on the vault card. I’ll report monthly.');
     }, 2600);
   };
 
@@ -196,6 +204,24 @@ export default function BondProfilePage() {
             {balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
             <span className="text-sm text-gray-500 ml-2">USDC</span>
           </p>
+          {/* Where the money lives — simple and unmissable */}
+          {invested && (
+            <div className="mt-3 flex gap-2 relative z-10">
+              <div className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5">
+                <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Liquid · ready to spend</p>
+                <p className="text-sm font-black text-white font-mono">{liquid.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+              </div>
+              <div className="flex-1 bg-emerald-500/10 border border-emerald-500/25 rounded-xl px-4 py-2.5">
+                <p className="text-[8px] font-black text-emerald-400/80 uppercase tracking-widest flex items-center gap-1">
+                  <span className="w-1 h-1 rounded-full bg-emerald-400" />
+                  Earning · {invested.apr}%
+                </p>
+                <p className="text-sm font-black text-emerald-300 font-mono">
+                  {invested.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+            </div>
+          )}
           <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between relative z-10">
             <div>
               <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Receive · give this to anyone</p>
@@ -288,15 +314,15 @@ export default function BondProfilePage() {
                   <div className="flex items-center gap-2">
                     <Bell size={11} className={yieldState === 'done' ? 'text-emerald-500' : 'text-amber-500'} />
                     <p className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 flex-1">
-                      Opportunity · matched to both your profiles
+                      Your agents decided on this package
                     </p>
                     <span className="text-[8px] font-black uppercase tracking-widest text-gray-400">now</span>
                   </div>
                   <p className="text-[13px] font-black text-gray-900 mt-1.5">USDC yield vault · 4.1% · audited · instant exit</p>
                   <p className="text-[11px] font-medium text-gray-500 mt-1 leading-relaxed">
-                    Why you two: Ben’s agent insists on the emergency buffer → 2,000 stay liquid.
-                    Alice’s agent optimizes long-term → 8,000 go to work (+328/yr).
-                    <span className="font-bold text-gray-700"> Both agents agree it fits.</span>
+                    Your agent held the line on the emergency buffer → 2,000 stay liquid.
+                    Alice’s pushed for long-term → 8,000 go to work (+328/yr).
+                    <span className="font-bold text-gray-700"> They agreed — your confirmation is the last word.</span>
                   </p>
                 </div>
                 <div className="px-4 py-3 space-y-2 bg-white">
@@ -310,7 +336,7 @@ export default function BondProfilePage() {
                   </div>
                   {yieldState === 'proposed' && (
                     <AliveCta onClick={releaseYield} className="w-full px-4 py-3 rounded-xl text-[10px] tracking-[0.15em] mt-1">
-                      Release on your hito
+                      Confirm on your hito
                     </AliveCta>
                   )}
                   {yieldState === 'done' && (
@@ -446,7 +472,7 @@ export default function BondProfilePage() {
             {[
               { k: 'Split of shared expenses', v: 'By income — currently you 10% · Alice 90%' },
               { k: 'Your hardware threshold', v: `hito above ${threshold}` },
-              { k: 'Proof of life', v: 'Selfie Check · every 90 days' },
+              { k: 'Proof of life', v: 'Profile-level Selfie Check — one check covers all your bonds' },
               { k: 'Will & rules document', v: 'v2 · encrypted on 0G storage' },
             ].map((row) => (
               <div key={row.k} className="px-5 py-3.5 flex items-center justify-between gap-4">

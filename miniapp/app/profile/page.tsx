@@ -11,8 +11,9 @@
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, ArrowUp, Lock, MessageCircle, X } from 'lucide-react';
+import { ArrowLeft, ArrowUp, Check, Lock, MessageCircle, X } from 'lucide-react';
 import { AliveCta } from '@/app/components/agent/AliveCta';
+import { SelfieCheckOverlay } from '@/app/components/agent/SelfieCheck';
 import {
   BONDS,
   INTERVIEW_QUESTIONS,
@@ -70,10 +71,12 @@ export default function ProfilePage() {
     payments,
     vaultBalances,
     heartbeatOk,
+    heartbeatChecked,
     addFact,
     removeFact,
   } = useAgentStore();
   const [draft, setDraft] = useState('');
+  const [showSelfie, setShowSelfie] = useState(false);
 
   // Guard in an effect (never during render — the store hydrates client-side).
   useEffect(() => {
@@ -81,6 +84,15 @@ export default function ProfilePage() {
   }, [agentReady, router]);
 
   if (!agentReady) return null;
+  if (showSelfie)
+    return (
+      <SelfieCheckOverlay
+        onDone={() => {
+          setShowSelfie(false);
+          heartbeatChecked();
+        }}
+      />
+    );
 
   const name = answers.name?.text?.replace(/^just call me /i, '') || 'Ben';
 
@@ -131,6 +143,32 @@ export default function ProfilePage() {
       </header>
 
       <main className="flex-1 overflow-y-auto px-6 pb-40 pt-6 space-y-8 max-w-lg w-full mx-auto">
+        {/* Proof of life — PERSON-level: one check keeps every bond alive */}
+        {heartbeatOk ? (
+          <div className="bg-white rounded-2xl border border-emerald-100 px-5 py-3.5 flex items-center gap-3">
+            <div className="w-7 h-7 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
+              <Check size={13} className="text-emerald-500" />
+            </div>
+            <p className="text-[12px] font-medium text-gray-700 flex-1">
+              <span className="font-black">Proof of life ✓</span> — covers all your bonds. Next check in 90 days.
+            </p>
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl border border-amber-200 shadow-[0_0_0_3px_rgba(245,158,11,0.08)] p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-600">Proof of life due</p>
+            </div>
+            <p className="text-[12px] font-medium text-gray-600 leading-relaxed">
+              One Selfie Check keeps every bond you hold — claims, will, heartbeat — exactly as you set them.
+              Ten seconds, all bonds at once.
+            </p>
+            <AliveCta onClick={() => setShowSelfie(true)} className="w-full px-5 py-3.5 rounded-xl text-[11px] tracking-[0.15em]">
+              Do the Selfie Check
+            </AliveCta>
+          </div>
+        )}
+
         {/* Your bonds */}
         <section className="space-y-3">
           <h2 className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-400">Your bonds</h2>

@@ -233,6 +233,8 @@ type AgentState = {
   deposits: { id: string; bondId: string; amount: number }[];
   /** YOUR monthly standing order per bond. */
   standingOrders: Record<string, number>;
+  /** Money the agents put to work, per bond — visible where the money lives. */
+  investments: Record<string, { amount: number; apr: number }>;
   /** Proof of life: has the agent pinged you, and did you check in? */
   lifePingDone: boolean;
   heartbeatOk: boolean;
@@ -270,6 +272,7 @@ type AgentState = {
   requestRemoveHeir: (id: string) => void;
   deposit: (bondId: string, amount: number) => void;
   setStandingOrder: (bondId: string, amount: number) => void;
+  invest: (bondId: string, amount: number, apr: number) => void;
   /** The agent writes YOU first: proof-of-life reminder + trustee heads-up. */
   lifePing: () => void;
   heartbeatChecked: () => void;
@@ -339,6 +342,7 @@ export const useAgentStore = create<AgentState>()(
         vaultBalances: { ...VAULT_BALANCES },
         deposits: [],
         standingOrders: { alice: 500, mika: 0 },
+        investments: {},
         lifePingDone: false,
         heartbeatOk: false,
         defaultBondId: 'alice',
@@ -652,6 +656,9 @@ export const useAgentStore = create<AgentState>()(
         setStandingOrder: (bondId, amount) =>
           set((s) => ({ standingOrders: { ...s.standingOrders, [bondId]: amount } })),
 
+        invest: (bondId, amount, apr) =>
+          set((s) => ({ investments: { ...s.investments, [bondId]: { amount, apr } } })),
+
         lifePing: () => {
           if (get().lifePingDone) return;
           set(() => ({ lifePingDone: true }));
@@ -696,6 +703,7 @@ export const useAgentStore = create<AgentState>()(
             vaultBalances: { ...VAULT_BALANCES },
             deposits: [],
             standingOrders: { alice: 500, mika: 0 },
+            investments: {},
             lifePingDone: false,
             heartbeatOk: false,
           }));
@@ -718,6 +726,7 @@ export const useAgentStore = create<AgentState>()(
         vaultBalances: s.vaultBalances,
         deposits: s.deposits,
         standingOrders: s.standingOrders,
+        investments: s.investments,
         lifePingDone: s.lifePingDone,
         heartbeatOk: s.heartbeatOk,
         defaultBondId: s.defaultBondId,
