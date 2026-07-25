@@ -144,19 +144,19 @@ export default function Home() {
                 {isVerifying ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Verifying...</span>
+                    <span>Logging in…</span>
                   </>
                 ) : (
                   <>
                     <ScanFace size={20} className="text-white group-hover:text-emerald-400 transition-colors" />
-                    <span>{isVerified && checkVerificationExpiry() ? "Enter Protocol" : "Verify World ID"}</span>
+                    <span>{isVerified && checkVerificationExpiry() ? "Login" : "Login with World ID"}</span>
                   </>
                 )}
               </button>
               <button
                 onClick={() => setShowVerifyInfo(true)}
                 className="w-12 h-12 flex-shrink-0 flex items-center justify-center rounded-full bg-black/10 hover:bg-black/20 transition-colors"
-                aria-label="What is Verify World ID?"
+                aria-label="What is World ID?"
               >
                 <Info size={18} className="text-black/60" />
               </button>
