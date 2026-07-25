@@ -15,7 +15,6 @@ import { ArrowLeft, ArrowUp, Check, Mic } from 'lucide-react';
 import {
   IMPORT_SOURCES,
   INTERVIEW_QUESTIONS,
-  profileSummary,
   useAgentStore,
 } from '@/lib/agent/agentStore';
 
@@ -64,6 +63,13 @@ export default function AgentCreatePage() {
   const [importState, setImportState] = useState<'pick' | 'importing' | 'done' | 'skipped'>(
     () => (importedSources.length > 0 ? 'done' : Object.keys(answers).length > 0 ? 'skipped' : 'pick'),
   );
+  // LIVE voice: the agent's phrasing per question + the final mirror come from
+  // the model (via /api/agent/onboard) — the question STRUCTURE stays fixed.
+  const [liveAsk, setLiveAsk] = useState<Record<string, string>>({});
+  const [askError, setAskError] = useState<string | null>(null);
+  const [summaryLines, setSummaryLines] = useState<string[] | null>(null);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
+  const fetchingFor = useRef<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
   // The interview only covers what import couldn't answer.
@@ -71,6 +77,70 @@ export default function AgentCreatePage() {
   const done = !current;
   const answeredCount = INTERVIEW_QUESTIONS.filter((q) => answers[q.id]).length;
   const inInterview = importState === 'done' || importState === 'skipped';
+
+  const answerLabel = (qid: string) => {
+    const q = INTERVIEW_QUESTIONS.find((x) => x.id === qid);
+    const a = answers[qid];
+    if (!q || !a) return '';
+    return a.id ? q.options.find((o) => o.id === a.id)?.label ?? a.text : a.text;
+  };
+
+  const historyPayload = () =>
+    askedIds.map((qid) => ({
+      question: liveAsk[qid] ?? INTERVIEW_QUESTIONS.find((x) => x.id === qid)?.ask ?? '',
+      answer: answerLabel(qid),
+    }));
+
+  const fetchAsk = (q: (typeof INTERVIEW_QUESTIONS)[number]) => {
+    fetchingFor.current = q.id;
+    setAskError(null);
+    fetch('/api/agent/onboard', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mode: 'react',
+        imported: importedSources,
+        history: historyPayload(),
+        next: { intent: q.ask, options: q.options.map((o) => o.label) },
+      }),
+    })
+      .then(async (res) => {
+        const j = await res.json();
+        if (!res.ok) throw new Error(j.error ?? `onboard API ${res.status}`);
+        setLiveAsk((m) => ({ ...m, [q.id]: j.text }));
+      })
+      .catch((e: Error) => setAskError(e.message))
+      .finally(() => {
+        fetchingFor.current = null;
+      });
+  };
+
+  const fetchSummary = () => {
+    fetchingFor.current = 'summary';
+    setSummaryError(null);
+    fetch('/api/agent/onboard', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'summary', imported: importedSources, history: historyPayload() }),
+    })
+      .then(async (res) => {
+        const j = await res.json();
+        if (!res.ok) throw new Error(j.error ?? `onboard API ${res.status}`);
+        setSummaryLines(j.lines);
+      })
+      .catch((e: Error) => setSummaryError(e.message))
+      .finally(() => {
+        fetchingFor.current = null;
+      });
+  };
+
+  // Ask the model for the agent's next words whenever a new question is up.
+  useEffect(() => {
+    if (!inInterview) return;
+    if (current && !liveAsk[current.id] && fetchingFor.current !== current.id && !askError) fetchAsk(current);
+    if (done && !summaryLines && fetchingFor.current !== 'summary' && !summaryError) fetchSummary();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inInterview, current?.id, done]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -241,7 +311,7 @@ export default function AgentCreatePage() {
             return (
               <div key={qid} className="space-y-3">
                 <div className="bg-white rounded-3xl rounded-bl-lg px-5 py-3.5 border border-gray-100 max-w-[85%]">
-                  <p className="text-sm text-gray-800 font-medium">{q.ask}</p>
+                  <p className="text-sm text-gray-800 font-medium">{liveAsk[qid] ?? q.ask}</p>
                 </div>
                 <div className="flex justify-end">
                   <div className="bg-[#1A1A1A] text-white rounded-3xl rounded-br-lg px-5 py-3 max-w-[85%]">
@@ -252,12 +322,36 @@ export default function AgentCreatePage() {
             );
           })}
 
-        {/* Current question */}
+        {/* Current question — the agent's words arrive LIVE from the model */}
         {inInterview && !done && current && (
-          <div key={current.id} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <div className="bg-white rounded-3xl rounded-bl-lg px-5 py-4 shadow-[0_10px_30px_rgba(0,0,0,0.04)] border border-gray-100 max-w-[85%]">
-              <p className="text-sm text-gray-800 font-medium leading-relaxed">{current.ask}</p>
-            </div>
+          <div key={current.id}>
+            {liveAsk[current.id] ? (
+              <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                <div className="bg-white rounded-3xl rounded-bl-lg px-5 py-4 shadow-[0_10px_30px_rgba(0,0,0,0.04)] border border-gray-100 max-w-[85%]">
+                  <p className="text-sm text-gray-800 font-medium leading-relaxed">
+                    <TypingText id={`ask-${current.id}`} text={liveAsk[current.id]} />
+                  </p>
+                </div>
+              </div>
+            ) : askError ? (
+              <div className="bg-white rounded-3xl rounded-bl-lg px-5 py-4 border border-red-200 max-w-[85%] space-y-2">
+                <p className="text-[12px] text-red-500 font-bold break-words">{askError}</p>
+                <button
+                  onClick={() => fetchAsk(current)}
+                  className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-black underline underline-offset-2"
+                >
+                  Try again
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 pl-1 animate-in fade-in duration-300">
+                <div
+                  className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"
+                  style={{ boxShadow: '0 0 12px 2px rgba(245,158,11,.4)' }}
+                />
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.2em]">Thinking…</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -273,17 +367,42 @@ export default function AgentCreatePage() {
                 Your profile · visible only to you
               </p>
             </div>
-            <ul className="space-y-3 relative z-10">
-              {profileSummary(answers).map((line, i) => (
-                <li key={i} className="flex items-start gap-2.5">
-                  <Check size={13} className="text-amber-400/80 mt-0.5 shrink-0" />
-                  <p className="text-[13px] text-gray-300 font-medium leading-relaxed">{line}</p>
-                </li>
-              ))}
-            </ul>
+            {summaryLines ? (
+              <ul className="space-y-3 relative z-10">
+                {summaryLines.map((line, i) => (
+                  <li key={i} className="flex items-start gap-2.5">
+                    <Check size={13} className="text-amber-400/80 mt-0.5 shrink-0" />
+                    <p className="text-[13px] text-gray-300 font-medium leading-relaxed">
+                      <TypingText id={`sum-${i}`} text={line} />
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            ) : summaryError ? (
+              <div className="relative z-10 space-y-2">
+                <p className="text-[12px] text-red-400 font-bold break-words">{summaryError}</p>
+                <button
+                  onClick={fetchSummary}
+                  className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-white underline underline-offset-2"
+                >
+                  Try again
+                </button>
+              </div>
+            ) : (
+              <div className="relative z-10 flex items-center gap-3">
+                <div
+                  className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"
+                  style={{ boxShadow: '0 0 12px 2px rgba(245,158,11,.4)' }}
+                />
+                <p className="text-[11px] font-bold text-gray-500 uppercase tracking-[0.2em]">
+                  Writing down who you are…
+                </p>
+              </div>
+            )}
             <button
               onClick={completeInterview}
-              className="relative z-10 w-full bg-white text-black px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-[0.2em] hover:bg-gray-100 transition-all active:scale-95"
+              disabled={!summaryLines}
+              className="relative z-10 w-full bg-white text-black px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-[0.2em] hover:bg-gray-100 transition-all active:scale-95 disabled:bg-white/20 disabled:text-white/40"
             >
               That’s me — activate my agent
             </button>
