@@ -98,7 +98,11 @@ async function main() {
 
   const driverFor = (self: AgentIdentity, profile: StoredProfile, partner: string, note?: string) =>
     new NarratedDriver(
-      new LlmDriver({ apiKey, model: process.env.ZG_ROUTER_MODEL }, personalSystemPrompt(profile, partner), note),
+      new LlmDriver(
+        { apiKey, model: process.env.ZG_ROUTER_MODEL, baseUrl: process.env.ZG_ROUTER_BASE_URL },
+        personalSystemPrompt(profile, partner),
+        note,
+      ),
       self.id,
     );
 
