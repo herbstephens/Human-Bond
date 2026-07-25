@@ -16,8 +16,9 @@ import { CONTRACT_ADDRESSES } from './index';
 
 export const BOND_REGISTRAR_ADDRESS = CONTRACT_ADDRESSES.BOND_REGISTRAR;
 
-/** The parent every subname hangs off. */
-export const ENS_PARENT = 'humanbond.eth' as const;
+/** The parent every subname hangs off. Default is production (humanbond.eth); the TEST
+ *  environment overrides it to humandbond.eth via NEXT_PUBLIC_ENS_PARENT (see .env.local). */
+export const ENS_PARENT = (process.env.NEXT_PUBLIC_ENS_PARENT ?? 'humanbond.eth') as string;
 
 export const BOND_REGISTRAR_ABI = [
   {

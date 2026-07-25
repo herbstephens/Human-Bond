@@ -9,12 +9,13 @@
  * The module never holds funds itself — the money always lives in the couple's Safe.
  */
 
-// Worldchain mainnet (chain 480) — V5, deployed 2026-07-24
+// Worldchain mainnet (chain 480) — V5. Defaults are PRODUCTION; NEXT_PUBLIC_* env vars override
+// them for the TEST environment (see .env.local). Safe canonical + USDC are the same across envs.
 export const VAULT_ADDRESSES = {
   /** Our Safe module. The only vault contract the mini app calls directly. */
-  BOND_VAULT_MODULE: '0xb94d2178c6530899a9b275A2b1F9663d4B4F2d65' as const,
+  BOND_VAULT_MODULE: (process.env.NEXT_PUBLIC_BOND_VAULT_MODULE ?? '0xb94d2178c6530899a9b275A2b1F9663d4B4F2d65') as `0x${string}`,
   /** Delegatecall helper that enables the module during the Safe's setup(). Never called from the app. */
-  MODULE_SETUP: '0x0786ab6d36308d1E2f456ee9fb3Cf42b4cc27349' as const,
+  MODULE_SETUP: (process.env.NEXT_PUBLIC_MODULE_SETUP ?? '0x0786ab6d36308d1E2f456ee9fb3Cf42b4cc27349') as `0x${string}`,
   /** Canonical Safe v1.4.1 deployments (deployed by Safe, not by us). */
   SAFE_PROXY_FACTORY: '0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67' as const,
   SAFE_SINGLETON: '0x41675C099F32341bf84BFc5382aF534df5C7461a' as const,

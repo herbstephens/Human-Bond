@@ -17,6 +17,7 @@ import { USE_MOCKS } from "@/lib/config";
 import { useVaultSpends } from "@/lib/hooks/useVaultSpends";
 import { useBondVault } from "@/lib/hooks/useBondVault";
 import { useVaultActions } from "@/lib/hooks/useVaultActions";
+import { TxErrorNotice } from "@/app/components/TxErrorNotice";
 import { useWorldProfile, displayName } from "@/lib/worldcoin/useWorldProfile";
 import { spendStatus } from "@/lib/vault/types";
 import { formatUsdc, shortAddress } from "@/lib/vault/usdc";
@@ -50,7 +51,7 @@ export default function PendingSpendPage({ params }: { params: Promise<{ spendId
         void refetchVault();
     }, [refetch, refetchVault]);
 
-    const { state, error, approveSpend, cancelSpend } = useVaultActions({
+    const { state, error, txError, approveSpend, cancelSpend } = useVaultActions({
         bondId,
         partnerA,
         partnerB,
@@ -231,7 +232,9 @@ export default function PendingSpendPage({ params }: { params: Promise<{ spendId
                                 </p>
                             ) : null}
 
-                            {error ? (
+                            {txError ? (
+                                <TxErrorNotice error={txError} />
+                            ) : error ? (
                                 <p className="text-center text-[10px] font-medium text-red-500">{error}</p>
                             ) : null}
                         </div>

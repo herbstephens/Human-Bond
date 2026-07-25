@@ -12,6 +12,8 @@ import {
 import { formatUsdc, parseUsdc } from "@/lib/vault/usdc";
 import type { BondVault } from "@/lib/vault/types";
 import type { TxState } from "@/lib/hooks/useVaultActions";
+import { TxErrorNotice } from "@/app/components/TxErrorNotice";
+import type { FriendlyTxError } from "@/lib/worldcoin/txErrors";
 
 interface SendFundsFormProps {
     open: boolean;
@@ -20,6 +22,8 @@ interface SendFundsFormProps {
     partnerName: string;
     txState: TxState;
     error: string | null;
+    /** Rich, actionable version of a failed transaction (gas, rejection, …). Preferred over `error`. */
+    txError?: FriendlyTxError | null;
     /** Resolves true when the payment went through. */
     onSend: (
         to: `0x${string}`,
@@ -38,6 +42,7 @@ export function SendFundsForm({
     partnerName,
     txState,
     error,
+    txError,
     onSend,
     onReset,
 }: SendFundsFormProps) {
@@ -241,7 +246,11 @@ export function SendFundsForm({
                         )}
                     </button>
 
-                    {error ? <p className="text-center text-[10px] font-medium text-red-500">{error}</p> : null}
+                    {txError ? (
+                        <TxErrorNotice error={txError} />
+                    ) : error ? (
+                        <p className="text-center text-[10px] font-medium text-red-500">{error}</p>
+                    ) : null}
                 </div>
             </DialogContent>
         </Dialog>

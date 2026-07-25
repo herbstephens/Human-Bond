@@ -6,12 +6,20 @@ import { formatUsdc, shortAddress } from "@/lib/vault/usdc";
 import { VAULT_RULES } from "@/lib/contracts/vault";
 import type { TxState } from "@/lib/hooks/useVaultActions";
 import { useEnsAvailability } from "@/lib/hooks/useEnsAvailability";
+import { toFullName } from "@/lib/ens/label";
+import { ENS_PARENT } from "@/lib/contracts/registrar";
+import { TxErrorNotice } from "@/app/components/TxErrorNotice";
+import type { FriendlyTxError } from "@/lib/worldcoin/txErrors";
 
 interface CreateVaultOnboardingProps {
     predictedAddress: `0x${string}` | null;
     partnerName: string;
     txState: TxState;
     error: string | null;
+    /** Rich, actionable version of a failed transaction (gas, rejection, …). Preferred over `error`. */
+    txError?: FriendlyTxError | null;
+    /** True once the create tx is submitted and we're waiting for the Safe to appear on-chain. */
+    isConfirming?: boolean;
     /** Optional ENS label — when present, the subname is claimed in the same batch. */
     onCreate: (ensLabel?: string) => void;
 }
@@ -30,9 +38,13 @@ export function CreateVaultOnboarding({
     partnerName,
     txState,
     error,
+    txError,
+    isConfirming = false,
     onCreate,
 }: CreateVaultOnboardingProps) {
     const isSending = txState === "sending";
+    // Either waiting for the World App signature (isSending) or for the Safe to be mined (isConfirming).
+    const busy = isSending || isConfirming;
 
     const [nameInput, setNameInput] = useState("");
     const availability = useEnsAvailability(nameInput);
@@ -122,10 +134,10 @@ export function CreateVaultOnboarding({
                             placeholder="franco-maria"
                             spellCheck={false}
                             autoCapitalize="none"
-                            disabled={isSending}
+                            disabled={busy}
                             className="flex-1 min-w-0 bg-transparent text-sm font-semibold text-gray-900 placeholder:text-gray-300 focus:outline-none"
                         />
-                        <span className="text-sm font-medium text-gray-400 shrink-0">.humanbond.eth</span>
+                        <span className="text-sm font-medium text-gray-400 shrink-0">.{ENS_PARENT}</span>
                         <span className="ml-2 shrink-0">
                             {availability.status === "checking" && <Loader2 size={16} className="text-gray-400 animate-spin" />}
                             {availability.status === "available" && <Check size={16} className="text-emerald-500" />}
@@ -138,7 +150,7 @@ export function CreateVaultOnboarding({
                         {availability.status === "invalid" && <span className="text-red-500">{availability.reason}</span>}
                         {availability.status === "taken" && <span className="text-red-500">That name is taken</span>}
                         {availability.status === "available" && (
-                            <span className="text-emerald-600">{availability.label}.humanbond.eth is available</span>
+                            <span className="text-emerald-600">{toFullName(availability.label!)} is available</span>
                         )}
                         {availability.status === "error" && (
                             <span className="text-amber-500">Couldn&apos;t check — you can still try</span>
@@ -164,13 +176,13 @@ export function CreateVaultOnboarding({
 
                 <button
                     onClick={handleCreate}
-                    disabled={isSending || blockedByName}
+                    disabled={busy || blockedByName}
                     className="w-full py-4 px-6 rounded-2xl text-sm font-bold text-white bg-gray-900 hover:bg-black transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-gray-200"
                 >
-                    {isSending ? (
+                    {busy ? (
                         <>
                             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            <span>Creating…</span>
+                            <span>{isConfirming ? "Confirming on the network…" : "Creating…"}</span>
                         </>
                     ) : (
                         <>
@@ -180,7 +192,18 @@ export function CreateVaultOnboarding({
                     )}
                 </button>
 
-                {error ? <p className="text-center text-[10px] font-medium text-red-500">{error}</p> : null}
+                {isConfirming ? (
+                    <p className="text-center text-[10px] font-medium text-gray-500 leading-relaxed px-2">
+                        Your wallet is being created on-chain — this takes a few seconds. It’ll open
+                        automatically when it’s ready; you don’t need to do anything.
+                    </p>
+                ) : null}
+
+                {txError ? (
+                    <TxErrorNotice error={txError} />
+                ) : error ? (
+                    <p className="text-center text-[10px] font-medium text-red-500">{error}</p>
+                ) : null}
             </div>
         </div>
     );

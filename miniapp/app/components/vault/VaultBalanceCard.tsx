@@ -26,6 +26,18 @@ interface VaultBalanceCardProps {
 
 export function VaultBalanceCard({ vault, partnerName, onSend }: VaultBalanceCardProps) {
     const [copied, setCopied] = useState(false);
+    const [copiedName, setCopiedName] = useState(false);
+
+    const handleCopyName = async () => {
+        if (!vault.ensLabel) return;
+        try {
+            await navigator.clipboard.writeText(toFullName(vault.ensLabel));
+            setCopiedName(true);
+            setTimeout(() => setCopiedName(false), 1600);
+        } catch {
+            // Clipboard can fail in private browsing / non-secure contexts.
+        }
+    };
 
     const freeRatio =
         vault.dailyFreeLimit > BigInt(0)
@@ -70,19 +82,27 @@ export function VaultBalanceCard({ vault, partnerName, onSend }: VaultBalanceCar
                 </div>
 
                 {vault.ensLabel ? (
-                    <div className="flex items-center gap-2 rounded-2xl bg-indigo-50 border border-indigo-100 px-4 py-3">
+                    <button
+                        type="button"
+                        onClick={handleCopyName}
+                        title={`Copy ${toFullName(vault.ensLabel)}`}
+                        className="w-full flex items-center gap-2 rounded-2xl bg-indigo-50 border border-indigo-100 px-4 py-3 hover:bg-indigo-100/70 transition-colors group text-left"
+                    >
                         <div className="w-8 h-8 rounded-xl bg-white border border-indigo-100 flex items-center justify-center shrink-0">
                             <AtSign size={15} className="text-indigo-500" />
                         </div>
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                             <p className="text-[10px] font-bold uppercase tracking-widest text-indigo-400">
-                                Your ENS name
+                                {copiedName ? "Copied!" : "Your ENS name"}
                             </p>
-                            <p className="text-sm font-bold text-indigo-900 truncate" title={toFullName(vault.ensLabel)}>
+                            <p className="text-sm font-bold text-indigo-900 truncate">
                                 {toFullName(vault.ensLabel)}
                             </p>
                         </div>
-                    </div>
+                        <span className="shrink-0 w-8 h-8 rounded-lg bg-white border border-indigo-100 flex items-center justify-center text-indigo-400 group-hover:text-indigo-600 transition-colors">
+                            {copiedName ? <Check size={15} className="text-indigo-600" /> : <Copy size={15} />}
+                        </span>
+                    </button>
                 ) : null}
 
                 <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-3xl p-5 border border-amber-100/50 shadow-sm relative overflow-hidden group">

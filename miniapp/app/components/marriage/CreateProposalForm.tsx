@@ -22,6 +22,8 @@ import { useWorldProfile, resolveToAddress, triggerDirectChat } from "@/lib/worl
 import { sendNotification } from "@/lib/hooks/useNotify";
 import { USE_MOCKS } from "@/lib/config";
 import { simulateTx } from "@/lib/mocks/mockTx";
+import { explainTxError, type FriendlyTxError } from "@/lib/worldcoin/txErrors";
+import { TxErrorNotice } from "@/app/components/TxErrorNotice";
 import dynamic from "next/dynamic";
 
 const PrenupModal = dynamic(() => import("./PrenupModal").then(m => m.PrenupModal), { ssr: false });
@@ -40,6 +42,7 @@ export function CreateProposalForm() {
 
   const [state, setState] = useState<ProposalState>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [txError, setTxError] = useState<FriendlyTxError | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [isWorldApp, setIsWorldApp] = useState(false);
   const [showPrenup, setShowPrenup] = useState(false);
@@ -135,6 +138,7 @@ export function CreateProposalForm() {
    */
   const handlePrenupConfirm = async () => {
     setShowPrenup(false);
+    setTxError(null);
 
     try {
       setState("verifying");
@@ -160,8 +164,9 @@ export function CreateProposalForm() {
       });
 
       if (verifyPayload.status === "error") {
-        const errPayload = verifyPayload as { error_code?: string };
-        throw new Error(`Verification error: ${errPayload.error_code || "cancelled"}`);
+        setTxError(explainTxError(verifyPayload));
+        setState("error");
+        return;
       }
 
       const merkleRoot = verifyPayload.merkle_root;
@@ -186,9 +191,9 @@ export function CreateProposalForm() {
       });
 
       if (txPayload.status === "error") {
-        const errPayload = txPayload as { error_code?: string; message?: string };
-        const errorMsg = errPayload.error_code || errPayload.message || "Unknown error";
-        throw new Error(`Transaction failed: ${errorMsg}`);
+        setTxError(explainTxError(txPayload));
+        setState("error");
+        return;
       }
 
       setState("success");
@@ -198,8 +203,7 @@ export function CreateProposalForm() {
     } catch (err: unknown) {
       console.error("Proposal error:", err);
       setState("error");
-      const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
-      setError(errorMsg);
+      setTxError(explainTxError(err));
     }
   };
 
@@ -345,6 +349,8 @@ export function CreateProposalForm() {
               </p>
             </div>
           )}
+
+          {txError && <TxErrorNotice error={txError} onRetry={handlePrenupConfirm} />}
         </div>
       </div>
 

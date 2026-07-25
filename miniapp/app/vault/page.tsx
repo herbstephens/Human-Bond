@@ -56,13 +56,44 @@ export default function VaultPage() {
         void refetchSpends();
     }, [refetchVault, refetchSpends]);
 
-    const { state, error, createVault, proposeSpend, approveSpend, cancelSpend, reset } = useVaultActions({
+    const { state, error, txError, createVault, proposeSpend, approveSpend, cancelSpend, reset } = useVaultActions({
         bondId,
         partnerA,
         partnerB,
         partner,
         onDone: handleDone,
     });
+
+    // After the create tx is submitted, the Safe still needs a few blocks to deploy before
+    // vaultOf(bondId) returns it. Poll until it appears so the view flips to the created wallet on
+    // its own — instead of looking frozen on the onboarding screen and needing an app restart.
+    const [awaitingCreation, setAwaitingCreation] = useState(false);
+    // Confirming only while we've submitted AND the Safe hasn't shown up yet — deriving it (rather
+    // than clearing the flag in an effect) keeps the success path free of setState-in-effect.
+    const isConfirming = awaitingCreation && !!vault && !vault.isCreated;
+
+    const handleCreateVault = useCallback(
+        async (ensLabel?: string) => {
+            const ok = await createVault(ensLabel);
+            if (ok && !USE_MOCKS) setAwaitingCreation(true);
+        },
+        [createVault],
+    );
+
+    useEffect(() => {
+        if (!isConfirming) return;
+        let attempts = 0;
+        const id = setInterval(() => {
+            attempts += 1;
+            void refetchVault();
+            // Give up after ~2 min so a dropped tx never leaves the form stuck confirming.
+            if (attempts >= 40) {
+                clearInterval(id);
+                setAwaitingCreation(false);
+            }
+        }, 3000);
+        return () => clearInterval(id);
+    }, [isConfirming, refetchVault]);
 
     const { pending, history, awaitingYou } = useMemo(() => {
         const pendingList = spends.filter((s) => !s.executed && !s.cancelled);
@@ -112,7 +143,9 @@ export default function VaultPage() {
                         partnerName={partnerName}
                         txState={state}
                         error={error}
-                        onCreate={createVault}
+                        txError={txError}
+                        isConfirming={isConfirming}
+                        onCreate={handleCreateVault}
                     />
                 ) : null}
 
@@ -144,6 +177,7 @@ export default function VaultPage() {
                             partnerName={partnerName}
                             txState={state}
                             error={error}
+                            txError={txError}
                             onSend={proposeSpend}
                             onReset={reset}
                         />

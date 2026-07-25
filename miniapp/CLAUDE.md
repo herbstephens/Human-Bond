@@ -37,6 +37,16 @@ Addresses in `lib/contracts/index.ts`, vault layer in `lib/contracts/vault.ts`, 
 
 World App config: App ID `app_bfc3261816aeadc589f9c6f80a98f5df` (production), actions: `propose-bond`, `accept-bond`.
 
+### Environment switching (production ⇄ test)
+
+The addresses/app_id/ENS parent above are the **production defaults, hardcoded** in
+`lib/contracts/index.ts`, `vault.ts`, `registrar.ts`. Every one is overridable by a `NEXT_PUBLIC_*`
+env var (see the `?? '0x…'` fallbacks). The **TEST** environment (app `HumanBondMultisig`
+`app_925d0aaa…`, ENS `humandbond.eth`, separate contract set deployed 2026-07-25) is selected by
+the block in `.env.local` — which is gitignored, so the test config never travels with the code.
+Comment that block out to run against production. TEST contract addresses live in
+`../worldid-humanbond-protocol/DEPLOYMENT-test.md`.
+
 **Developer Portal whitelist** (blocking — txs fail with `invalid_contract` without it):
 HumanBond proxy, BondVaultModule, HumanBondRegistrar, and SafeProxyFactory
 `0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67` as contract entrypoints; USDC
