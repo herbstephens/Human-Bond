@@ -64,7 +64,6 @@ export function TestAgentCreateClient() {
 
       setState('verifying');
       log('Requesting World ID verification through MiniKit');
-      console.info('[minikit] installed app id', MiniKit.appId);
       const { finalPayload } = await MiniKit.commandsAsync.verify({
         action: start.action,
         signal: solidityEncode(
@@ -78,7 +77,7 @@ export function TestAgentCreateClient() {
       }
 
       setState('registering');
-      log('Proof received; submitting HumanBond AgentBook registration');
+      log('Proof received; submitting AgentKit registration');
       const completed = await responseJson<CompleteResult>(
         await fetch('/api/agent/activate/complete', {
           method: 'POST',
@@ -114,7 +113,7 @@ export function TestAgentCreateClient() {
         </p>
         <h1 className="mt-3 font-serif text-4xl italic">Activate a human-backed agent</h1>
         <p className="mt-4 text-sm leading-6 text-[#b9ad9b]">
-          This runs the real 0G KV, World ID, and HumanBond AgentBook flow.
+          This runs the real 0G KV, World ID, AgentKit relay, and AgentBook flow.
           Every click creates a new agent wallet.
         </p>
 

@@ -1,20 +1,21 @@
 import { NextResponse } from 'next/server';
-import { createPublicClient, createWalletClient, http } from 'viem';
+import { createPublicClient, http } from 'viem';
 import { worldchain } from 'viem/chains';
 import {
   getStoredAgentKey,
   markAgentRegistered,
 } from '@/lib/agents/agentKeyVault.server';
 import {
+  AGENTKIT_AGENT_BOOK,
   AGENTKIT_AGENT_BOOK_ABI,
+  AGENTKIT_APP_ID,
   AGENTKIT_REGISTER_SIGNATURE,
+  AGENTKIT_ACTION,
+  AGENTKIT_RELAY_URL,
+  decodeKnownAgentBookError,
   normalizeWorldIdProof,
 } from '@/lib/agents/agentkitRegistration';
-import {
-  agentRegistrarAccount,
-  assertHumanBondAgentBookDeployed,
-  humanBondAgentBookAddress,
-} from '@/lib/agents/humanBondAgentBook.server';
+import { WORLD_APP_CONFIG } from '@/lib/contracts';
 
 type CompleteActivationBody = {
   agentAddress: `0x${string}`;
@@ -23,23 +24,6 @@ type CompleteActivationBody = {
   nullifierHash: string;
   proof: string;
 };
-
-type WorldIdProofTuple = [
-  bigint,
-  bigint,
-  bigint,
-  bigint,
-  bigint,
-  bigint,
-  bigint,
-  bigint,
-];
-
-function worldIdProofValues(rawProof: string): WorldIdProofTuple {
-  const proof = normalizeWorldIdProof(rawProof);
-  if (proof.length !== 8) throw new Error('World ID proof must contain exactly eight field elements');
-  return proof.map((word) => BigInt(word)) as unknown as WorldIdProofTuple;
-}
 
 export async function POST(request: Request) {
   // Surfacing, not swallowing: this runs on a phone with no terminal attached,
@@ -57,8 +41,6 @@ export async function POST(request: Request) {
 
 async function activate(request: Request) {
   const body = (await request.json()) as CompleteActivationBody;
-  const agentBookAddress = humanBondAgentBookAddress();
-  const registrar = agentRegistrarAccount();
   if (!/^0x[0-9a-fA-F]{40}$/.test(body.agentAddress)) {
     throw new Error('Agent activation returned an invalid agent address');
   }
@@ -79,9 +61,17 @@ async function activate(request: Request) {
   }
 
   // Verbose by design: this route is where the open question gets answered —
-  // whether a HumanBond-scoped AgentBook accepts the MiniKit proof minted under
-  // our app_id. The transaction receipt is the evidence.
-  const proof = worldIdProofValues(body.proof);
+  // whether AgentBook accepts a proof minted under our app_id (MiniKit path) or
+  // only under AgentKit's (bridge path). The relay's reply is the evidence.
+  const proof = normalizeWorldIdProof(body.proof);
+  const relayPayload = {
+    agent: body.agentAddress,
+    root: body.merkleRoot,
+    nonce: body.nonce,
+    nullifierHash: body.nullifierHash,
+    proof,
+    contract: AGENTKIT_AGENT_BOOK,
+  };
 
   console.info('[agentkit] registering', {
     agent: body.agentAddress,
@@ -89,8 +79,14 @@ async function activate(request: Request) {
     nullifierHash: body.nullifierHash,
   });
   console.info('[agentkit] registration contract call', {
-    contract: agentBookAddress,
-    registrar: registrar.address,
+    appIds: {
+      humanBondMiniKitAppId: WORLD_APP_CONFIG.APP_ID,
+      nextPublicWorldAppId: process.env.NEXT_PUBLIC_WORLD_APP_ID ?? null,
+      defaultHumanBondAppId: 'app_bfc3261816aeadc589f9c6f80a98f5df',
+      agentKitAppId: AGENTKIT_APP_ID,
+      action: AGENTKIT_ACTION,
+    },
+    contract: AGENTKIT_AGENT_BOOK,
     function: AGENTKIT_REGISTER_SIGNATURE,
     args: {
       agent: body.agentAddress,
@@ -105,37 +101,41 @@ async function activate(request: Request) {
     },
   });
 
+  const relayResponse = await fetch(`${AGENTKIT_RELAY_URL}/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(relayPayload),
+  });
+  if (!relayResponse.ok) {
+    const detail = await relayResponse.text();
+    const decodedError = decodeKnownAgentBookError(detail);
+    console.error('[agentkit] relay rejected', {
+      status: relayResponse.status,
+      decodedError,
+      contract: AGENTKIT_AGENT_BOOK,
+      function: AGENTKIT_REGISTER_SIGNATURE,
+      abi: AGENTKIT_AGENT_BOOK_ABI,
+      detail,
+    });
+    throw new Error(
+      `AgentKit registration relay ${relayResponse.status}${decodedError ? ` (${decodedError})` : ''}: ${detail}`,
+    );
+  }
+  console.info('[agentkit] relay accepted the proof');
+
+  const result = (await relayResponse.json()) as { txHash?: `0x${string}` };
+  if (!result.txHash) throw new Error('AgentKit registration relay returned no transaction hash');
+
   const client = createPublicClient({
     chain: worldchain,
     transport: http(process.env.WORLDCHAIN_RPC_URL),
   });
-  await assertHumanBondAgentBookDeployed(client, agentBookAddress);
-  const walletClient = createWalletClient({
-    account: registrar,
-    chain: worldchain,
-    transport: http(process.env.WORLDCHAIN_RPC_URL),
-  });
-
-  const txHash = await walletClient.writeContract({
-    address: agentBookAddress,
-    abi: AGENTKIT_AGENT_BOOK_ABI,
-    functionName: 'register',
-    args: [
-      body.agentAddress,
-      BigInt(body.merkleRoot),
-      BigInt(body.nonce),
-      BigInt(body.nullifierHash),
-      proof,
-    ],
-  });
-  console.info('[agentkit] HumanBond AgentBook transaction submitted', { txHash });
-
-  const receipt = await client.waitForTransactionReceipt({ hash: txHash });
+  const receipt = await client.waitForTransactionReceipt({ hash: result.txHash });
   if (receipt.status !== 'success') {
-    throw new Error(`HumanBond AgentBook registration transaction ${txHash} reverted`);
+    throw new Error(`AgentKit registration transaction ${result.txHash} reverted`);
   }
   const humanId = await client.readContract({
-    address: agentBookAddress,
+    address: AGENTKIT_AGENT_BOOK,
     abi: AGENTKIT_AGENT_BOOK_ABI,
     functionName: 'lookupHuman',
     args: [body.agentAddress],
@@ -144,11 +144,11 @@ async function activate(request: Request) {
     throw new Error(`AgentBook did not link ${body.agentAddress} to a verified human`);
   }
 
-  await markAgentRegistered(stored, txHash);
+  await markAgentRegistered(stored, result.txHash);
 
   return NextResponse.json({
     agentAddress: body.agentAddress,
-    txHash,
+    txHash: result.txHash,
     registered: true,
     humanBacked: true,
   });

@@ -210,7 +210,6 @@ export default function AgentCreatePage() {
       }
 
       setActivationState('waiting-for-world-id');
-      console.info('[minikit] installed app id', MiniKit.appId);
       const { finalPayload } = await MiniKit.commandsAsync.verify({
         action: start.action,
         signal: solidityEncode(
@@ -237,7 +236,7 @@ export default function AgentCreatePage() {
       });
       const completed = (await completeResponse.json()) as { registered?: boolean; error?: string };
       if (!completeResponse.ok || !completed.registered) {
-        throw new Error(completed.error ?? `HumanBond AgentBook registration failed (${completeResponse.status})`);
+        throw new Error(completed.error ?? `AgentKit registration failed (${completeResponse.status})`);
       }
       setActivationState('complete');
       completeInterview();
