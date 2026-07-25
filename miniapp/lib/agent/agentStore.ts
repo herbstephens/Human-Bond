@@ -282,6 +282,8 @@ type AgentState = {
   renegotiate: (paymentId: string) => void;
   confirmOnHito: (paymentId: string) => void;
   say: (text: string) => void;
+  /** Free text to the REAL agent: model reply + live routing (personal vs shared). */
+  chatLive: (userText: string) => void;
   addFact: (text: string) => void;
   removeFact: (id: string) => void;
   addHeir: (name: string, sharePct: number) => void;
@@ -638,6 +640,64 @@ export const useAgentStore = create<AgentState>()(
 
         say: (text) =>
           set((s) => ({ messages: [...s.messages, { id: mid(), role: 'user', kind: 'text', text }] })),
+
+        chatLive: (userText) => {
+          const s = get();
+          s.say(userText);
+          // Model latency IS the thinking moment — indicator on while it works.
+          set({ typingIndicator: true, agentBusy: true });
+          const lab = (qid: string) => {
+            const a = s.answers[qid];
+            if (!a) return '—';
+            const q = INTERVIEW_QUESTIONS.find((x) => x.id === qid);
+            return a.id ? q?.options.find((o) => o.id === a.id)?.label ?? a.text : a.text;
+          };
+          fetch('/api/agent/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              profile: {
+                name: s.answers.name?.text?.replace(/^just call me /i, '') || 'Ben',
+                income: lab('income'), budget: lab('budget'), threshold: lab('threshold'),
+                stress: lab('stress'), fear: lab('fear'),
+              },
+              facts: s.customFacts.map((f) => f.text),
+              vaultBalance: s.vaultBalances.alice ?? 0,
+              history: s.messages
+                .filter((m): m is Extract<ChatMessage, { kind: 'text' }> => m.kind === 'text')
+                .slice(-10)
+                .map((m) => ({ role: m.role === 'user' ? ('user' as const) : ('assistant' as const), text: m.text })),
+              userText,
+            }),
+          })
+            .then(async (res) => {
+              const j = await res.json();
+              if (!res.ok) throw new Error(j.error ?? `chat API ${res.status}`);
+              set({ typingIndicator: false });
+              get()._enqueue([{ type: 'text', text: j.say }]);
+              const a = j.action;
+              if (a?.type === 'propose_shared' && typeof a.amountUsdc === 'number') {
+                const st = get();
+                if (!st.pullGranted) {
+                  set(() => ({
+                    pendingReceipt: { vendor: a.label ?? 'Shared purchase', amountUsdc: a.amountUsdc, recipientEns: a.recipientEns ?? 'merchant.eth' },
+                  }));
+                  st._enqueue([
+                    {
+                      type: 'text',
+                      text: 'Before I can settle this: our shared account holds no balance yet. Grant the bond pull access to your wallet — like a card on file.',
+                    },
+                  ]);
+                } else {
+                  st.proposeShared(a.label ?? 'Shared purchase', a.recipientEns ?? 'merchant.eth', a.amountUsdc, a.detail ?? undefined);
+                }
+              }
+            })
+            .catch((e: Error) => {
+              set({ typingIndicator: false, agentBusy: false });
+              get()._enqueue([{ type: 'text', text: `Something broke on my side: ${e.message}` }]);
+            });
+        },
 
         addFact: (text) =>
           set((s) => ({ customFacts: [...s.customFacts, { id: mid(), text, source: 'You' }] })),

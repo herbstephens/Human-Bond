@@ -244,6 +244,7 @@ export default function AgentChatPage() {
     renegotiate,
     confirmOnHito,
     say,
+    chatLive,
     resetAgent,
     typingIndicator,
     agentBusy,
@@ -333,10 +334,8 @@ export default function AgentChatPage() {
       requestPay(text);
       return;
     }
-    say(text);
-    _enqueue([
-      { type: 'text', text: 'Noted — I’ll factor that in. If it should become a shared rule, I’ll take it to the trustee.' },
-    ]);
+    // Everything else goes to the REAL agent — live model reply + routing.
+    chatLive(text);
   };
 
   return (
