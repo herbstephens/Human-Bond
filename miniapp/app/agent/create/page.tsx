@@ -50,7 +50,7 @@ function TypingText({ text }: { text: string }) {
 
 export default function AgentCreatePage() {
   const router = useRouter();
-  const { answers, askedIds, importedSources, agentReady, answer, connectSources, completeInterview } =
+  const { answers, askedIds, importedSources, agentReady, answer, connectSources, completeInterview, resetAgent } =
     useAgentStore();
   const [draft, setDraft] = useState('');
   const [listening, setListening] = useState(false);
@@ -118,6 +118,16 @@ export default function AgentCreatePage() {
             It works for you. Only you.
           </p>
         </div>
+        <button
+          onClick={() => {
+            resetAgent();
+            setImportState('pick');
+            setDraft('');
+          }}
+          className="text-[9px] font-black text-gray-300 hover:text-gray-500 uppercase tracking-widest transition-colors"
+        >
+          Reset
+        </button>
         {/* Progress dots — imported answers count as filled */}
         <div className="flex gap-1">
           {INTERVIEW_QUESTIONS.map((q) => (
