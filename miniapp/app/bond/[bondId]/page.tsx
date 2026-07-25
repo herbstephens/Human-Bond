@@ -79,9 +79,11 @@ export default function BondProfilePage() {
     return () => clearTimeout(t);
   }, [agentReady, isInheritance, balance]);
 
+  // Scroll only within reach of the chat — never yank the page to the bottom.
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [msgs, yieldState]);
+    if (msgs.length === 0) return;
+    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [msgs, yieldState, busy]);
 
   if (!agentReady) return null;
 
@@ -265,6 +267,8 @@ export default function BondProfilePage() {
                 <ArrowUp size={14} />
               </button>
             </div>
+            {/* chat scroll anchor — lives INSIDE the room */}
+            <div ref={endRef} />
           </div>
         </section>
 
@@ -360,7 +364,6 @@ export default function BondProfilePage() {
           </div>
         </section>
 
-        <div ref={endRef} />
       </main>
     </div>
   );
