@@ -15,6 +15,7 @@ import { AlertTriangle, ArrowLeft, ArrowUp, Bell, Check, Landmark, MessageCircle
 import { AliveCta } from '@/app/components/agent/AliveCta';
 import { useAgentStore, type Heir } from '@/lib/agent/agentStore';
 import { USE_MOCKS } from '@/lib/config';
+import { useLiveBondSync } from '@/lib/agent/useLiveBondSync';
 
 // --- tiny self-contained chat for the trustee room ------------------------
 
@@ -42,6 +43,9 @@ type LiveAction = { kind: 'divest' | 'invest'; amount: number; apr: number; stag
 
 export default function BondProfilePage() {
   const router = useRouter();
+  // Live mode: mirror the real bond (partner, ENS, on-chain USDC balance) into
+  // the store — this page then renders chain truth, starting at zero.
+  useLiveBondSync();
   const params = useParams<{ bondId: string }>();
   const {
     agentReady, answers, payments, heirs, addHeir, requestRemoveHeir,
@@ -91,15 +95,17 @@ export default function BondProfilePage() {
         {
           id: rid++,
           who: 'trustee',
-          text: alreadyInvested
-            ? `All quiet. The ${invested!.amount.toFixed(0)} your agents placed are earning at ${invested!.apr}% — projection on track, buffer untouched. I’ll report at month’s end.`
-            : 'Your agents and I settled on one package this morning — matched to both profiles, market-checked. It’s on its way to both of you now.',
+          text: !USE_MOCKS
+            ? `This vault is live on Worldchain — ${balance.toFixed(2)} USDC in it right now. Send USDC to your bond address and it shows up here; ask me for a live market quote anytime.`
+            : alreadyInvested
+              ? `All quiet. The ${invested!.amount.toFixed(0)} your agents placed are earning at ${invested!.apr}% — projection on track, buffer untouched. I’ll report at month’s end.`
+              : 'Your agents and I settled on one package this morning — matched to both profiles, market-checked. It’s on its way to both of you now.',
           typed: true,
         },
       ]);
       setBusy(false);
     }, 700);
-    const t2 = alreadyInvested ? undefined : setTimeout(() => setYieldState('proposed'), 2600);
+    const t2 = USE_MOCKS && !alreadyInvested ? setTimeout(() => setYieldState('proposed'), 2600) : undefined;
     return () => {
       // StrictMode runs effects twice — release the guard so the re-run reschedules.
       greeted.current = false;
@@ -152,6 +158,12 @@ export default function BondProfilePage() {
   const runTrusteeAction = (a: unknown) => {
     const act = a as { type?: string; amountUsdc?: number; aprPct?: number } | null;
     if (!act || (act.type !== 'divest' && act.type !== 'invest')) return;
+    if (!USE_MOCKS) {
+      // No on-chain yield rail yet: live mode quotes and reports, execution
+      // from the Safe is Mischa's wiring — never fake a live investment.
+      pushTrustee('On-chain execution from the Safe is still being wired — until it lands I quote and report only. Ask me for a live Uniswap quote.');
+      return;
+    }
     if (typeof act.amountUsdc !== 'number' || act.amountUsdc <= 0) return;
     const st = useAgentStore.getState();
     const inv = st.investments[bond.id];
@@ -268,6 +280,7 @@ export default function BondProfilePage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        live: !USE_MOCKS,
         humanName: answers.name?.text?.replace(/^just call me /i, '') || 'Ben',
         partner: bond.partner,
         bondType: bond.type,
@@ -342,12 +355,6 @@ export default function BondProfilePage() {
     <div className="min-h-screen bg-[#E8E8E8] flex flex-col">
       {/* Header */}
       <header className="px-6 pt-4 pb-4 flex items-center gap-4">
-        <Link
-          href="/profile"
-          className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-600 shadow-sm transition-colors"
-        >
-          <ArrowLeft size={16} />
-        </Link>
         <div className="flex-1">
           <h1 className="text-lg font-black text-gray-900 tracking-tight">You &amp; {bond.partner}</h1>
           <p className="text-[9px] font-bold uppercase tracking-[0.25em]">

@@ -15,6 +15,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUp, Check, ScanLine } from 'lucide-react';
 import { useAgentStore, type ChoreoStage, type Payment } from '@/lib/agent/agentStore';
+import { USE_MOCKS } from '@/lib/config';
 import { AliveCta } from '@/app/components/agent/AliveCta';
 import { SelfieCheckOverlay } from '@/app/components/agent/SelfieCheck';
 
@@ -483,8 +484,10 @@ export default function AgentChatPage() {
               </AliveCta>
             </div>
           ) : null}
-          {/* Openers only at the very START of the conversation and while idle */}
-          {!openersUsed &&
+          {/* Openers only at the very START of the conversation and while idle —
+              and only in the mock playground: they trigger scripted choreographies. */}
+          {USE_MOCKS &&
+            !openersUsed &&
             !messages.some((m) => m.kind !== 'text' || m.role === 'user') &&
             !agentBusy && !typingIndicator && !executing && !openProposal && !offerGrant && !offerPay && !pendingReceipt && (
           <div className="flex flex-wrap gap-2 justify-end">
@@ -515,13 +518,15 @@ export default function AgentChatPage() {
           </div>
           )}
           <div className="bg-white rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.08)] border border-gray-100 pl-2 pr-2 py-2 flex items-center gap-3">
-            <button
-              onClick={scanBill}
-              className="w-11 h-11 bg-black rounded-full flex items-center justify-center text-white hover:bg-gray-900 transition-all active:scale-90 shrink-0"
-              title="Scan a bill"
-            >
-              <ScanLine size={18} />
-            </button>
+            {USE_MOCKS && (
+              <button
+                onClick={scanBill}
+                className="w-11 h-11 bg-black rounded-full flex items-center justify-center text-white hover:bg-gray-900 transition-all active:scale-90 shrink-0"
+                title="Scan a bill"
+              >
+                <ScanLine size={18} />
+              </button>
+            )}
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}

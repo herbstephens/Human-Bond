@@ -9,12 +9,15 @@
  * Same router env as the personal-agent chat (ZG_ROUTER_CHAT_* overrides).
  */
 import { NextResponse } from 'next/server';
+import { getSwapQuote } from '@/lib/agents/uniswap';
 
 const BASE_URL =
   process.env.ZG_ROUTER_CHAT_BASE_URL ?? process.env.ZG_ROUTER_BASE_URL ?? 'https://router-api.0g.ai/v1';
 const MODEL = process.env.ZG_ROUTER_CHAT_MODEL ?? process.env.ZG_ROUTER_MODEL ?? 'zai-org/GLM-5-FP8';
 
 type TrusteeBody = {
+  /** Live deployment: quotes are real, invest/divest execution not wired yet. */
+  live?: boolean;
   humanName: string;
   partner: string;
   bondType: string;
@@ -46,11 +49,18 @@ HOW MONEY MOVES (hard protocol — never claim otherwise):
 
 REPLY WITH EXACTLY ONE JSON OBJECT, nothing else:
 {"say": "<your reply to ${b.humanName}, 1–3 short sentences>", "action": null}
-OR, when ${b.humanName} asks to take money OUT of the invested package (back to liquid):
+${
+  b.live
+    ? `OR, when ${b.humanName} asks about swapping, investing, putting money to work, or the market:
+{"say": "<confirm you're pulling the live market numbers>", "action": {"type": "swap_quote", "amountUsdc": <positive number, at most ${liquid.toFixed(2)} — if nothing is liquid, use 1 as an indicative size>}}
+This vault is LIVE on Worldchain: quotes come from the real Uniswap Trade API. On-chain execution from the Safe is still being wired — never claim you executed; offer the quote and say execution follows once both humans release.`
+    : `OR, when ${b.humanName} asks to take money OUT of the invested package (back to liquid):
 {"say": "<confirm: you'll take it to both agents now; the two of them release on hito as the last word>", "action": {"type": "divest", "amountUsdc": <number, at most ${b.investedUsdc.toFixed(2)}>}}
 OR, when ${b.humanName} asks to put liquid money to work:
 {"say": "<confirm the same protocol>", "action": {"type": "invest", "amountUsdc": <number, at most ${liquid.toFixed(2)}>, "aprPct": 4.1}}
-"Take it all out" or no amount given on a divest → the full invested amount. Never exceed the limits above; if a request exceeds them, say so and return action null. Questions, reports, rules, feelings → action null. Never state balances other than the ones above.`;
+"Take it all out" or no amount given on a divest → the full invested amount.`
+}
+Never exceed the limits above; if a request exceeds them, say so and return action null. Questions, reports, rules, feelings → action null. Never state balances other than the ones above.`;
 }
 
 export async function POST(req: Request) {
@@ -88,7 +98,26 @@ export async function POST(req: Request) {
     } catch {
       parsed = null;
     }
-    if (parsed?.say?.trim()) return NextResponse.json({ say: parsed.say, action: parsed.action ?? null });
+    if (parsed?.say?.trim()) {
+      const act = parsed.action as { type?: string; amountUsdc?: number } | null;
+      // swap_quote resolves SERVER-side against the real Uniswap Trade API —
+      // the client only ever sees the answered quote.
+      if (act?.type === 'swap_quote' && typeof act.amountUsdc === 'number' && act.amountUsdc > 0) {
+        const q = await getSwapQuote({
+          tokenIn: '0x79A02482A880bCE3F13e09Da970dC34db4CD24d1', // USDC.e (World Chain)
+          tokenOut: '0x2cFc85d8E48F8EAB294be644d9E25C3030863003', // WLD
+          amountIn: String(Math.round(act.amountUsdc * 1e6)),
+          chainId: 480,
+          swapper: '0xE9728a2E9516320a8eb349D54A4Fd47e5DB68155',
+        });
+        const wld = (q.amountOut / 1e18).toFixed(3);
+        return NextResponse.json({
+          say: `${parsed.say} Live quote: ${act.amountUsdc.toFixed(2)} USDC → ${wld} WLD (Uniswap Trade API, World Chain). Execution follows once both of you release.`,
+          action: null,
+        });
+      }
+      return NextResponse.json({ say: parsed.say, action: parsed.action ?? null });
+    }
   }
   return NextResponse.json({ say: content, action: null });
 }
