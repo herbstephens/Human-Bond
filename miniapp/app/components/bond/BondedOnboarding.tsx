@@ -74,10 +74,9 @@ export function BondedOnboarding({ partnerAddress }: { partnerAddress: string | 
               <p className="text-[9px] font-mono font-bold text-gray-400 mt-0.5">.humanbond.eth</p>
             </>
           ) : (
-            <>
-              <p className="text-lg font-mono font-black text-gray-300 tracking-widest">· · ·</p>
-              <p className="text-[9px] font-bold text-gray-400 mt-0.5 uppercase tracking-widest">needs a name</p>
-            </>
+            <p className="text-xl font-black text-gray-900 tracking-tighter leading-tight">
+              You are<br />bonded.
+            </p>
           )}
         </div>
         {/* The agent-to-be already lives inside the bond */}
@@ -87,23 +86,24 @@ export function BondedOnboarding({ partnerAddress }: { partnerAddress: string | 
         />
       </div>
 
-      {/* Headline + subtitle — one message, said once */}
-      <div className={`space-y-2 transition-all duration-700 ${phase >= 2 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-        <h1 className="text-5xl font-black text-gray-900 tracking-tighter leading-[0.95]">
-          You are<br />bonded.
-        </h1>
-        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.2em]">
-          Your shared address — live on Worldchain
-        </p>
-      </div>
+      {/* Headline appears below only once the ring carries the name */}
+      {named && (
+        <div className={`space-y-2 transition-all duration-700 ${phase >= 2 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+          <h1 className="text-5xl font-black text-gray-900 tracking-tighter leading-[0.95]">
+            You are<br />bonded.
+          </h1>
+          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.2em]">
+            Your shared address — live on Worldchain
+          </p>
+        </div>
+      )}
 
       {/* ONE next step at a time: first the bond gets its address, then the agent */}
       <div className={`mt-8 w-full max-w-sm flex flex-col items-center gap-4 transition-all duration-700 ${phase >= 3 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
         {!named ? (
           <>
-            <p className="text-sm text-gray-600 font-medium leading-relaxed max-w-[320px]">
-              <span className="font-black text-gray-900">Your bond is live — now it needs an address.</span>{' '}
-              The name you two go by: where money arrives, where your agents live.
+            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-[0.2em]">
+              Your shared address — live on Worldchain
             </p>
             <div className="w-full bg-white rounded-2xl border border-gray-200 shadow-sm px-4 py-3 flex items-baseline gap-1">
               <input
@@ -115,6 +115,9 @@ export function BondedOnboarding({ partnerAddress }: { partnerAddress: string | 
               />
               <span className="text-[11px] font-mono font-bold text-gray-400 shrink-0">.humanbond.eth</span>
             </div>
+            <p className="text-sm text-gray-600 font-medium leading-relaxed max-w-[320px]">
+              The name you two go by — where money arrives, where your agents live.
+            </p>
             <AliveCta onClick={claimName} className="w-full px-8 py-5 rounded-[1.75rem] text-sm tracking-[0.2em]">
               Claim your bond address
             </AliveCta>
