@@ -447,6 +447,19 @@ export default function ProfilePage() {
             The platform can’t read any of this — and if you ever leave, it leaves with you.
           </p>
         </section>
+
+        {/* Dev-only entry to the AgentKit test routes. It lives here too because
+            the route guard sends anyone at the dashboard stage away from /home,
+            where Misha's original link sits — inside World App there is no URL
+            bar to reach /test with. */}
+        {process.env.NODE_ENV !== 'production' && (
+          <Link
+            href="/test"
+            className="block pb-2 text-center font-mono text-[9px] uppercase tracking-[0.16em] text-gray-400 transition-colors hover:text-black"
+          >
+            test · agentkit
+          </Link>
+        )}
       </main>
 
       {/* The one big action — back into the conversation */}

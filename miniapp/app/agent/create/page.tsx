@@ -13,6 +13,12 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowUp, Check, Mic } from 'lucide-react';
 import {
+  createWorldBridgeStore,
+  VerificationLevel,
+  VerificationState,
+} from '@worldcoin/idkit-core';
+import { solidityEncode } from '@worldcoin/idkit-core/hashing';
+import {
   IMPORT_SOURCES,
   INTERVIEW_QUESTIONS,
   useAgentStore,
@@ -31,6 +37,13 @@ const VOICE_SAMPLES: Record<string, string> = {
 
 /** Animate-once registry — the import summary must not retype on remounts. */
 const typedOnce = new Set<string>();
+
+type AgentActivationState =
+  | 'idle'
+  | 'creating-key'
+  | 'waiting-for-world-id'
+  | 'registering'
+  | 'complete';
 
 /** Types text live, with a caret while writing. Animates once per id. */
 function TypingText({ id, text }: { id: string; text: string }) {
@@ -69,6 +82,8 @@ export default function AgentCreatePage() {
   const [askError, setAskError] = useState<string | null>(null);
   const [summaryLines, setSummaryLines] = useState<string[] | null>(null);
   const [summaryError, setSummaryError] = useState<string | null>(null);
+  const [activationState, setActivationState] = useState<AgentActivationState>('idle');
+  const [activationError, setActivationError] = useState<string | null>(null);
   const fetchingFor = useRef<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
@@ -178,6 +193,84 @@ export default function AgentCreatePage() {
       setDraft(VOICE_SAMPLES[current.id] ?? '');
       setListening(false);
     }, 1600);
+  };
+
+  const activateAgent = async () => {
+    setActivationState('creating-key');
+    setActivationError(null);
+
+    try {
+      const startResponse = await fetch('/api/agent/activate/start', { method: 'POST' });
+      const start = (await startResponse.json()) as {
+        agentAddress?: `0x${string}`;
+        nonce?: string;
+        appId?: `app_${string}`;
+        action?: string;
+        error?: string;
+      };
+      if (!startResponse.ok) throw new Error(start.error ?? `Agent activation start failed (${startResponse.status})`);
+      if (!start.agentAddress || start.nonce === undefined || !start.appId || !start.action) {
+        throw new Error('Agent activation start returned incomplete registration data');
+      }
+
+      const worldId = createWorldBridgeStore();
+      await worldId.getState().createClient({
+        app_id: start.appId,
+        action: start.action,
+        signal: solidityEncode(
+          ['address', 'uint256'],
+          [start.agentAddress, BigInt(start.nonce)],
+        ),
+        verification_level: VerificationLevel.Orb,
+      });
+      const connectorUri = worldId.getState().connectorURI;
+      if (!connectorUri) throw new Error('AgentKit returned no World ID verification link');
+      window.open(connectorUri, '_blank');
+      setActivationState('waiting-for-world-id');
+
+      const deadline = Date.now() + 5 * 60 * 1000;
+      while (Date.now() < deadline) {
+        await worldId.getState().pollForUpdates();
+        const current = worldId.getState();
+        if (current.verificationState === VerificationState.Failed) {
+          throw new Error(`World ID verification failed: ${current.errorCode ?? 'unknown error'}`);
+        }
+        if (current.result) {
+          setActivationState('registering');
+          const completeResponse = await fetch('/api/agent/activate/complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              agentAddress: start.agentAddress,
+              nonce: start.nonce,
+              merkleRoot: current.result.merkle_root,
+              nullifierHash: current.result.nullifier_hash,
+              proof: current.result.proof,
+            }),
+          });
+          const completed = (await completeResponse.json()) as { registered?: boolean; error?: string };
+          if (!completeResponse.ok || !completed.registered) {
+            throw new Error(completed.error ?? `AgentKit registration failed (${completeResponse.status})`);
+          }
+          setActivationState('complete');
+          completeInterview();
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1_000));
+      }
+      throw new Error('World ID verification timed out after five minutes');
+    } catch (error) {
+      setActivationState('idle');
+      setActivationError(error instanceof Error ? error.message : 'Agent activation failed');
+    }
+  };
+
+  const activationLabel: Record<AgentActivationState, string> = {
+    idle: 'That’s me — activate my agent',
+    'creating-key': 'Creating your agent…',
+    'waiting-for-world-id': 'Verify in World App…',
+    registering: 'Registering your agent…',
+    complete: 'Agent activated',
   };
 
   return (
@@ -402,12 +495,17 @@ export default function AgentCreatePage() {
               </div>
             )}
             <button
-              onClick={completeInterview}
-              disabled={!summaryLines}
+              onClick={activateAgent}
+              disabled={!summaryLines || activationState !== 'idle'}
               className="relative z-10 w-full bg-white text-black px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-[0.2em] hover:bg-gray-100 transition-all active:scale-95 disabled:bg-white/20 disabled:text-white/40"
             >
-              That’s me — activate my agent
+              {activationLabel[activationState]}
             </button>
+            {activationError ? (
+              <p className="relative z-10 text-[11px] text-red-400 font-bold text-center break-words">
+                {activationError}
+              </p>
+            ) : null}
             <p className="relative z-10 text-[10px] text-gray-500 font-medium text-center">
               Connect bank account — later. You can refine all of this anytime.
             </p>

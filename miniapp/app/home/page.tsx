@@ -514,6 +514,15 @@ export default function HomePage() {
         )}
       </main>
 
+      {process.env.NODE_ENV !== "production" && (
+        <Link
+          href="/test"
+          className="relative z-10 pb-4 text-center font-mono text-[9px] uppercase tracking-[0.16em] text-gray-400 transition-colors hover:text-black"
+        >
+          test
+        </Link>
+      )}
+
       {/* Cancel Proposal Confirm Modal */}
       {showCancelProposalConfirm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -588,4 +597,3 @@ export default function HomePage() {
     </div>
   );
 }
-
