@@ -62,7 +62,7 @@ export function MockScenarioPanel() {
             <button
               onClick={() => setOpen(false)}
               className="text-white/40 hover:text-white text-xs leading-none"
-              aria-label="Cerrar panel mock"
+              aria-label="Close mock panel"
             >
               ✕
             </button>
@@ -117,7 +117,7 @@ export function MockScenarioPanel() {
                 </div>
 
                 <div className="space-y-1">
-                  <p className="text-[9px] uppercase tracking-widest text-white/40 px-1">Actuando como</p>
+                  <p className="text-[9px] uppercase tracking-widest text-white/40 px-1">Acting as</p>
                   <div className="flex gap-1">
                     <button
                       onClick={() => vault.setActingAs(MOCK_VAULT.SELF)}
@@ -216,7 +216,7 @@ export function MockScenarioPanel() {
         <button
           onClick={() => setOpen(true)}
           className="w-12 h-12 rounded-full bg-amber-500 text-black font-black shadow-2xl flex items-center justify-center text-xs"
-          aria-label="Abrir panel mock"
+          aria-label="Open mock panel"
         >
           MK
         </button>

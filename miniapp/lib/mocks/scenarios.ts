@@ -24,12 +24,12 @@ export type Scenario =
   | "dissolutionPending";
 
 export const SCENARIOS: { id: Scenario; label: string }[] = [
-  { id: "single", label: "Soltero" },
-  { id: "proposalReceived", label: "Propuesta recibida" },
-  { id: "proposalSent", label: "Propuesta enviada" },
-  { id: "married", label: "Casado" },
+  { id: "single", label: "Fresh start · no bond" },
+  { id: "proposalReceived", label: "Bond invite received" },
+  { id: "proposalSent", label: "Bond invite sent" },
+  { id: "married", label: "Bonded · you & Alice" },
   { id: "cooldown", label: "Cooldown" },
-  { id: "dissolutionPending", label: "Disolución pendiente" },
+  { id: "dissolutionPending", label: "Dissolution pending" },
 ];
 
 // Demo starts EMPTY: login → 'Create your first bond' → bond creation → bonded.
