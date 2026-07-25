@@ -20,13 +20,14 @@ export function AliveCta({
     <>
       <style>{`
         @keyframes hbCtaBreathe {
-          0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0), 0 12px 30px rgba(0,0,0,.22); transform: scale(1); }
-          50% { box-shadow: 0 0 26px 5px rgba(245,158,11,.35), 0 12px 30px rgba(0,0,0,.18); transform: scale(1.012); }
+          0%, 100% { box-shadow: 0 0 6px 1px rgba(245,158,11,.35), 0 12px 30px rgba(0,0,0,.15); transform: scale(1); }
+          50% { box-shadow: 0 0 30px 8px rgba(245,158,11,.45), 0 12px 30px rgba(0,0,0,.12); transform: scale(1.015); }
         }
       `}</style>
+      {/* Action color = the spark's amber. Never black (user bubbles) or white (agent bubbles). */}
       <button
         onClick={onClick}
-        className={`bg-black text-white font-black uppercase hover:bg-gray-900 transition-colors active:scale-95 ${className}`}
+        className={`bg-amber-400 text-black font-black uppercase hover:bg-amber-300 transition-colors active:scale-95 ${className}`}
         style={{ animation: 'hbCtaBreathe 2.6s ease-in-out infinite' }}
       >
         {children}

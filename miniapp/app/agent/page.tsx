@@ -426,6 +426,8 @@ export default function AgentChatPage() {
               </AliveCta>
             </div>
           ) : null}
+          {/* Openers only when the agent is idle — they vanish the moment a flow runs */}
+          {!agentBusy && !openProposal && !offerGrant && !offerPay && !pendingReceipt && (
           <div className="flex flex-wrap gap-2 justify-end">
             <button
               onClick={scanBill}
@@ -452,6 +454,7 @@ export default function AgentChatPage() {
               Our finances
             </button>
           </div>
+          )}
           <div className="bg-white rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.08)] border border-gray-100 pl-2 pr-2 py-2 flex items-center gap-3">
             <button
               onClick={scanBill}

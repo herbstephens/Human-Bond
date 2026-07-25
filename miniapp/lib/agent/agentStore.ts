@@ -483,16 +483,14 @@ export const useAgentStore = create<AgentState>()(
           setTimeout(() => {
             const p = get().payments[paymentId];
             if (!p) return;
-            get()._enqueue([
-              {
-                type: 'text',
-                text:
-                  (p.shareYou === 0
-                    ? `Done — ${p.amountUsdc.toFixed(2)} USDC paid in full to ${p.recipientEns}. Alice covered this one; the trustee remembers you take the next.`
-                    : `Done — ${p.recipientEns} is paid in full. ${p.shareYou.toFixed(2)} USDC pulled from your wallet, ${p.sharePartner.toFixed(2)} from Alice’s. Filed in your history.`) +
-                  (p.detail ? ' Tickets are in your shared vault — and Sep 4 is in both calendars.' : ''),
-              },
-            ]);
+            const settled =
+              p.shareYou === 0
+                ? `Done — ${p.amountUsdc.toFixed(2)} USDC paid in full to ${p.recipientEns}. Alice covered this one; the trustee remembers you take the next.`
+                : `Done — ${p.recipientEns} is paid in full: ${p.shareYou.toFixed(2)} USDC from your wallet, ${p.sharePartner.toFixed(2)} from Alice’s.`;
+            const delivery = p.detail
+              ? ' The two ticket NFTs just landed in your shared vault — you’ll see them in both your World App wallets, and the entry QR generates straight from the NFT at the gate. Sep 4 is in both calendars.'
+              : ' The receipt is archived in your charter history on Walrus — auditable forever.';
+            get()._enqueue([{ type: 'text', text: settled + delivery }]);
           }, 3600);
         },
 
