@@ -11,10 +11,14 @@ export function AliveCta({
   children,
   onClick,
   className = '',
+  disabled = false,
 }: {
   children: React.ReactNode;
   onClick: () => void;
   className?: string;
+  /** Held down while a transaction is in flight — the glow stops, so the button
+   *  stops inviting a second tap that would open a second MiniKit popup. */
+  disabled?: boolean;
 }) {
   return (
     <>
@@ -27,8 +31,11 @@ export function AliveCta({
       {/* Action color = the spark's amber. Never black (user bubbles) or white (agent bubbles). */}
       <button
         onClick={onClick}
-        className={`bg-amber-400 text-black font-black uppercase hover:bg-amber-300 transition-colors active:scale-95 ${className}`}
-        style={{ animation: 'hbCtaBreathe 2.6s ease-in-out infinite' }}
+        disabled={disabled}
+        className={`bg-amber-400 text-black font-black uppercase transition-colors active:scale-95 ${
+          disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-amber-300'
+        } ${className}`}
+        style={disabled ? undefined : { animation: 'hbCtaBreathe 2.6s ease-in-out infinite' }}
       >
         {children}
       </button>

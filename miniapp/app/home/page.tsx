@@ -46,6 +46,7 @@ const MarriageDashboard = dynamic(
 );
 
 import { BondedOnboarding } from "../components/bond/BondedOnboarding";
+import { useBondVault } from "@/lib/hooks/useBondVault";
 import { BondDissolutionOverlay } from "../components/marriage/BondDissolutionOverlay";
 
 import { AliveCta } from "../components/agent/AliveCta";
@@ -72,6 +73,16 @@ export default function HomePage() {
     cooldown,
   } = useMarriage();
   const { status: notifStatus, requestPermission } = useNotificationPermission();
+
+  // Which post-bond screen to show is decided on-chain: until the Safe exists the
+  // couple is still onboarding (and naming it is what creates it); once it does,
+  // the full dashboard — wallet, dissolve, gallery, milestones, TIME — takes over.
+  const { vault: bondVault, isLoading: isVaultLoading } = useBondVault(
+    (marriageView?.partnerA ?? null) as `0x${string}` | null,
+    (marriageView?.partnerB ?? null) as `0x${string}` | null,
+    (marriageView?.bondId ?? null) as `0x${string}` | null,
+  );
+  const vaultCreated = Boolean(bondVault?.isCreated);
 
   const [isLoading, setIsLoading] = useState(true);
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
@@ -238,8 +249,10 @@ export default function HomePage() {
   }, [isVerified, checkVerificationExpiry, router]);
 
   // Show loading state while checking verification or fetching dashboard
-  // Include isMarriageLoading only if the user is potentially married to unify animations
-  const isDataLoading = isConnected && (isDashboardLoading || isProposalsLoading || (dashboard?.isBonded && isMarriageLoading));
+  // Include isMarriageLoading only if the user is potentially married to unify animations.
+  // The vault read joins it for the same reason: it decides onboarding vs dashboard, so
+  // landing before it resolves would flash "name your wallet" at a couple who has one.
+  const isDataLoading = isConnected && (isDashboardLoading || isProposalsLoading || (dashboard?.isBonded && (isMarriageLoading || isVaultLoading)));
 
   if ((isLoading || isDataLoading || awaitingBond) && !showDissolution) {
     return (
@@ -481,10 +494,23 @@ export default function HomePage() {
           </div>
         ) : (
           <div className="w-full max-w-lg mx-auto space-y-4 animate-in fade-in zoom-in duration-700">
-            {/* Demo focus: post-bond ONBOARDING, not a dashboard. The full
-                MarriageDashboard (wallet, gallery, milestones, TIME) returns later. */}
-            {dashboard && isConnected && (
+            {/* Post-bond onboarding until the shared wallet exists — claiming the
+                name IS the transaction that creates it. Once the Safe is on-chain
+                the full dashboard takes over: wallet, dissolve (3-day wait + 50/50
+                split), gallery, milestones, TIME, and the agent CTA. */}
+            {dashboard && isConnected && !vaultCreated && (
               <BondedOnboarding partnerAddress={dashboard.partner} />
+            )}
+            {dashboard && isConnected && vaultCreated && (
+              <MarriageDashboard
+                dashboard={dashboard}
+                onRefresh={refetch}
+                onDissolved={handleDissolved}
+                onDissolutionFailed={handleDissolutionFailed}
+                marriageView={marriageView}
+                dissolutionRequest={dissolutionRequest}
+                isMarriageLoading={isMarriageLoading}
+              />
             )}
             {notifStatus === 'not_granted' && (
               <button
