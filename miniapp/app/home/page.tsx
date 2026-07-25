@@ -383,8 +383,33 @@ export default function HomePage() {
               </div>
             )}
 
-            {/* Hero Section */}
-            <div className="space-y-4">
+            {/* Hero Section — two rings find each other and interlock, for good. */}
+            <div className="space-y-5">
+              {!effectiveHasPendingProposal && !hasIncomingProposals && (
+                <div className="flex justify-center">
+                  <svg width="128" height="68" viewBox="0 0 120 64" fill="none" aria-hidden>
+                    <style>{`
+                      @keyframes hbLinkA { 0% { transform: translateX(-26px); opacity: .35; } 70% { opacity: 1; } 100% { transform: translateX(0); } }
+                      @keyframes hbLinkB { 0% { transform: translateX(26px); opacity: .35; } 70% { opacity: 1; } 100% { transform: translateX(0); } }
+                      @keyframes hbLinkLock { 0%, 80% { opacity: 0; } 100% { opacity: 1; } }
+                    `}</style>
+                    <circle
+                      cx="46" cy="32" r="21" stroke="#111111" strokeWidth="7"
+                      style={{ animation: 'hbLinkA 1.5s cubic-bezier(.2,.8,.2,1) both', transformBox: 'fill-box', transformOrigin: 'center' }}
+                    />
+                    <circle
+                      cx="74" cy="32" r="21" stroke="#9ca3af" strokeWidth="7"
+                      style={{ animation: 'hbLinkB 1.5s cubic-bezier(.2,.8,.2,1) both', transformBox: 'fill-box', transformOrigin: 'center' }}
+                    />
+                    {/* A threads back over B at the bottom crossing — the lock. */}
+                    <path
+                      d="M 64.5 42.5 A 21 21 0 0 1 54 52.2"
+                      stroke="#111111" strokeWidth="7" strokeLinecap="round"
+                      style={{ animation: 'hbLinkLock 1.9s ease-out both' }}
+                    />
+                  </svg>
+                </div>
+              )}
               <h1 className="text-5xl md:text-7xl font-black text-gray-900 tracking-tighter leading-[0.9] flex flex-col">
                 {effectiveHasPendingProposal ? (
                   <span className="text-gray-9As00">Shared Destiny.</span>
@@ -397,14 +422,14 @@ export default function HomePage() {
                   </>
                 )}
               </h1>
-              <p className="text-sm text-gray-500 font-medium max-w-[280px] mx-auto leading-relaxed">
+              <p className="text-[15px] text-gray-500 font-medium max-w-[340px] mx-auto leading-relaxed">
                 One shared address for you two. Your personal agents handle the money between you — every move released by you both.
               </p>
             </div>
 
             {/* Main Action Buttons */}
             {isConnected ? (
-              <div className="w-full flex flex-col gap-4">
+              <div className="w-full flex flex-col gap-4 pt-8">
                 {effectiveHasPendingProposal || isCooldownActive ? (
                   <div className="w-full px-8 py-5 rounded-2xl bg-gray-100 text-gray-400 text-xs font-black uppercase tracking-[0.2em] cursor-not-allowed border border-gray-200 text-center">
                     {effectiveHasPendingProposal ? "Proposal in Progress" : "Cooldown Active"}
