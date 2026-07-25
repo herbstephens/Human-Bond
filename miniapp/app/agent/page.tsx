@@ -51,10 +51,10 @@ function ProposalCard({ payment }: { payment: Payment }) {
       stage: 'pulled',
       label:
         p.shareYou === 0
-          ? `${p.sharePartner.toFixed(2)} USDC pulled from Alice’s wallet`
+          ? `Your share: 0.00 — Alice’s wallet covered the full ${p.amountUsdc.toFixed(2)}`
           : `${p.shareYou.toFixed(2)} pulled from you · ${p.sharePartner.toFixed(2)} from Alice`,
     },
-    { stage: 'paid', label: `${p.amountUsdc.toFixed(2)} USDC paid to ${p.recipientEns}` },
+    { stage: 'paid', label: `${p.amountUsdc.toFixed(2)} USDC paid in full to ${p.recipientEns}` },
   ];
   const order: ChoreoStage[] = ['proposed', 'confirmed', 'pulled', 'paid'];
   const idx = order.indexOf(p.stage);
@@ -68,6 +68,9 @@ function ProposalCard({ payment }: { payment: Payment }) {
             {isProposed ? 'Your agent ↔ Alice’s agent · trustee executes' : 'Payment'}
           </p>
           <p className="text-[13px] font-black text-gray-900 mt-0.5">{p.label}</p>
+          {p.detail && (
+            <p className="text-[10px] font-medium text-gray-400 mt-0.5">{p.detail}</p>
+          )}
         </div>
         <div className="text-right shrink-0">
           <p className="text-sm font-black text-gray-900 font-mono">{p.amountUsdc.toFixed(2)} USDC</p>
@@ -128,7 +131,7 @@ function ProposalCard({ payment }: { payment: Payment }) {
           })}
           {isPaid && (
             <div className="w-full bg-emerald-50 border border-emerald-100 text-emerald-600 px-6 py-3 rounded-2xl text-[11px] font-black uppercase tracking-[0.15em] text-center">
-              Settled · released by humans, executed by the bond
+              {p.shareYou === 0 ? 'Paid in full · covered by Alice this time' : 'Paid in full · settled fairly'}
             </div>
           )}
         </div>
@@ -211,6 +214,8 @@ export default function AgentChatPage() {
     grantPull,
     buyShared,
     buyPersonal,
+    renegotiate,
+    confirmOnHito,
     say,
     resetAgent,
     typingIndicator,
@@ -231,7 +236,6 @@ export default function AgentChatPage() {
   if (!agentReady) return null;
   if (bornPending) return <BornOverlay onHello={celebrateBorn} />;
 
-  const { renegotiate, confirmOnHito } = useAgentStore();
   const openProposal = Object.values(payments).find((p) => p.stage === 'proposed');
   const lastAgentText = [...messages].reverse().find((m) => m.kind === 'text' && m.role === 'agent');
   const offerPay =

@@ -163,6 +163,8 @@ export type Payment = {
   shareYou: number;
   sharePartner: number;
   stage: ChoreoStage;
+  /** Event/context line, e.g. venue + the date the agents found in both calendars. */
+  detail?: string;
   note?: string;
   renegotiated?: boolean;
 };
@@ -214,7 +216,7 @@ type AgentState = {
   grantPull: (userText?: string) => void;
   buyShared: () => void;
   buyPersonal: () => void;
-  proposeShared: (label: string, recipientEns: string, amountUsdc: number) => void;
+  proposeShared: (label: string, recipientEns: string, amountUsdc: number, detail?: string) => void;
   renegotiate: (paymentId: string) => void;
   confirmOnHito: (paymentId: string) => void;
   say: (text: string) => void;
@@ -370,6 +372,11 @@ export const useAgentStore = create<AgentState>()(
               thinking: true,
               text: 'Tickets for two → that’s for both of you, not your personal budget. I’ll work this out with Alice’s agent.',
             },
+            {
+              type: 'text',
+              thinking: true,
+              text: 'Checked both calendars with Alice’s agent: you’re free Friday Sep 4 — Alice has yoga on the Saturday, you fly out the week after. Sep 4 it is. MEO Kalorama, Parque da Bela Vista — you two haven’t been out in six weeks.',
+            },
           ]);
           if (!s.pullGranted) {
             set(() => ({
@@ -378,12 +385,12 @@ export const useAgentStore = create<AgentState>()(
             s._enqueue([
               {
                 type: 'text',
-                text: 'Before I can: our shared account holds no balance yet. Grant the bond pull access to your wallet — like a card on file.',
+                text: 'Before I can book: our shared account holds no balance yet. Grant the bond pull access to your wallet — like a card on file.',
               },
             ]);
             return;
           }
-          s.proposeShared('Kalorama tickets ×2', 'kalorama-tickets.eth', 120);
+          s.proposeShared('Kalorama tickets ×2', 'kalorama-tickets.eth', 120, 'MEO Kalorama · Parque da Bela Vista, Lisbon · Fri Sep 4, 19:00');
         },
 
         buyPersonal: () => {
@@ -399,7 +406,7 @@ export const useAgentStore = create<AgentState>()(
           ]);
         },
 
-        proposeShared: (label, recipientEns, amountUsdc) => {
+        proposeShared: (label, recipientEns, amountUsdc, detail) => {
           const id = mid();
           const shareYou = Math.round(amountUsdc * 10) / 100;
           const sharePartner = Math.round(amountUsdc * 90) / 100;
@@ -420,6 +427,7 @@ export const useAgentStore = create<AgentState>()(
                       id, label, recipientEns, amountUsdc,
                       shareYouPct: 10, shareYou, sharePartner,
                       stage: 'proposed' as ChoreoStage,
+                      detail,
                     },
                   },
                 })),
@@ -479,9 +487,10 @@ export const useAgentStore = create<AgentState>()(
               {
                 type: 'text',
                 text:
-                  p.shareYou === 0
-                    ? `Done — ${p.recipientEns} is paid. Alice covered this one; the trustee remembers you take the next.`
-                    : `Done — ${p.recipientEns} is paid. ${p.shareYou.toFixed(2)} USDC pulled from your wallet, ${p.sharePartner.toFixed(2)} from Alice’s. Filed in your history.`,
+                  (p.shareYou === 0
+                    ? `Done — ${p.amountUsdc.toFixed(2)} USDC paid in full to ${p.recipientEns}. Alice covered this one; the trustee remembers you take the next.`
+                    : `Done — ${p.recipientEns} is paid in full. ${p.shareYou.toFixed(2)} USDC pulled from your wallet, ${p.sharePartner.toFixed(2)} from Alice’s. Filed in your history.`) +
+                  (p.detail ? ' Tickets are in your shared vault — and Sep 4 is in both calendars.' : ''),
               },
             ]);
           }, 3600);
