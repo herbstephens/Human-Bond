@@ -31,6 +31,8 @@ export type PaymentRequest = {
   amountUsdc: number;
   /** Investment terms — carried into the signed settlement. */
   aprPct?: number;
+  /** Swap terms (Uniswap) — carried into the signed settlement. */
+  swap?: Settlement['swap'];
   /** The human whose agent opens the negotiation. */
   requestedBy: string;
 };
@@ -122,6 +124,7 @@ export async function negotiate(
         amountUsdc: request.amountUsdc,
         shares: currentOffer.shares,
         aprPct: request.aprPct,
+        swap: request.swap,
         memo: `${request.label} · ${currentOffer.rationale}`,
         transcriptHash: transcriptHash(fullTranscript),
       };
@@ -194,6 +197,17 @@ export class TrusteeExecutor {
       if (settlement.aprPct === undefined)
         throw new Error('Refused: investment settlement without signed APR terms.');
       await this.rail.invest(settlement.bondId, settlement.amountUsdc, settlement.aprPct);
+    } else if (settlement.kind === 'swap') {
+      assertToolAllowed('trustee', 'place_investment');
+      if (!settlement.swap)
+        throw new Error('Refused: swap settlement without signed Uniswap terms (tokenIn/tokenOut/minAmountOut).');
+      await this.rail.swap(
+        settlement.bondId,
+        settlement.swap.tokenIn,
+        settlement.swap.tokenOut,
+        settlement.amountUsdc,
+        settlement.swap.minAmountOut,
+      );
     } else {
       assertToolAllowed('trustee', 'execute_payment');
       for (const [agentId, share] of Object.entries(settlement.shares)) {

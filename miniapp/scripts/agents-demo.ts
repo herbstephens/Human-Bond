@@ -194,6 +194,48 @@ async function main() {
   await trustee.execute({ settlement: investment, signatures: investSigs }, { humansReleased: true });
   ok('released on both hitos → executed');
 
+  h('THE example — Ben asks, agents decide a Uniswap swap, trustee executes after release');
+  // Ben: "put 1,000 of our vault to work" → the trustee pulls a Uniswap quote,
+  // the agents vet it and sign the EXACT terms incl. the slippage floor.
+  const swapReq = {
+    kind: 'swap' as const,
+    bondId: charter.bondId,
+    label: 'USDC → WLD via Uniswap · diversify 1,000 of the vault',
+    recipient: 'uniswap-router',
+    amountUsdc: 1000,
+    swap: { tokenIn: 'USDC', tokenOut: 'WLD', minAmountOut: 940 },
+    requestedBy: 'Ben',
+  };
+  const { settlement: swapSettlement } = await negotiate(
+    {
+      identity: ben,
+      driver: new ScriptedDriver([
+        {
+          say: 'Trustee quoted ~952 WLD for 1,000 USDC. Floor at 940 protects Ben’s buffer-first profile. Joint vault money → equal attribution.',
+          offer: { shares: { [ben.id]: 500, [alice.id]: 500 }, rationale: 'vault diversification, equal attribution, minOut 940' },
+        },
+      ]),
+      profile: benProfile,
+    },
+    {
+      identity: alice,
+      driver: new ScriptedDriver([{ say: 'Quote is fresh, floor is sane, fits Alice’s horizon. Agreed.', acceptOffer: true }]),
+      profile: aliceProfile,
+    },
+    swapReq,
+  );
+  const swapSigs = [await signSettlement(ben, swapSettlement), await signSettlement(alice, swapSettlement)];
+  let swapGate: Error | null = null;
+  try {
+    await trustee.execute({ settlement: swapSettlement, signatures: swapSigs });
+  } catch (e) {
+    swapGate = e as Error;
+  }
+  if (!(swapGate instanceof HumanReleaseRequired)) throw new Error('GUARDRAIL HOLE: swap executed without hito release');
+  ok(`blocked without humans: ${swapGate.message.split('.')[0]}`);
+  await trustee.execute({ settlement: swapSettlement, signatures: swapSigs }, { humansReleased: true });
+  ok('released on both hitos → swap executed with the SIGNED minAmountOut floor');
+
   h('Rail log');
   for (const line of rail.log) console.log(`  ${line}`);
   console.log('\nAll paths green. The protocol, not the prompt, is the boundary.\n');

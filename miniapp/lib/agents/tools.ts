@@ -58,6 +58,8 @@ export interface PaymentRail {
   pull(fromHuman: string, amountUsdc: number, to: string): Promise<PullReceipt>;
   /** Move vault funds into a yield position. */
   invest(bondId: string, amountUsdc: number, aprPct: number): Promise<string>;
+  /** Swap vault funds via Uniswap — minAmountOut is the agents' signed floor. */
+  swap(bondId: string, tokenIn: string, tokenOut: string, amountIn: number, minAmountOut: number): Promise<string>;
 }
 
 export class MockRail implements PaymentRail {
@@ -73,6 +75,12 @@ export class MockRail implements PaymentRail {
   async invest(bondId: string, amountUsdc: number, aprPct: number): Promise<string> {
     const txRef = `0xmock${(++this.n).toString().padStart(4, '0')}`;
     this.log.push(`invest ${amountUsdc.toFixed(2)} USDC of ${bondId} at ${aprPct}% (${txRef})`);
+    return txRef;
+  }
+
+  async swap(bondId: string, tokenIn: string, tokenOut: string, amountIn: number, minAmountOut: number): Promise<string> {
+    const txRef = `0xmock${(++this.n).toString().padStart(4, '0')}`;
+    this.log.push(`swap ${amountIn.toFixed(2)} ${tokenIn} -> ${tokenOut} (min ${minAmountOut}) for ${bondId} (${txRef})`);
     return txRef;
   }
 }

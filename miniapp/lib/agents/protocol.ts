@@ -26,7 +26,7 @@ export type AgentIdentity = {
 };
 
 export type Settlement = {
-  kind: 'payment' | 'investment';
+  kind: 'payment' | 'investment' | 'swap';
   bondId: string;
   /** Replay protection — the trustee executes each nonce at most once. */
   nonce: string;
@@ -39,6 +39,9 @@ export type Settlement = {
   shares: Record<string, number>;
   /** Investment terms are SIGNED terms — required when kind is 'investment'. */
   aprPct?: number;
+  /** Swap terms (Uniswap) are SIGNED terms — required when kind is 'swap'.
+   *  minAmountOut is the slippage floor BOTH agents agreed to. */
+  swap?: { tokenIn: string; tokenOut: string; minAmountOut: number };
   memo: string;
   /** keccak of the negotiation transcript archived on 0G storage. */
   transcriptHash: `0x${string}`;

@@ -81,6 +81,7 @@ export function deriveSettlement(busCase: BusCase, turns: BusTurn[]): Settlement
     amountUsdc: busCase.request.amountUsdc,
     shares: offerTurn.offer.shares,
     aprPct: busCase.request.aprPct,
+    swap: busCase.request.swap,
     memo: `${busCase.request.label} · ${offerTurn.offer.rationale}`,
     transcriptHash: transcriptHash(transcript),
   };
