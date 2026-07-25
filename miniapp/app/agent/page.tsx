@@ -50,6 +50,7 @@ function TypingText({ id, text, className }: { id: string; text: string; classNa
  */
 function ProposalCard({ payment }: { payment: Payment }) {
   const p = payment;
+  const partner = p.partnerName ?? 'Alice';
   const isProposed = p.stage === 'proposed';
   const isPaid = p.stage === 'paid';
 
@@ -60,15 +61,15 @@ function ProposalCard({ payment }: { payment: Payment }) {
         ? p.amountUsdc <= 200
           ? 'Authorized — phone authority, under your €200 rule'
           : 'Released — you ✓ on your hito, yours alone'
-        : 'Released — you ✓ on your hito · Alice ✓ on hers',
+        : `Released — you ✓ on your hito · ${partner} ✓ on theirs`,
     },
     {
       stage: 'pulled',
       label: p.personal
         ? `${p.amountUsdc.toFixed(2)} USDC from your own wallet`
         : p.shareYou === 0
-          ? `${p.amountUsdc.toFixed(2)} from your shared vault — booked fully to Alice`
-          : `${p.amountUsdc.toFixed(2)} from your shared vault · booked ${p.shareYou.toFixed(2)} you / ${p.sharePartner.toFixed(2)} Alice`,
+          ? `${p.amountUsdc.toFixed(2)} from your shared vault — booked fully to ${partner}`
+          : `${p.amountUsdc.toFixed(2)} from your shared vault · booked ${p.shareYou.toFixed(2)} you / ${p.sharePartner.toFixed(2)} ${partner}`,
     },
     { stage: 'paid', label: `${p.amountUsdc.toFixed(2)} USDC paid in full to ${p.recipientEns}` },
   ];
@@ -84,7 +85,7 @@ function ProposalCard({ payment }: { payment: Payment }) {
             {p.personal
               ? 'Your wallet · yours alone'
               : isProposed
-                ? 'Your agent ↔ Alice’s agent · trustee executes'
+                ? `Your agent ↔ ${partner}’s agent · trustee executes`
                 : 'Payment'}
           </p>
           <p className="text-[13px] font-black text-gray-900 mt-0.5">{p.label}</p>
@@ -109,7 +110,7 @@ function ProposalCard({ payment }: { payment: Payment }) {
           </div>
           {!p.personal && (
             <div className="flex-1 bg-gray-50 rounded-xl px-4 py-3">
-              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Alice</p>
+              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{partner}</p>
               <p className="text-sm font-black text-gray-900 font-mono">{p.sharePartner.toFixed(2)}</p>
             </div>
           )}
@@ -158,7 +159,7 @@ function ProposalCard({ payment }: { payment: Payment }) {
               {p.personal
                 ? 'Paid · yours alone — nothing logged against the trust'
                 : p.shareYou === 0
-                  ? 'Paid in full · covered by Alice this time'
+                  ? `Paid in full · covered by ${partner} this time`
                   : 'Paid in full · settled fairly'}
             </div>
           )}
@@ -169,7 +170,7 @@ function ProposalCard({ payment }: { payment: Payment }) {
 }
 
 /** Pull-access confirmation — the "card on file" moment, for both partners. */
-function GrantCard() {
+function GrantCard({ partner = 'Alice' }: { partner?: string }) {
   return (
     <div className="w-full bg-white rounded-[1.75rem] border border-gray-100 shadow-[0_20px_50px_rgba(0,0,0,0.05)] px-6 py-5 animate-in fade-in zoom-in duration-500">
       <p className="text-[9px] font-black uppercase tracking-[0.25em] text-emerald-600 mb-2">Pull access granted</p>
@@ -180,7 +181,7 @@ function GrantCard() {
         </div>
         <div className="flex items-center gap-2">
           <Check size={13} className="text-emerald-500" />
-          <p className="text-[13px] font-medium text-gray-800">Alice — wallet linked to the bond</p>
+          <p className="text-[13px] font-medium text-gray-800">{partner} — wallet linked to the bond</p>
         </div>
       </div>
       <p className="mt-3 text-[11px] text-gray-400 font-medium">
@@ -256,6 +257,9 @@ export default function AgentChatPage() {
     lifePing,
     heartbeatChecked,
   } = useAgentStore();
+  const bonds = useAgentStore((s) => s.bonds);
+  const defaultBondId = useAgentStore((s) => s.defaultBondId);
+  const defaultPartner = bonds.find((b) => b.id === defaultBondId)?.partner ?? 'Alice';
   const [draft, setDraft] = useState('');
   const [showSelfie, setShowSelfie] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
@@ -348,7 +352,7 @@ export default function AgentChatPage() {
           <h1 className="text-base font-black text-gray-900 tracking-tight">Your agent</h1>
           <p className="text-[9px] font-bold uppercase tracking-[0.25em] flex items-center gap-1.5">
             <span className={`w-1.5 h-1.5 rounded-full ${partnerAgentReady ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
-            <span className="text-gray-400">{partnerAgentReady ? 'Trustee active' : 'Waiting for Alice’s agent'}</span>
+            <span className="text-gray-400">{partnerAgentReady ? 'Trustee active' : `Waiting for ${defaultPartner}’s agent`}</span>
           </p>
         </div>
         <button
@@ -366,7 +370,7 @@ export default function AgentChatPage() {
             const p = payments[m.paymentId];
             return p ? <ProposalCard key={m.id} payment={p} /> : null;
           }
-          if (m.kind === 'grant') return <GrantCard key={m.id} />;
+          if (m.kind === 'grant') return <GrantCard key={m.id} partner={defaultPartner} />;
           if (m.kind === 'receipt') {
             return (
               <div key={m.id} className="animate-in fade-in zoom-in duration-500">

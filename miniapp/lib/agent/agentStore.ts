@@ -204,6 +204,9 @@ export type Payment = {
   renegotiated?: boolean;
   /** Personal payment: your wallet only. Under your threshold → phone authority (no release); above → your hito alone. */
   personal?: boolean;
+  /** Which bond this shared spend runs over — drives every partner label. */
+  bondId?: string;
+  partnerName?: string;
 };
 
 let nextId = 1;
@@ -264,7 +267,7 @@ type AgentState = {
 
   // payment rails
   pullGranted: boolean;
-  pendingReceipt: { vendor: string; amountUsdc: number; recipientEns: string } | null;
+  pendingReceipt: { vendor: string; amountUsdc: number; recipientEns: string; bond?: { id: string; partner: string } } | null;
 
   // chat
   messages: ChatMessage[];
@@ -282,7 +285,7 @@ type AgentState = {
   grantPull: (userText?: string) => void;
   buyShared: () => void;
   buyPersonal: () => void;
-  proposeShared: (label: string, recipientEns: string, amountUsdc: number, detail?: string) => void;
+  proposeShared: (label: string, recipientEns: string, amountUsdc: number, detail?: string, bond?: { id: string; partner: string }) => void;
   renegotiate: (paymentId: string) => void;
   confirmOnHito: (paymentId: string) => void;
   say: (text: string) => void;
@@ -449,7 +452,7 @@ export const useAgentStore = create<AgentState>()(
             ]);
             return;
           }
-          s.proposeShared(receipt.vendor, receipt.recipientEns, receipt.amountUsdc);
+          s.proposeShared(receipt.vendor, receipt.recipientEns, receipt.amountUsdc, undefined, receipt.bond);
         },
 
         payAlone: () => {
@@ -513,7 +516,7 @@ export const useAgentStore = create<AgentState>()(
           set(() => ({ pullGranted: true }));
           s._enqueue([{ type: 'grant' }]);
           const receipt = s.pendingReceipt;
-          if (receipt) s.proposeShared(receipt.vendor, receipt.recipientEns, receipt.amountUsdc);
+          if (receipt) s.proposeShared(receipt.vendor, receipt.recipientEns, receipt.amountUsdc, undefined, receipt.bond);
         },
 
         buyShared: () => {
@@ -559,15 +562,16 @@ export const useAgentStore = create<AgentState>()(
           ]);
         },
 
-        proposeShared: (label, recipientEns, amountUsdc, detail) => {
+        proposeShared: (label, recipientEns, amountUsdc, detail, bond) => {
           const id = mid();
+          const partner = bond?.partner ?? 'Alice';
           const shareYou = Math.round(amountUsdc * 10) / 100;
           const sharePartner = Math.round(amountUsdc * 90) / 100;
           get()._enqueue([
             {
               type: 'text',
               thinking: true,
-              text: 'Talking to Alice’s agent… I argued your cash flow is tight this month; she pointed to the income picture — Alice earns more right now. On the books it’s you 10%, Alice 90% — paid straight from your shared vault, nobody’s personal wallet is touched. The bond manager executes only what we both signed.',
+              text: `Talking to ${partner}’s agent… I argued your cash flow is tight this month; their side pointed to the income picture — ${partner} earns more right now. On the books it’s you 10%, ${partner} 90% — paid straight from your shared vault, nobody’s personal wallet is touched. The bond manager executes only what we both signed.`,
             },
             {
               type: 'action',
@@ -578,6 +582,7 @@ export const useAgentStore = create<AgentState>()(
                     ...s.payments,
                     [id]: {
                       id, label, recipientEns, amountUsdc,
+                      bondId: bond?.id ?? 'alice', partnerName: partner,
                       shareYouPct: 10, shareYou, sharePartner,
                       stage: 'proposed' as ChoreoStage,
                       detail,
@@ -591,13 +596,14 @@ export const useAgentStore = create<AgentState>()(
 
         renegotiate: (paymentId) => {
           const g = get();
+          const partner = g.payments[paymentId]?.partnerName ?? 'Alice';
           g.say('I don’t feel good about this.');
           g._enqueue([
             { type: 'text', text: 'Heard. Your feeling counts as an interest — I’m going back in.' },
             {
               type: 'text',
               thinking: true,
-              text: 'Alice’s agent offered: she covers this one fully, you take the next one. New proposal on the table.',
+              text: `${partner}’s agent offered: they cover this one fully, you take the next one. New proposal on the table.`,
             },
             {
               type: 'action',
@@ -613,7 +619,7 @@ export const useAgentStore = create<AgentState>()(
                         shareYouPct: 0,
                         shareYou: 0,
                         sharePartner: p.amountUsdc,
-                        note: 'Alice covers this one — you take the next.',
+                        note: `${partner} covers this one — you take the next.`,
                         renegotiated: true,
                       },
                     },
@@ -638,8 +644,8 @@ export const useAgentStore = create<AgentState>()(
             if (!p) return;
             const settled =
               p.shareYou === 0
-                ? `Done — ${p.amountUsdc.toFixed(2)} USDC paid in full to ${p.recipientEns}. Alice covered this one; the trustee remembers you take the next.`
-                : `Done — ${p.recipientEns} is paid in full: ${p.shareYou.toFixed(2)} USDC from your wallet, ${p.sharePartner.toFixed(2)} from Alice’s.`;
+                ? `Done — ${p.amountUsdc.toFixed(2)} USDC paid in full to ${p.recipientEns}. ${p.partnerName ?? 'Alice'} covered this one; the trustee remembers you take the next.`
+                : `Done — ${p.recipientEns} is paid in full: ${p.amountUsdc.toFixed(2)} USDC from your shared vault, booked ${p.shareYou.toFixed(2)} you / ${p.sharePartner.toFixed(2)} ${p.partnerName ?? 'Alice'}.`;
             const delivery = p.detail
               ? ' The two ticket NFTs just landed in your shared vault — you’ll see them in both your World App wallets, and the entry QR generates straight from the NFT at the gate. Sep 4 is in both calendars.'
               : ' The receipt is archived in your charter history on 0G storage — auditable forever.';
@@ -672,7 +678,13 @@ export const useAgentStore = create<AgentState>()(
               },
               facts: s.customFacts.map((f) => f.text),
               rules: s.bondRules.filter((r) => r.status === 'active').map((r) => r.text),
-              vaultBalance: s.vaultBalances.alice ?? 0,
+              bonds: s.bonds
+                .filter((b) => b.status === 'active')
+                .map((b) => ({
+                  id: b.id, partner: b.partner, type: b.type,
+                  isDefault: b.id === s.defaultBondId,
+                  vaultBalanceUsdc: s.vaultBalances[b.id] ?? 0,
+                })),
               history: s.messages
                 .filter((m): m is Extract<ChatMessage, { kind: 'text' }> => m.kind === 'text')
                 .slice(-10)
@@ -688,18 +700,27 @@ export const useAgentStore = create<AgentState>()(
               const a = j.action;
               if (a?.type === 'propose_shared' && typeof a.amountUsdc === 'number') {
                 const st = get();
-                if (!st.pullGranted) {
+                const active = st.bonds.filter((b) => b.status === 'active');
+                const target =
+                  active.find((b) => b.id === a.bondId) ??
+                  active.find((b) => b.id === st.defaultBondId) ??
+                  active[0];
+                if (!target) throw new Error('propose_shared without any active bond');
+                const bond = { id: target.id, partner: target.partner };
+                const balance = st.vaultBalances[target.id] ?? 0;
+                if (balance < a.amountUsdc && !st.pullGranted) {
+                  // The vault can't cover it — THIS is the moment pull access exists for.
                   set(() => ({
-                    pendingReceipt: { vendor: a.label ?? 'Shared purchase', amountUsdc: a.amountUsdc, recipientEns: a.recipientEns ?? 'merchant.eth' },
+                    pendingReceipt: { vendor: a.label ?? 'Shared purchase', amountUsdc: a.amountUsdc, recipientEns: a.recipientEns ?? 'merchant.eth', bond },
                   }));
                   st._enqueue([
                     {
                       type: 'text',
-                      text: 'Before I can settle this: our shared account holds no balance yet. Grant the bond pull access to your wallet — like a card on file.',
+                      text: `Before I can settle this: the ${target.partner} bond vault holds ${balance.toFixed(2)} USDC — this needs ${a.amountUsdc.toFixed(2)}. Grant the bond pull access to your wallet — like a card on file — and I’ll settle it.`,
                     },
                   ]);
                 } else {
-                  st.proposeShared(a.label ?? 'Shared purchase', a.recipientEns ?? 'merchant.eth', a.amountUsdc, a.detail ?? undefined);
+                  st.proposeShared(a.label ?? 'Shared purchase', a.recipientEns ?? 'merchant.eth', a.amountUsdc, a.detail ?? undefined, bond);
                 }
               }
             })
