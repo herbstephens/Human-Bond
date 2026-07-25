@@ -17,6 +17,7 @@ import { AliveCta } from '@/app/components/agent/AliveCta';
 export function BondedOnboarding({ partnerAddress }: { partnerAddress: string | null }) {
   const router = useRouter();
   const agentReady = useAgentStore((s) => s.agentReady);
+  const bonds = useAgentStore((s) => s.bonds);
   const bondEnsLabel = useAgentStore((s) => s.bondEnsLabel);
   const setBondEnsLabel = useAgentStore((s) => s.setBondEnsLabel);
   const { profile } = useWorldProfile(partnerAddress);
@@ -25,10 +26,20 @@ export function BondedOnboarding({ partnerAddress }: { partnerAddress: string | 
   const named = Boolean(bondEnsLabel);
   const ensLabel = bondEnsLabel ?? suggestion;
   const [nameDraft, setNameDraft] = useState(suggestion);
+  const bondHref = bonds[0] ? `/bond/${bonds[0].id}` : '/agent';
+  // With an existing agent there is nothing left to set up here: claiming the
+  // name shows the hand-off note briefly, then lands on the bond itself.
+  const [handoff, setHandoff] = useState(false);
   const claimName = () => {
     const label = nameDraft.trim().toLowerCase().replace(/[^a-z0-9-]/g, '') || suggestion;
     setBondEnsLabel(label);
+    if (agentReady) setHandoff(true);
   };
+  useEffect(() => {
+    if (!handoff) return;
+    const t = setTimeout(() => router.push(bondHref), 2600);
+    return () => clearTimeout(t);
+  }, [handoff, bondHref, router]);
 
   // Staged reveal: ring closes + address is born → headline → next step
   const [phase, setPhase] = useState(0);
@@ -136,7 +147,7 @@ export function BondedOnboarding({ partnerAddress }: { partnerAddress: string | 
             {agentReady ? (
               <p className="text-sm text-gray-600 font-medium leading-relaxed max-w-[320px]">
                 <span className="font-black text-gray-900">Your agent is already here.</span> It
-                now takes care of this bond too — the money between you two, no arguing.
+                now takes care of this bond too{handoff ? ' — taking you there.' : '.'}
               </p>
             ) : (
               <p className="text-sm text-gray-600 font-medium leading-relaxed max-w-[320px]">
@@ -145,10 +156,10 @@ export function BondedOnboarding({ partnerAddress }: { partnerAddress: string | 
               </p>
             )}
             <AliveCta
-              onClick={() => router.push(agentReady ? '/agent' : '/agent/create')}
+              onClick={() => router.push(agentReady ? bondHref : '/agent/create')}
               className="w-full px-8 py-6 rounded-[1.75rem] text-sm tracking-[0.2em]"
             >
-              {agentReady ? 'Talk to your agent' : 'Create your agent'}
+              {agentReady ? 'Open your bond' : 'Create your agent'}
             </AliveCta>
           </>
         )}

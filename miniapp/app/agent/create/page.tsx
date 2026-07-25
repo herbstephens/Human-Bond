@@ -55,7 +55,7 @@ function TypingText({ id, text }: { id: string; text: string }) {
 
 export default function AgentCreatePage() {
   const router = useRouter();
-  const { answers, askedIds, importedSources, agentReady, answer, connectSources, completeInterview, resetAgent } =
+  const { answers, askedIds, importedSources, agentReady, bonds, answer, connectSources, completeInterview, resetAgent } =
     useAgentStore();
   const [draft, setDraft] = useState('');
   const [listening, setListening] = useState(false);
@@ -146,9 +146,11 @@ export default function AgentCreatePage() {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [answeredCount, importState]);
 
+  // Once the agent exists — whether the interview just finished or one existed
+  // all along — the onboarding continues on the bond itself, not in the chat.
   useEffect(() => {
-    if (agentReady) router.replace('/agent');
-  }, [agentReady, router]);
+    if (agentReady) router.replace(bonds[0] ? `/bond/${bonds[0].id}` : '/agent');
+  }, [agentReady, bonds, router]);
 
   const runImport = () => {
     setImportState('importing');
