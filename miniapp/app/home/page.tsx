@@ -494,23 +494,13 @@ export default function HomePage() {
           </div>
         ) : (
           <div className="w-full max-w-lg mx-auto space-y-4 animate-in fade-in zoom-in duration-700">
-            {/* Post-bond onboarding until the shared wallet exists — claiming the
-                name IS the transaction that creates it. Once the Safe is on-chain
-                the full dashboard takes over: wallet, dissolve (3-day wait + 50/50
-                split), gallery, milestones, TIME, and the agent CTA. */}
-            {dashboard && isConnected && !vaultCreated && (
+            {/* Post-bond, home IS the onboarding ring — before the wallet exists
+                it claims name+Safe in one batch; after, it shows the named ring
+                and hands off to the bond page (the actual dashboard of this demo).
+                The legacy MarriageDashboard (TIME, gallery, dissolve) stays out
+                of the flow on purpose. */}
+            {dashboard && isConnected && (
               <BondedOnboarding partnerAddress={dashboard.partner} />
-            )}
-            {dashboard && isConnected && vaultCreated && (
-              <MarriageDashboard
-                dashboard={dashboard}
-                onRefresh={refetch}
-                onDissolved={handleDissolved}
-                onDissolutionFailed={handleDissolutionFailed}
-                marriageView={marriageView}
-                dissolutionRequest={dissolutionRequest}
-                isMarriageLoading={isMarriageLoading}
-              />
             )}
             {notifStatus === 'not_granted' && (
               <button
