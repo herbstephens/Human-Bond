@@ -8,7 +8,9 @@ import {
 import {
   AGENTKIT_AGENT_BOOK,
   AGENTKIT_AGENT_BOOK_ABI,
+  AGENTKIT_REGISTER_SIGNATURE,
   AGENTKIT_RELAY_URL,
+  decodeKnownAgentBookError,
   normalizeWorldIdProof,
 } from '@/lib/agents/agentkitRegistration';
 
@@ -58,28 +60,56 @@ async function activate(request: Request) {
   // Verbose by design: this route is where the open question gets answered —
   // whether AgentBook accepts a proof minted under our app_id (MiniKit path) or
   // only under AgentKit's (bridge path). The relay's reply is the evidence.
+  const proof = normalizeWorldIdProof(body.proof);
+  const relayPayload = {
+    agent: body.agentAddress,
+    root: body.merkleRoot,
+    nonce: body.nonce,
+    nullifierHash: body.nullifierHash,
+    proof,
+    contract: AGENTKIT_AGENT_BOOK,
+  };
+
   console.info('[agentkit] registering', {
     agent: body.agentAddress,
     nonce: body.nonce,
     nullifierHash: body.nullifierHash,
   });
-
-  const relayResponse = await fetch(`${AGENTKIT_RELAY_URL}/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+  console.info('[agentkit] registration contract call', {
+    contract: AGENTKIT_AGENT_BOOK,
+    function: AGENTKIT_REGISTER_SIGNATURE,
+    args: {
       agent: body.agentAddress,
       root: body.merkleRoot,
       nonce: body.nonce,
       nullifierHash: body.nullifierHash,
-      proof: normalizeWorldIdProof(body.proof),
-      contract: AGENTKIT_AGENT_BOOK,
-    }),
+      proofWords: proof.length,
+    },
+    abi: AGENTKIT_AGENT_BOOK_ABI,
+    knownErrorSelectors: {
+      '0x7fcdd1f4': 'ProofInvalid()',
+    },
+  });
+
+  const relayResponse = await fetch(`${AGENTKIT_RELAY_URL}/register`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(relayPayload),
   });
   if (!relayResponse.ok) {
     const detail = await relayResponse.text();
-    console.error('[agentkit] relay rejected', relayResponse.status, detail);
-    throw new Error(`AgentKit registration relay ${relayResponse.status}: ${detail}`);
+    const decodedError = decodeKnownAgentBookError(detail);
+    console.error('[agentkit] relay rejected', {
+      status: relayResponse.status,
+      decodedError,
+      contract: AGENTKIT_AGENT_BOOK,
+      function: AGENTKIT_REGISTER_SIGNATURE,
+      abi: AGENTKIT_AGENT_BOOK_ABI,
+      detail,
+    });
+    throw new Error(
+      `AgentKit registration relay ${relayResponse.status}${decodedError ? ` (${decodedError})` : ''}: ${detail}`,
+    );
   }
   console.info('[agentkit] relay accepted the proof');
 
