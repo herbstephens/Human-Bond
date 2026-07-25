@@ -28,12 +28,13 @@ export function AliveCta({
           50% { box-shadow: 0 0 30px 8px rgba(245,158,11,.45), 0 12px 30px rgba(0,0,0,.12); transform: scale(1.015); }
         }
       `}</style>
-      {/* Action color = the spark's amber. Never black (user bubbles) or white (agent bubbles). */}
+      {/* Black pill + white text; the amber BREATHING GLOW is what makes it the
+          action — user bubbles are gray, agent bubbles white, so black is unique. */}
       <button
         onClick={onClick}
         disabled={disabled}
-        className={`bg-amber-400 text-black font-black uppercase transition-colors active:scale-95 ${
-          disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-amber-300'
+        className={`bg-black text-white font-black uppercase transition-colors active:scale-95 ${
+          disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-900'
         } ${className}`}
         style={disabled ? undefined : { animation: 'hbCtaBreathe 2.6s ease-in-out infinite' }}
       >

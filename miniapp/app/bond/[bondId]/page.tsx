@@ -510,7 +510,7 @@ export default function BondProfilePage() {
                 </div>
               ) : (
                 <div key={m.id} className="flex justify-end">
-                  <div className="bg-[#1A1A1A] text-white rounded-2xl rounded-br-md px-4 py-2.5 max-w-[90%]">
+                  <div className="bg-gray-500 text-white rounded-2xl rounded-br-md px-4 py-2.5 max-w-[90%]">
                     <p className="text-[13px] font-bold">{m.text}</p>
                   </div>
                 </div>
@@ -799,19 +799,16 @@ export default function BondProfilePage() {
         </section>
       </main>
 
-      {/* Floating hand-off to the trustee — Claude-app-style pill, only while
-          the inline chat input is scrolled out of view. Sits left of the mock
+      {/* Floating hand-off to YOUR OWN agent — Claude-app-style pill, only while
+          the trustee input is scrolled out of view. Sits left of the mock
           panel toggle in dev so the two never overlap. */}
       {!chatBarVisible && (
         <button
-          onClick={() => {
-            chatFieldRef.current?.focus({ preventScroll: true });
-            chatBarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }}
+          onClick={() => router.push('/agent')}
           className={`fixed bottom-5 ${USE_MOCKS ? 'right-20' : 'right-5'} z-40 flex items-center gap-2 bg-[#1A1A1A] text-white pl-3.5 pr-4 py-2.5 rounded-full shadow-[0_10px_30px_rgba(0,0,0,0.25)] active:scale-95 transition-all animate-in fade-in slide-in-from-bottom-2 duration-300`}
         >
           <MessageCircle size={14} />
-          <span className="text-[11px] font-bold">Ask the trustee</span>
+          <span className="text-[11px] font-bold">Message your agent</span>
         </button>
       )}
 
