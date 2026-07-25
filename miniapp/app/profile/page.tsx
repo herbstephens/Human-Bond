@@ -116,7 +116,7 @@ export default function ProfilePage() {
 
   const facts = [...derivedFacts(answers, importedSources), ...learned, ...customFacts];
   const hasTickets = Object.values(payments).some(
-    (p) => p.stage === 'paid' && !p.personal && p.label.toLowerCase().includes('kalorama'),
+    (p) => p.stage === 'paid' && !p.personal && p.label?.toLowerCase().includes('kalorama'),
   );
 
   const submit = () => {
