@@ -70,18 +70,6 @@ Anyone can resolve `herb-agatha.humanbond.eth` to reach the partnership's shared
 
 ---
 
-### 🌊 Sui / Walrus — Best existing app integrating the Sui stack · $2,000
-
-**Technology:** Walrus is a decentralised storage network from the Sui ecosystem. Chain-agnostic — works directly with EVM contracts.
-
-**Before:** HumanBond's VowNFTs, partnership charters, and milestone records had nowhere permanent to live. IPFS is reliable only as long as someone keeps pinning the content. Centralised metadata storage directly contradicts the promise of a soulbound, lifelong partnership record.
-
-**After:** Every VowNFT's metadata — the partnership charter, the formation timestamp, the verified identity tiers of both partners, the income split configuration, and every milestone record — is stored on Walrus. The record is as permanent as the bond is intended to be. When a Work TIME split executes, the transaction hash and split record are appended to the Walrus document. The partnership's full economic history is sovereign and decentralised.
-
-**Qualification:** HumanBond is a live existing product (Continuity Track). Walrus integration is the new feature. The integration is load-bearing — permanent partnership records, not a cosmetic add-on.
-
----
-
 ### 🏆 The Graph — Best Use of Composable or Standardized Graph Data Products · $4,000
 
 **Technology:** The Graph is the indexing and query layer of web3. Subgraphs provide structured, real-time access to blockchain data.
