@@ -225,28 +225,16 @@ export function CreateProposalForm() {
           <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center shadow-lg border border-gray-100 p-2.5">
             <Image src="/Isotype.png" alt="HumanBond" width={44} height={44} className="w-full h-full object-contain" />
           </div>
-          <div className="text-center space-y-2">
+          <div className="text-center space-y-3">
             <h1 className="text-4xl font-black text-black tracking-tighter">
-              Create Bond
+              This is a beginning.
             </h1>
-            <p className="text-[13px] font-medium text-gray-500 leading-relaxed max-w-[300px] mx-auto">
-              One shared address that belongs to you both. Yours to build together.
+            <p className="text-[14px] font-medium text-gray-500 leading-relaxed max-w-[310px] mx-auto">
+              You&apos;re not opening an account. You&apos;re making a place that holds your
+              shared life, where money arrives to be built together, not split apart. While you
+              are both here, nothing moves unless you both say yes. And when one of you is gone,
+              it passes to the one who stays, and then to your children.
             </p>
-            <div className="mt-4 space-y-2 max-w-[300px] mx-auto text-left">
-              {([
-                ['One address, two names', 'It belongs to both of you, equally.'],
-                ['Your agents do the legwork', 'They handle the everyday, so you don\u2019t.'],
-                ['Both of you, or nothing moves', 'One yes isn\u2019t enough. It takes two.'],
-              ] as const).map(([note, sub]) => (
-                <div key={note} className="flex items-start gap-2.5">
-                  <span className="w-1 h-1 rounded-full bg-gray-300 mt-[7px] shrink-0" />
-                  <p className="text-[12px] leading-snug">
-                    <span className="font-bold text-gray-700">{note}</span>{' '}
-                    <span className="text-gray-400 font-medium">{sub}</span>
-                  </p>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
 
