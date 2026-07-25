@@ -11,9 +11,10 @@
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, ArrowLeft, ArrowUp, Bell, Check, Landmark, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowUp, Bell, Check, Landmark, MessageCircle, X } from 'lucide-react';
 import { AliveCta } from '@/app/components/agent/AliveCta';
 import { useAgentStore, type Heir } from '@/lib/agent/agentStore';
+import { USE_MOCKS } from '@/lib/config';
 
 // --- tiny self-contained chat for the trustee room ------------------------
 
@@ -68,6 +69,11 @@ export default function BondProfilePage() {
   const endRef = useRef<HTMLDivElement>(null);
   const greeted = useRef(false);
   const rogueShown = useRef(false);
+  // Floating "ask the trustee" pill: shown only while the inline chat input is
+  // scrolled out of view — tap scrolls back and focuses the field.
+  const chatBarRef = useRef<HTMLDivElement>(null);
+  const chatFieldRef = useRef<HTMLInputElement>(null);
+  const [chatBarVisible, setChatBarVisible] = useState(true);
 
   useEffect(() => {
     if (!agentReady) router.replace('/home');
@@ -102,6 +108,14 @@ export default function BondProfilePage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [agentReady, isInheritance]);
+
+  useEffect(() => {
+    const el = chatBarRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(([entry]) => setChatBarVisible(entry.isIntersecting));
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
 
   // Scroll only within reach of the chat — never yank the page to the bottom.
   useEffect(() => {
@@ -544,8 +558,9 @@ export default function BondProfilePage() {
             )}
 
             {/* Input */}
-            <div className="flex items-center gap-2 pt-1">
+            <div ref={chatBarRef} className="flex items-center gap-2 pt-1">
               <input
+                ref={chatFieldRef}
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && submitDraft()}
@@ -729,6 +744,22 @@ export default function BondProfilePage() {
           </p>
         </section>
       </main>
+
+      {/* Floating hand-off to the trustee — Claude-app-style pill, only while
+          the inline chat input is scrolled out of view. Sits left of the mock
+          panel toggle in dev so the two never overlap. */}
+      {!chatBarVisible && (
+        <button
+          onClick={() => {
+            chatFieldRef.current?.focus({ preventScroll: true });
+            chatBarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }}
+          className={`fixed bottom-5 ${USE_MOCKS ? 'right-20' : 'right-5'} z-40 flex items-center gap-2 bg-[#1A1A1A] text-white pl-3.5 pr-4 py-2.5 rounded-full shadow-[0_10px_30px_rgba(0,0,0,0.25)] active:scale-95 transition-all animate-in fade-in slide-in-from-bottom-2 duration-300`}
+        >
+          <MessageCircle size={14} />
+          <span className="text-[11px] font-bold">Ask the trustee</span>
+        </button>
+      )}
 
       {/* ACHTUNG: removing someone from the will is a two-person decision */}
       {confirmRemove && (
