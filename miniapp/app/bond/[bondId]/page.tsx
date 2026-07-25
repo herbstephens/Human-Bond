@@ -87,9 +87,11 @@ export default function BondProfilePage() {
         },
       ]);
       setBusy(false);
-    }, 900);
-    const t2 = alreadyInvested ? undefined : setTimeout(() => setYieldState('proposed'), 5200);
+    }, 700);
+    const t2 = alreadyInvested ? undefined : setTimeout(() => setYieldState('proposed'), 2600);
     return () => {
+      // StrictMode runs effects twice — release the guard so the re-run reschedules.
+      greeted.current = false;
       clearTimeout(t1);
       if (t2) clearTimeout(t2);
     };
