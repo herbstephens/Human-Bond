@@ -34,72 +34,113 @@ function TypingText({ text, className }: { text: string; className?: string }) {
   );
 }
 
-function choreoSteps(p: Payment): { stage: ChoreoStage; label: string; who: string }[] {
-  return [
-    { stage: 'requested', label: 'Request sent to the trustee', who: 'Your agent' },
-    { stage: 'charter', label: 'Charter says: shared expense', who: 'Trustee' },
-    {
-      stage: 'fairness',
-      label: `Incomes compared — you ${p.shareYouPct}% · Alice ${100 - p.shareYouPct}%`,
-      who: 'Both agents',
-    },
+/**
+ * The proposal card: what the agents negotiated, waiting for the HUMAN to
+ * release it on hito — with the feelings loop one tap away. After release
+ * it walks through pull → paid.
+ */
+function ProposalCard({ payment }: { payment: Payment }) {
+  const { confirmOnHito, renegotiate } = useAgentStore();
+  const p = payment;
+  const isProposed = p.stage === 'proposed';
+  const isPaid = p.stage === 'paid';
+
+  const execSteps: { stage: ChoreoStage; label: string }[] = [
+    { stage: 'confirmed', label: 'Released — you ✓ on your hito · Alice ✓ on hers' },
     {
       stage: 'pulled',
-      label: `${p.shareYou.toFixed(2)} pulled from you · ${p.sharePartner.toFixed(2)} from Alice`,
-      who: 'Card on file',
+      label:
+        p.shareYou === 0
+          ? `${p.sharePartner.toFixed(2)} USDC pulled from Alice’s wallet`
+          : `${p.shareYou.toFixed(2)} pulled from you · ${p.sharePartner.toFixed(2)} from Alice`,
     },
-    { stage: 'paid', label: `${p.amountUsdc.toFixed(2)} USDC paid to ${p.vendor}`, who: 'Bond' },
+    { stage: 'paid', label: `${p.amountUsdc.toFixed(2)} USDC paid to ${p.recipientEns}` },
   ];
-}
-
-/** The money shot: fairness decided by agents, charged like a card — visible. */
-function ChoreographyCard({ payment }: { payment: Payment }) {
-  const steps = choreoSteps(payment);
-  const idx = steps.findIndex((s) => s.stage === payment.stage);
-  const isPaid = payment.stage === 'paid';
+  const order: ChoreoStage[] = ['proposed', 'confirmed', 'pulled', 'paid'];
+  const idx = order.indexOf(p.stage);
 
   return (
     <div className="w-full bg-white rounded-[1.75rem] border border-gray-100 shadow-[0_20px_50px_rgba(0,0,0,0.05)] overflow-hidden animate-in fade-in zoom-in duration-500">
+      {/* Header */}
       <div className={`px-6 py-4 flex items-center justify-between gap-4 ${isPaid ? 'bg-emerald-50' : 'bg-amber-50'}`}>
-        <p className="text-[9px] font-black uppercase tracking-[0.18em] text-gray-500 leading-relaxed">
-          Your agent <span className="text-gray-300 mx-0.5">→</span> Trustee{' '}
-          <span className="text-gray-300 mx-0.5">→</span> both wallets
-        </p>
+        <div>
+          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">
+            {isProposed ? 'Proposal · negotiated by your agents' : 'Payment'}
+          </p>
+          <p className="text-[13px] font-black text-gray-900 mt-0.5">{p.label}</p>
+        </div>
         <div className="text-right shrink-0">
-          <p className="text-sm font-black text-gray-900 font-mono">{payment.amountUsdc.toFixed(2)} USDC</p>
-          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">{payment.vendor}</p>
+          <p className="text-sm font-black text-gray-900 font-mono">{p.amountUsdc.toFixed(2)} USDC</p>
+          <p className="text-[9px] font-mono font-bold text-gray-400">{p.recipientEns}</p>
         </div>
       </div>
 
-      <div className="px-6 py-5 space-y-3.5">
-        {steps.map((s, i) => {
-          const reached = i <= idx;
-          const isCurrent = i === idx && !isPaid;
-          return (
-            <div key={s.stage} className="flex items-center gap-3">
-              <div
-                className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-colors ${
-                  reached ? (isCurrent ? 'bg-amber-500 text-white' : 'bg-black text-white') : 'bg-gray-100 text-gray-300'
-                }`}
-              >
-                {reached && !isCurrent ? (
-                  <Check size={11} />
-                ) : (
-                  <div className={`w-1.5 h-1.5 rounded-full ${isCurrent ? 'bg-white animate-pulse' : 'bg-gray-300'}`} />
-                )}
-              </div>
-              <p className={`text-[13px] font-medium flex-1 ${reached ? 'text-gray-800' : 'text-gray-400'}`}>{s.label}</p>
-              <span className="text-[8px] font-black uppercase tracking-widest text-gray-300">{s.who}</span>
-            </div>
-          );
-        })}
+      {/* The negotiated split — always visible */}
+      <div className="px-6 pt-4 pb-1">
+        <div className="flex gap-2">
+          <div className="flex-1 bg-gray-50 rounded-xl px-4 py-3">
+            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">You</p>
+            <p className="text-sm font-black text-gray-900 font-mono">{p.shareYou.toFixed(2)}</p>
+          </div>
+          <div className="flex-1 bg-gray-50 rounded-xl px-4 py-3">
+            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Alice</p>
+            <p className="text-sm font-black text-gray-900 font-mono">{p.sharePartner.toFixed(2)}</p>
+          </div>
+        </div>
+        {p.note && (
+          <p className="mt-2.5 text-[11px] font-medium text-amber-600">↺ Renegotiated: {p.note}</p>
+        )}
       </div>
 
-      {isPaid && (
-        <div className="px-6 pb-5">
-          <div className="w-full bg-emerald-50 border border-emerald-100 text-emerald-600 px-6 py-3 rounded-2xl text-[11px] font-black uppercase tracking-[0.15em] text-center">
-            Settled fairly · both wallets charged
-          </div>
+      {/* Awaiting the human: hito release + the feelings loop */}
+      {isProposed && (
+        <div className="px-6 py-5 space-y-2.5">
+          <button
+            onClick={() => confirmOnHito(p.id)}
+            className="w-full bg-black text-white px-6 py-4 rounded-2xl text-[11px] font-black uppercase tracking-[0.15em] hover:bg-gray-900 transition-all active:scale-[0.97] shadow-lg"
+          >
+            Release on your hito
+          </button>
+          {!p.renegotiated && (
+            <button
+              onClick={() => renegotiate(p.id)}
+              className="w-full px-6 py-3 rounded-2xl text-[11px] font-bold text-gray-500 hover:text-gray-800 hover:bg-gray-50 transition-all"
+            >
+              I don’t feel good about this
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Execution steps after release */}
+      {!isProposed && (
+        <div className="px-6 py-5 space-y-3.5">
+          {execSteps.map((s) => {
+            const si = order.indexOf(s.stage);
+            const reached = si <= idx;
+            const isCurrent = si === idx && !isPaid;
+            return (
+              <div key={s.stage} className="flex items-center gap-3">
+                <div
+                  className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-colors ${
+                    reached ? (isCurrent ? 'bg-amber-500 text-white' : 'bg-black text-white') : 'bg-gray-100 text-gray-300'
+                  }`}
+                >
+                  {reached && !isCurrent ? (
+                    <Check size={11} />
+                  ) : (
+                    <div className={`w-1.5 h-1.5 rounded-full ${isCurrent ? 'bg-white animate-pulse' : 'bg-gray-300'}`} />
+                  )}
+                </div>
+                <p className={`text-[13px] font-medium flex-1 ${reached ? 'text-gray-800' : 'text-gray-400'}`}>{s.label}</p>
+              </div>
+            );
+          })}
+          {isPaid && (
+            <div className="w-full bg-emerald-50 border border-emerald-100 text-emerald-600 px-6 py-3 rounded-2xl text-[11px] font-black uppercase tracking-[0.15em] text-center">
+              Settled · released by humans, executed by the bond
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -179,6 +220,8 @@ export default function AgentChatPage() {
     scanBill,
     requestPay,
     grantPull,
+    buyShared,
+    buyPersonal,
     say,
     agentSay,
     resetAgent,
@@ -207,18 +250,6 @@ export default function AgentChatPage() {
     !pullGranted &&
     lastAgentText?.kind === 'text' &&
     lastAgentText.text.startsWith('One thing first');
-
-  const buySomething = () => {
-    say('Buy something for me.');
-    setTimeout(
-      () =>
-        agentSay(
-          'Tell me what and roughly how much. Under your €200 rule I just handle it — above, the trustee loops in Alice first.',
-          { typed: true },
-        ),
-      800,
-    );
-  };
 
   const askFinances = () => {
     say('How are our finances?');
@@ -273,7 +304,7 @@ export default function AgentChatPage() {
         {messages.map((m) => {
           if (m.kind === 'choreo') {
             const p = payments[m.paymentId];
-            return p ? <ChoreographyCard key={m.id} payment={p} /> : null;
+            return p ? <ProposalCard key={m.id} payment={p} /> : null;
           }
           if (m.kind === 'grant') return <GrantCard key={m.id} />;
           if (m.kind === 'receipt') {
@@ -369,10 +400,16 @@ export default function AgentChatPage() {
               Pay a receipt
             </button>
             <button
-              onClick={buySomething}
+              onClick={buyShared}
               className="px-4 py-2 bg-white/70 border border-gray-200 rounded-full text-[11px] font-bold text-gray-600 hover:bg-white transition-all"
             >
-              Buy something
+              Buy for us
+            </button>
+            <button
+              onClick={buyPersonal}
+              className="px-4 py-2 bg-white/70 border border-gray-200 rounded-full text-[11px] font-bold text-gray-600 hover:bg-white transition-all"
+            >
+              Buy for me
             </button>
             <button
               onClick={askFinances}

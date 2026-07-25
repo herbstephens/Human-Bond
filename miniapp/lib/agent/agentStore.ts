@@ -139,7 +139,12 @@ export function profileSummary(answers: Record<string, InterviewAnswer>): string
 // ---------------------------------------------------------------------------
 // Chat + fair-split payment choreography
 
-export type ChoreoStage = 'requested' | 'charter' | 'fairness' | 'pulled' | 'paid';
+/**
+ * A shared payment's life: the agents negotiate → the human SEES the proposal
+ * and releases it on hito → shares are pulled → the recipient is paid.
+ * Money never moves on agent agreement alone.
+ */
+export type ChoreoStage = 'proposed' | 'confirmed' | 'pulled' | 'paid';
 
 export type ChatMessage =
   | { id: string; role: 'agent' | 'user'; kind: 'text'; text: string; typed?: boolean; thinking?: boolean }
@@ -149,13 +154,20 @@ export type ChatMessage =
 
 export type Payment = {
   id: string;
-  vendor: string;
+  /** What is being paid for, human words. */
+  label: string;
+  /** Who receives the money — the counterparty's ENS. */
+  recipientEns: string;
   amountUsdc: number;
-  /** Fair split, decided by your agent + the trustee from both incomes. */
+  /** Fair split, negotiated by your agent + the trustee from both incomes. */
   shareYouPct: number;
   shareYou: number;
   sharePartner: number;
   stage: ChoreoStage;
+  /** Set after a feelings-loop renegotiation ("Alice covers this one…"). */
+  note?: string;
+  /** Only one renegotiation round in the dummy. */
+  renegotiated?: boolean;
 };
 
 let nextId = 1;
@@ -185,8 +197,8 @@ type AgentState = {
   // payment rails
   /** Both partners granted the bond pull access to their wallets (card on file). */
   pullGranted: boolean;
-  /** A receipt is parsed and waiting for the grant before it can be paid. */
-  pendingReceipt: { vendor: string; amountUsdc: number } | null;
+  /** A shared expense parsed/requested and waiting for the grant before proposal. */
+  pendingReceipt: { vendor: string; amountUsdc: number; recipientEns: string } | null;
 
   // chat
   messages: ChatMessage[];
@@ -202,8 +214,16 @@ type AgentState = {
   /** User wants the bill settled. Inserts the grant step if pull access is missing. */
   requestPay: () => void;
   grantPull: () => void;
-  startPayment: (vendor: string, amountUsdc: number) => void;
-  advanceChoreo: (paymentId: string) => void;
+  /** Shared purchase: routed to the trustee, negotiated, proposed. */
+  buyShared: () => void;
+  /** Internal: negotiation (typed) → proposal card awaiting hito release. */
+  proposeShared: (label: string, recipientEns: string, amountUsdc: number, fromReceipt: boolean) => void;
+  /** Personal purchase: own wallet, own rule — the partner is never involved. */
+  buyPersonal: () => void;
+  /** The feelings loop: "I don't feel good about this" → agents renegotiate. */
+  renegotiate: (paymentId: string) => void;
+  /** The human releases the negotiated proposal on their hito. */
+  confirmOnHito: (paymentId: string) => void;
   say: (text: string) => void;
   agentSay: (text: string, opts?: { typed?: boolean; thinking?: boolean }) => void;
   resetAgent: () => void;
@@ -265,20 +285,20 @@ export const useAgentStore = create<AgentState>()(
             { id: mid(), role: 'user', kind: 'text', text: 'Scanned a bill' },
             { id: mid(), role: 'agent', kind: 'receipt', vendor: 'Cervejaria Ramiro', amountUsdc: 84.5 },
           ],
-          pendingReceipt: { vendor: 'Cervejaria Ramiro', amountUsdc: 84.5 },
+          pendingReceipt: { vendor: 'Cervejaria Ramiro', amountUsdc: 84.5, recipientEns: 'ramiro.eth' },
         }));
-        // The reasoning, visible and typed — then the conclusion.
+        // Visible reasoning: read → CLASSIFY (the routing decision) → conclusion.
         setTimeout(
           () =>
             get().agentSay(
-              'Reading it… restaurant receipt — Cervejaria Ramiro, Lisbon. Two covers, tonight. That makes it a shared expense under your charter.',
+              'Reading it… restaurant receipt — Cervejaria Ramiro, Lisbon. Two covers, tonight. For both of you → not your personal budget. This goes to the trustee.',
               { typed: true, thinking: true },
             ),
           600,
         );
         setTimeout(
           () => get().agentSay('Want me to settle it fairly between the two of you?', { typed: true }),
-          3400,
+          3600,
         );
       },
 
@@ -292,14 +312,14 @@ export const useAgentStore = create<AgentState>()(
           setTimeout(
             () =>
               s.agentSay(
-                'One thing first: our shared account is at zero. Grant the bond pull access to your wallet — like a card on file — and I can charge each of you your fair share, in the moment.',
+                'One thing first: our shared account holds no balance yet. Grant the bond pull access to your wallet — like a card on file — and each of you gets charged your fair share, in the moment.',
                 { typed: true },
               ),
             500,
           );
           return;
         }
-        setTimeout(() => s.startPayment(receipt.vendor, receipt.amountUsdc), 400);
+        get().proposeShared(receipt.vendor, receipt.recipientEns, receipt.amountUsdc, true);
       },
 
       grantPull: () => {
@@ -308,50 +328,151 @@ export const useAgentStore = create<AgentState>()(
           pullGranted: true,
           messages: [...st.messages, { id: mid(), role: 'system', kind: 'grant' }],
         }));
-        // Alice's agent mirrors the grant on her side, then the payment runs.
+        // Alice's agent mirrors the grant on her side, then negotiation starts.
         const receipt = s.pendingReceipt;
         if (receipt) {
-          setTimeout(() => get().startPayment(receipt.vendor, receipt.amountUsdc), 1600);
+          setTimeout(() => get().proposeShared(receipt.vendor, receipt.recipientEns, receipt.amountUsdc, true), 1400);
         }
       },
 
-      startPayment: (vendor, amountUsdc) => {
-        const id = mid();
-        const shareYouPct = 10; // trustee compared incomes: Alice earns more right now
-        const shareYou = Math.round(amountUsdc * shareYouPct) / 100;
-        const sharePartner = Math.round(amountUsdc * (100 - shareYouPct)) / 100;
-        set((s) => ({
-          pendingReceipt: null,
-          payments: {
-            ...s.payments,
-            [id]: { id, vendor, amountUsdc, shareYouPct, shareYou, sharePartner, stage: 'requested' },
-          },
-          messages: [...s.messages, { id: mid(), role: 'system', kind: 'choreo', paymentId: id }],
-        }));
-        // The trustee works through the stages on its own clock.
-        setTimeout(() => get().advanceChoreo(id), 1100);
-        setTimeout(() => get().advanceChoreo(id), 2300);
-        setTimeout(() => get().advanceChoreo(id), 3700);
-        setTimeout(() => get().advanceChoreo(id), 5100);
+      buyShared: () => {
+        const s = get();
+        s.say('Buy two Kalorama festival tickets for us — about 120 USDC.');
+        // Routing decision, visible.
+        setTimeout(
+          () =>
+            s.agentSay(
+              'Tickets for two → that’s for both of you, not your personal budget. Taking it to the trustee.',
+              { typed: true, thinking: true },
+            ),
+          700,
+        );
+        if (!s.pullGranted) {
+          setTimeout(
+            () =>
+              get().agentSay(
+                'Before I can: our shared account holds no balance yet. Grant the bond pull access to your wallet — like a card on file.',
+                { typed: true },
+              ),
+            2800,
+          );
+          set(() => ({
+            pendingReceipt: { vendor: 'Kalorama tickets ×2', amountUsdc: 120, recipientEns: 'kalorama-tickets.eth' },
+          }));
+          return;
+        }
+        get().proposeShared('Kalorama tickets ×2', 'kalorama-tickets.eth', 120, false);
+      },
+
+      buyPersonal: () => {
+        const s = get();
+        s.say('And buy me new running shoes — about €90.');
+        setTimeout(
+          () =>
+            s.agentSay(
+              'For you alone → your wallet, and €90 sits under your €200 rule. No trustee, no Alice.',
+              { typed: true, thinking: true },
+            ),
+          700,
+        );
         setTimeout(
           () =>
             get().agentSay(
-              `Done — ${vendor} is paid. Settled fairly: ${shareYou.toFixed(2)} USDC pulled from your wallet, ${sharePartner.toFixed(2)} from Alice’s. Filed in your history.`,
+              'Done — ordered, 90 USDC from your own wallet. Alice never hears about this one.',
               { typed: true },
             ),
-          6200,
+          3200,
         );
       },
 
-      advanceChoreo: (paymentId) =>
-        set((s) => {
-          const p = s.payments[paymentId];
-          if (!p) return s;
-          const order: ChoreoStage[] = ['requested', 'charter', 'fairness', 'pulled', 'paid'];
-          const idx = order.indexOf(p.stage);
-          if (idx < 0 || idx >= order.length - 1) return s;
-          return { payments: { ...s.payments, [paymentId]: { ...p, stage: order[idx + 1] } } };
-        }),
+      /** Internal: negotiation (typed, visible) → proposal card awaiting hito release. */
+      proposeShared: (label: string, recipientEns: string, amountUsdc: number, fromReceipt: boolean) => {
+        const g = get();
+        const delay = fromReceipt ? 500 : 2600;
+        setTimeout(
+          () =>
+            g.agentSay(
+              'Negotiating with the trustee… I argued your cash flow is tight this month. The trustee compared incomes — Alice earns more right now — and came back with: you 10%, Alice 90%.',
+              { typed: true, thinking: true },
+            ),
+          delay,
+        );
+        setTimeout(() => {
+          const id = mid();
+          const shareYou = Math.round(amountUsdc * 10) / 100;
+          const sharePartner = Math.round(amountUsdc * 90) / 100;
+          set((s) => ({
+            pendingReceipt: null,
+            payments: {
+              ...s.payments,
+              [id]: {
+                id, label, recipientEns, amountUsdc,
+                shareYouPct: 10, shareYou, sharePartner,
+                stage: 'proposed' as ChoreoStage,
+              },
+            },
+            messages: [...s.messages, { id: mid(), role: 'system', kind: 'choreo', paymentId: id }],
+          }));
+        }, delay + 3400);
+      },
+
+      renegotiate: (paymentId) => {
+        const g = get();
+        g.say('I don’t feel good about this.');
+        setTimeout(
+          () => g.agentSay('Heard. Your feeling counts as an interest — I’m going back in.', { typed: true }),
+          600,
+        );
+        setTimeout(
+          () =>
+            g.agentSay(
+              'Alice’s agent offered: she covers this one fully, you take the next one. New proposal on the table.',
+              { typed: true, thinking: true },
+            ),
+          2600,
+        );
+        setTimeout(() => {
+          set((s) => {
+            const p = s.payments[paymentId];
+            if (!p) return s;
+            return {
+              payments: {
+                ...s.payments,
+                [paymentId]: {
+                  ...p,
+                  shareYouPct: 0,
+                  shareYou: 0,
+                  sharePartner: p.amountUsdc,
+                  note: 'Alice covers this one — you take the next.',
+                  renegotiated: true,
+                },
+              },
+            };
+          });
+        }, 4600);
+      },
+
+      confirmOnHito: (paymentId) => {
+        const advance = (stage: ChoreoStage) =>
+          set((s) => {
+            const p = s.payments[paymentId];
+            if (!p) return s;
+            return { payments: { ...s.payments, [paymentId]: { ...p, stage } } };
+          });
+        advance('confirmed');
+        setTimeout(() => advance('pulled'), 1500);
+        setTimeout(() => advance('paid'), 3000);
+        setTimeout(() => {
+          const p = get().payments[paymentId];
+          if (!p) return;
+          get().agentSay(
+            p.shareYou === 0
+              ? `Done — ${p.recipientEns} is paid. Alice covered this one; the trustee remembers you take the next.`
+              : `Done — ${p.recipientEns} is paid. ${p.shareYou.toFixed(2)} USDC pulled from your wallet, ${p.sharePartner.toFixed(2)} from Alice’s. Filed in your history.`,
+            { typed: true },
+          );
+        }, 4000);
+      },
 
       say: (text) =>
         set((s) => ({ messages: [...s.messages, { id: mid(), role: 'user', kind: 'text', text }] })),

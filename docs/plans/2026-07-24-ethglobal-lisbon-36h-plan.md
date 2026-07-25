@@ -129,6 +129,15 @@ W1+W2 = Scene 3 (P0-adjacent). W3+W4 = Scene 4 (Saturday).
 - **Confirmed:** USDC as token of choice, Safe encodes hard rules, 0G as the agent-communication framework, child inherits at 18 via World ID age verification.
 - **Team next steps:** simple concept description → LLM-generated basic UI spec; minimal agent demo (two agents share a Safe, a spend triggers wallet confirmation); map demo acts to 0G bounty requirements.
 
+## Agent UX — Decision Cascade & Feelings Loop (Sat night, Leon)
+
+1. **Routing comes first.** The personal agent serves the WHOLE person. On any request it first classifies, visibly: *for you alone* → your wallet, your private threshold rule (partner never involved) — or *for both of you* → hand-off to the trustee. The personal €200-style rule applies ONLY to personal purchases; shared spending follows bond rules.
+2. **The trustee decides, not your agent:** charter check (is this a bond expense?) + fair split from compared incomes (e.g. 10/90).
+3. **Funding, two modes:** shares pulled per expense from each partner's World-ID wallet in USDC (card-on-file allowance) — OR paid from a standing balance already in the shared account. Both valid; **ENS/vault setup needs follow-up questions here** (standing balance vs. per-expense, top-up rules).
+4. **The proposal moment is a first-class screen:** after the two agents have negotiated, the user SEES the proposal (amount, split, recipient) and releases it **via hito wallet**. Money never moves on agent agreement alone.
+5. **The feelings loop — core principle:** the user can always tell their own agent *"I don't feel good about this"* → the agents renegotiate (e.g. Alice covers this one, you get the next) → new proposal. People must know their agent hears feelings and turns them into negotiated interests. This IS the product's emotional promise.
+6. **Demo examples (USDC-believable):** shared = two Kalorama festival tickets (~120 USDC) paid to the seller's ENS; personal contrast = running shoes €90, own wallet, "Alice never hears about it"; receipt pays to `ramiro.eth`. TVs etc. = roadmap line: trustee wallet later links to Apple Pay/card rails.
+
 ## Prerequisites — verify in the FIRST HOUR (Sat 09:00–10:00)
 
 Access and accounts nobody has confirmed yet. Each unverified item silently blocks a task.

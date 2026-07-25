@@ -151,6 +151,8 @@ The trust gets staff. The family agent works for the charter, not for either par
 
 **The refused-bot beat matters:** AgentKit's track is "tell a bot from a human-backed agent" — show the negative case for 10 seconds.
 
+**Act 4 additions (Sat night):** (a) **Routing contrast** — "buy tickets for us" routes to the trustee with visible reasoning, "buy me shoes" stays in the personal wallet under the private rule, Alice never involved: two requests, 20 seconds, the whole cascade understood. (b) **Negotiation visible** — the two agents' discussion (cash-flow argument vs. income comparison) appears as typed reasoning before any proposal. (c) **Proposal release via hito** — the negotiated proposal (amount · split · recipient ENS) is a card the human releases on hardware; and the **feelings loop**: "I don't feel good about this" sends the agents back to renegotiate (e.g. Alice covers this one). Money never moves on agent agreement alone.
+
 **The full choreography (W3+W4):**
 
 ```mermaid
