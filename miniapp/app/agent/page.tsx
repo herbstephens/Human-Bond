@@ -4,8 +4,10 @@
  * Includes: the "your agent is alive" birth celebration (morphing blob),
  * one-bubble live typing, visible reasoning on receipt scans, the funding
  * moment (grant the bond pull access — card on file), and the fair-split
- * choreography: agents compare incomes → 10/90 → each share pulled from
- * its own wallet in the moment, like a card charge.
+ * choreography: agents compare incomes → 10/90 attribution on the books —
+ * but the money itself always moves from the SHARED vault, executed by the
+ * bond manager (trustee) only after both agents signed and both humans
+ * released on hito. Personal agents never move funds.
  */
 'use client';
 
@@ -65,8 +67,8 @@ function ProposalCard({ payment }: { payment: Payment }) {
       label: p.personal
         ? `${p.amountUsdc.toFixed(2)} USDC from your own wallet`
         : p.shareYou === 0
-          ? `Your share: 0.00 — Alice’s wallet covered the full ${p.amountUsdc.toFixed(2)}`
-          : `${p.shareYou.toFixed(2)} pulled from you · ${p.sharePartner.toFixed(2)} from Alice`,
+          ? `${p.amountUsdc.toFixed(2)} from your shared vault — booked fully to Alice`
+          : `${p.amountUsdc.toFixed(2)} from your shared vault · booked ${p.shareYou.toFixed(2)} you / ${p.sharePartner.toFixed(2)} Alice`,
     },
     { stage: 'paid', label: `${p.amountUsdc.toFixed(2)} USDC paid in full to ${p.recipientEns}` },
   ];

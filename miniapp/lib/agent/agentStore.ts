@@ -567,7 +567,7 @@ export const useAgentStore = create<AgentState>()(
             {
               type: 'text',
               thinking: true,
-              text: 'Talking to Alice’s agent… I argued your cash flow is tight this month; she pointed to the income picture — Alice earns more right now. We agreed: you 10%, Alice 90%. The trustee only executes what we settled.',
+              text: 'Talking to Alice’s agent… I argued your cash flow is tight this month; she pointed to the income picture — Alice earns more right now. On the books it’s you 10%, Alice 90% — paid straight from your shared vault, nobody’s personal wallet is touched. The bond manager executes only what we both signed.',
             },
             {
               type: 'action',
