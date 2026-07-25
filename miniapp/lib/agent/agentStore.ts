@@ -167,6 +167,8 @@ export type Payment = {
   detail?: string;
   note?: string;
   renegotiated?: boolean;
+  /** Personal payment: your wallet only. Under your threshold → phone authority (no release); above → your hito alone. */
+  personal?: boolean;
 };
 
 let nextId = 1;
@@ -361,13 +363,54 @@ export const useAgentStore = create<AgentState>()(
           const receipt = s.pendingReceipt;
           if (!receipt) return;
           s.say('I’ll pay this one myself.');
-          set(() => ({ pendingReceipt: null }));
+          const id = mid();
+          const underRule = receipt.amountUsdc <= 200;
+          set((st) => ({
+            pendingReceipt: null,
+            payments: {
+              ...st.payments,
+              [id]: {
+                id,
+                label: receipt.vendor,
+                recipientEns: receipt.recipientEns,
+                amountUsdc: receipt.amountUsdc,
+                shareYouPct: 100,
+                shareYou: receipt.amountUsdc,
+                sharePartner: 0,
+                // Under your rule: phone authority, no release. Above: your hito alone.
+                stage: (underRule ? 'confirmed' : 'proposed') as ChoreoStage,
+                personal: true,
+              },
+            },
+          }));
           s._enqueue([
             {
               type: 'text',
-              text: `Okay — your treat tonight. ${receipt.amountUsdc.toFixed(2)} USDC from your own wallet, straight to ${receipt.recipientEns}. Nothing logged against the trust — Alice owes you nothing.`,
+              thinking: true,
+              text: underRule
+                ? `Your treat → ${receipt.amountUsdc.toFixed(2)} sits under your €200 rule. Phone authority — I don’t need hardware for this.`
+                : `Your treat → ${receipt.amountUsdc.toFixed(2)} is above your €200 rule. I need your hito for this one — yours alone, Alice stays out of it.`,
             },
+            { type: 'choreo', paymentId: id },
           ]);
+          if (underRule) {
+            const advance = (stage: ChoreoStage) =>
+              set((st) => {
+                const p = st.payments[id];
+                if (!p) return st;
+                return { payments: { ...st.payments, [id]: { ...p, stage } } };
+              });
+            setTimeout(() => advance('pulled'), 5200);
+            setTimeout(() => advance('paid'), 6600);
+            setTimeout(() => {
+              get()._enqueue([
+                {
+                  type: 'text',
+                  text: `Paid — ${receipt.amountUsdc.toFixed(2)} USDC from your own wallet to ${receipt.recipientEns}. Nothing logged against the trust — Alice owes you nothing.`,
+                },
+              ]);
+            }, 7200);
+          }
         },
 
         grantPull: (userText) => {

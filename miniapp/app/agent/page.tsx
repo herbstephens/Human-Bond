@@ -52,11 +52,19 @@ function ProposalCard({ payment }: { payment: Payment }) {
   const isPaid = p.stage === 'paid';
 
   const execSteps: { stage: ChoreoStage; label: string }[] = [
-    { stage: 'confirmed', label: 'Released — you ✓ on your hito · Alice ✓ on hers' },
+    {
+      stage: 'confirmed',
+      label: p.personal
+        ? p.amountUsdc <= 200
+          ? 'Authorized — phone authority, under your €200 rule'
+          : 'Released — you ✓ on your hito, yours alone'
+        : 'Released — you ✓ on your hito · Alice ✓ on hers',
+    },
     {
       stage: 'pulled',
-      label:
-        p.shareYou === 0
+      label: p.personal
+        ? `${p.amountUsdc.toFixed(2)} USDC from your own wallet`
+        : p.shareYou === 0
           ? `Your share: 0.00 — Alice’s wallet covered the full ${p.amountUsdc.toFixed(2)}`
           : `${p.shareYou.toFixed(2)} pulled from you · ${p.sharePartner.toFixed(2)} from Alice`,
     },
@@ -71,7 +79,11 @@ function ProposalCard({ payment }: { payment: Payment }) {
       <div className={`px-6 py-4 flex items-center justify-between gap-4 ${isPaid ? 'bg-emerald-50' : 'bg-amber-50'}`}>
         <div>
           <p className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">
-            {isProposed ? 'Your agent ↔ Alice’s agent · trustee executes' : 'Payment'}
+            {p.personal
+              ? 'Your wallet · yours alone'
+              : isProposed
+                ? 'Your agent ↔ Alice’s agent · trustee executes'
+                : 'Payment'}
           </p>
           <p className="text-[13px] font-black text-gray-900 mt-0.5">{p.label}</p>
           {p.detail && (
@@ -84,17 +96,21 @@ function ProposalCard({ payment }: { payment: Payment }) {
         </div>
       </div>
 
-      {/* The negotiated split — always visible */}
+      {/* The split — always visible (single tile for personal payments) */}
       <div className="px-6 pt-4 pb-1">
         <div className="flex gap-2">
           <div className="flex-1 bg-gray-50 rounded-xl px-4 py-3">
-            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">You</p>
+            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
+              {p.personal ? 'From your wallet' : 'You'}
+            </p>
             <p className="text-sm font-black text-gray-900 font-mono">{p.shareYou.toFixed(2)}</p>
           </div>
-          <div className="flex-1 bg-gray-50 rounded-xl px-4 py-3">
-            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Alice</p>
-            <p className="text-sm font-black text-gray-900 font-mono">{p.sharePartner.toFixed(2)}</p>
-          </div>
+          {!p.personal && (
+            <div className="flex-1 bg-gray-50 rounded-xl px-4 py-3">
+              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Alice</p>
+              <p className="text-sm font-black text-gray-900 font-mono">{p.sharePartner.toFixed(2)}</p>
+            </div>
+          )}
         </div>
         {p.note && (
           <p className="mt-2.5 text-[11px] font-medium text-amber-600">↺ Renegotiated: {p.note}</p>
@@ -137,7 +153,11 @@ function ProposalCard({ payment }: { payment: Payment }) {
           })}
           {isPaid && (
             <div className="w-full bg-emerald-50 border border-emerald-100 text-emerald-600 px-6 py-3 rounded-2xl text-[11px] font-black uppercase tracking-[0.15em] text-center">
-              {p.shareYou === 0 ? 'Paid in full · covered by Alice this time' : 'Paid in full · settled fairly'}
+              {p.personal
+                ? 'Paid · yours alone — nothing logged against the trust'
+                : p.shareYou === 0
+                  ? 'Paid in full · covered by Alice this time'
+                  : 'Paid in full · settled fairly'}
             </div>
           )}
         </div>
@@ -400,7 +420,7 @@ export default function AgentChatPage() {
           {/* Contextual answers to the agent's open question — priority: proposal > grant > settle */}
           {openProposal && !agentBusy ? (
             <div className="flex gap-2 justify-end items-center animate-in fade-in slide-in-from-bottom-2 duration-400">
-              {!openProposal.renegotiated && (
+              {!openProposal.renegotiated && !openProposal.personal && (
                 <button
                   onClick={() => renegotiate(openProposal.id)}
                   className="px-4 py-3 rounded-2xl text-[11px] font-bold text-gray-400 hover:text-gray-600 bg-white/70 border border-gray-200 transition-all"
