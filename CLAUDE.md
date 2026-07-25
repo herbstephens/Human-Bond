@@ -23,6 +23,8 @@ HumanBond is a proof-of-humanity partnership protocol, live on World Chain Mainn
 
 # Hard Rules
 
+- **Agent ≠ wallet owner.** The agent has ITS OWN key and is only AUTHORIZED on the bond Safe — the Safe belongs to the two humans. Bond creation is ONE MiniKit batch (`lib/vault/createVault.ts`); the agent delegation joins that same batch, so one popup creates the bond AND authorizes the agent ("delegate your authority to the bond agent"). The hito release threshold survives delegation: agents settle terms, humans release execution. hito hardware signing is integrated LAST (end of the build).
+
 - **NEVER touch the live mainnet contracts** (HumanBond `0x6494…bB13`, TIME `0x261f…6a82`, VowNFT, MilestoneNFT). New functionality = NEW contracts (vault, heartbeat) that read from them. The Continuity-track story depends on this.
 - **One bond per human is enforced on-chain** (`activeBondOf` reverts on a second proposal). Demo/testing needs pre-created identities — you cannot bond twice with the same World ID.
 - **The vault NEVER auto-splits or auto-forwards.** Incoming funds (USDC, TIME) accrue at the bond's ENS/Safe address; entitled parties **claim** (pull-based). The "50/50 split enforced automatically" language in the root docs (README, ETHGLOBAL_LISBON, TIME_PROTOCOL_TIEIN) describes the live contract's **TIME minting** — protocol issuance, not vault behavior. Do not copy the auto-split pattern into the vault. Decision record: brainstorm doc, "Decisions — Team Conversation, Jul 24".
