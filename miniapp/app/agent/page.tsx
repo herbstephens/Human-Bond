@@ -217,6 +217,7 @@ export default function AgentChatPage() {
     celebrateBorn,
     scanBill,
     requestPay,
+    payAlone,
     grantPull,
     buyShared,
     buyPersonal,
@@ -423,10 +424,10 @@ export default function AgentChatPage() {
           ) : offerPay ? (
             <div className="flex gap-2 justify-end items-center animate-in fade-in slide-in-from-bottom-2 duration-400">
               <button
-                onClick={() => say('Not now.')}
-                className="px-4 py-3 rounded-2xl text-[11px] font-bold text-gray-400 hover:text-gray-600 bg-white/70 border border-gray-200 transition-all"
+                onClick={payAlone}
+                className="px-4 py-3 rounded-2xl text-[11px] font-bold text-gray-500 hover:text-gray-800 bg-white/70 border border-gray-200 transition-all"
               >
-                Not now
+                I’ll pay it myself
               </button>
               <AliveCta onClick={() => requestPay()} className="px-5 py-3.5 rounded-2xl text-[11px] tracking-[0.15em]">
                 Yes — settle it fairly

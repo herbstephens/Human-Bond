@@ -213,6 +213,8 @@ type AgentState = {
   scanBill: () => void;
   /** userText: what the human actually typed (falls back to the button label). */
   requestPay: (userText?: string) => void;
+  /** The user overrides the routing: this one's on me — personal wallet, no trust. */
+  payAlone: () => void;
   grantPull: (userText?: string) => void;
   buyShared: () => void;
   buyPersonal: () => void;
@@ -352,6 +354,20 @@ export const useAgentStore = create<AgentState>()(
             return;
           }
           s.proposeShared(receipt.vendor, receipt.recipientEns, receipt.amountUsdc);
+        },
+
+        payAlone: () => {
+          const s = get();
+          const receipt = s.pendingReceipt;
+          if (!receipt) return;
+          s.say('I’ll pay this one myself.');
+          set(() => ({ pendingReceipt: null }));
+          s._enqueue([
+            {
+              type: 'text',
+              text: `Okay — your treat tonight. ${receipt.amountUsdc.toFixed(2)} USDC from your own wallet, straight to ${receipt.recipientEns}. Nothing logged against the trust — Alice owes you nothing.`,
+            },
+          ]);
         },
 
         grantPull: (userText) => {
