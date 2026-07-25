@@ -118,7 +118,7 @@ export function BondedOnboarding({ partnerAddress }: { partnerAddress: string | 
             <p className="text-sm text-gray-600 font-medium leading-relaxed max-w-[320px]">
               The name you two go by — where money arrives, where your agents live.
             </p>
-            <AliveCta onClick={claimName} className="w-full px-8 py-5 rounded-[1.75rem] text-sm tracking-[0.2em]">
+            <AliveCta onClick={claimName} className="w-full px-8 py-5 rounded-[1.75rem] text-sm tracking-[0.2em] mt-4">
               Claim your bond address
             </AliveCta>
           </>
