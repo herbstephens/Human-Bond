@@ -31,6 +31,22 @@ export function useLiveBondSync() {
     const username = profile.username ?? 'partner';
     const partner = username.charAt(0).toUpperCase() + username.slice(1);
     const balanceUsdc = Number(vault.balance) / 1e6;
+
+    // Idempotence guard: this hook mounts on several pages at once and re-runs on
+    // every balance refetch. Writing an identical-but-new `bonds` array each time
+    // re-rendered every store subscriber — visible as ghost flashes. Only write
+    // when something REAL changed.
+    const s = useAgentStore.getState();
+    const current = s.bonds[0];
+    const unchanged =
+      s.bonds.length === 1 &&
+      current?.id === LIVE_BOND_ID &&
+      current?.partner === partner &&
+      (s.vaultBalances[LIVE_BOND_ID] ?? 0) === balanceUsdc &&
+      s.defaultBondId === LIVE_BOND_ID &&
+      (!vault.ensLabel || s.bondEnsLabel === vault.ensLabel);
+    if (unchanged) return;
+
     useAgentStore.setState({
       bonds: [{ id: LIVE_BOND_ID, partner, type: 'inheritance', status: 'active' }],
       vaultBalances: { [LIVE_BOND_ID]: balanceUsdc },

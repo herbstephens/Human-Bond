@@ -47,6 +47,7 @@ const MarriageDashboard = dynamic(
 
 import { BondedOnboarding } from "../components/bond/BondedOnboarding";
 import { useBondVault } from "@/lib/hooks/useBondVault";
+import { useRouteGuard } from "@/lib/hooks/useLiveStage";
 import { BondDissolutionOverlay } from "../components/marriage/BondDissolutionOverlay";
 
 import { AliveCta } from "../components/agent/AliveCta";
@@ -86,11 +87,6 @@ export default function HomePage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
-  // Bonded ceremony is a one-time moment — afterwards login goes straight to
-  // the dashboard. Live only: the mock playground keeps replaying the ring.
-  const [ceremonySeen] = useState(
-    () => typeof window !== 'undefined' && localStorage.getItem('hb-bond-ceremony-seen') === '1'
-  );
   // After an accept, the flag used to trigger a heart overlay saying "You're
   // Bonded!" — right before BondedOnboarding says it again. One screen too many:
   // now the flag only holds the loading state until the bond is visible on-chain,
@@ -152,12 +148,10 @@ export default function HomePage() {
     }
   }, [hasPendingProposal, localProposalCancelled]);
 
-  // Ceremony seen + wallet exists → the dashboard IS /profile (bonds overview).
-  useEffect(() => {
-    if (!USE_MOCKS && isConnected && (dashboard?.isBonded ?? false) && vaultCreated && ceremonySeen) {
-      router.replace('/profile');
-    }
-  }, [isConnected, dashboard?.isBonded, vaultCreated, ceremonySeen, router]);
+  // Routing is the contract's job, not this page's: useRouteGuard sends the
+  // user to /profile exactly when the dashboard stage is reached (bond + vault
+  // + ceremony + agent), and never before — see lib/hooks/useLiveStage.ts.
+  useRouteGuard('/home');
 
   // Detect World App on client to conditionally show chat buttons
   const [isWorldApp, setIsWorldApp] = useState(false);

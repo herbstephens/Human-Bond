@@ -15,6 +15,8 @@ import { AlertTriangle, ArrowLeft, ArrowUp, Bell, Check, Landmark, MessageCircle
 import { AliveCta } from '@/app/components/agent/AliveCta';
 import { useAgentStore, type Heir } from '@/lib/agent/agentStore';
 import { USE_MOCKS } from '@/lib/config';
+import { useRouteGuard } from '@/lib/hooks/useLiveStage';
+import { ENS_PARENT } from '@/lib/contracts/registrar';
 import { useLiveBondSync } from '@/lib/agent/useLiveBondSync';
 import { useMarriage } from '@/lib/marriage/context';
 import { useBondVault } from '@/lib/hooks/useBondVault';
@@ -75,7 +77,13 @@ export default function BondProfilePage() {
     vaultBalances, deposits, standingOrders, deposit, setStandingOrder, bondEnsLabel,
     investments, invest, bonds, bondRules, addBondRule, removeBondRule,
   } = useAgentStore();
-  const bond = bonds.find((b) => b.id === params.bondId) ?? bonds[0];
+  // The live store starts EMPTY until useLiveBondSync mirrors the chain — a
+  // direct navigation can render before that. The placeholder keeps the first
+  // render alive just long enough for the route guard to redirect; it is never
+  // shown at the dashboard stage, where sync has always run.
+  const bond = bonds.find((b) => b.id === params.bondId) ??
+    bonds[0] ??
+    ({ id: params.bondId, partner: 'partner', type: 'inheritance', status: 'active' } as const);
   const isInheritance = bond.type === 'inheritance';
   const balance = vaultBalances[bond.id] ?? 0;
   const invested = investments[bond.id];
@@ -102,8 +110,11 @@ export default function BondProfilePage() {
   const chatFieldRef = useRef<HTMLInputElement>(null);
   const [chatBarVisible, setChatBarVisible] = useState(true);
 
+  // Live routing belongs to the contract (lib/hooks/useLiveStage.ts) — /bond/*
+  // lives on the dashboard surface. Mock keeps its local agent gate.
+  useRouteGuard('/bond');
   useEffect(() => {
-    if (!agentReady) router.replace('/home');
+    if (USE_MOCKS && !agentReady) router.replace('/home');
   }, [agentReady, router]);
 
   // PROACTIVE: the trustee consulted both agents overnight — the humans get
@@ -437,7 +448,7 @@ export default function BondProfilePage() {
             <div>
               <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Receive · give this to anyone</p>
               <p className="text-[12px] font-mono font-bold text-amber-100">
-                {bondEnsLabel ?? `ben-${bond.partner.toLowerCase()}`}.humanbond.eth
+                {bondEnsLabel ?? `ben-${bond.partner.toLowerCase()}`}.{ENS_PARENT}
               </p>
             </div>
             <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">fed by standing orders</span>
