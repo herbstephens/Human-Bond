@@ -6,28 +6,28 @@ import { type ReactNode } from "react";
 const PRENUP_POINTS: { icon: ReactNode; title: string; description: string }[] = [
     {
         icon: <Coins size={20} className="text-amber-500" />,
-        title: "Assets & Property",
-        description: "Division of all property and assets will be shared 50/50."
+        title: "Shared Vault",
+        description: "Shared money lives in your bond vault. Nothing splits automatically — spending out follows the rules you two set."
     },
     {
         icon: <Scale size={20} className="text-emerald-500" />,
-        title: "Common Income",
-        description: "All income generated during the bond is considered common capital."
+        title: "Fair Shares",
+        description: "Shared costs are split by income — negotiated case by case between your two personal agents."
     },
     {
         icon: <Users size={20} className="text-blue-500" />,
-        title: "Shared Decisions",
-        description: "Major life and financial decisions must be made by unanimous agreement."
+        title: "You Release",
+        description: "Your agents settle the terms; every transaction is released by both of you on your hito wallets."
     },
     {
         icon: <Heart size={20} className="text-rose-500" />,
-        title: "Mutual Separation",
-        description: "In case of dissolution, all accumulated wealth is divided equally (50/50)."
+        title: "Your Will",
+        description: "Your estate flows to this bond. Heirs are written into its charter — adding or removing one takes both of you. Your 90-day proof of life keeps it exactly as you set it."
     },
     {
         icon: <ShieldCheck size={20} className="text-purple-500" />,
-        title: "Fair Arbitration",
-        description: "Irreconcilable disputes will be settled via neutral third-party arbitration."
+        title: "Neutral Trustee",
+        description: "A neutral trustee executes only what both agents signed — archived encrypted on 0G storage, auditable forever."
     }
 ];
 
@@ -60,7 +60,7 @@ export function PrenupModal({ isOpen, onClose, onConfirm, title = "Prenuptial Ag
                         {title}
                     </h2>
                     <p className="text-[11px] font-bold text-gray-400 mt-1 uppercase tracking-widest">
-                        Standard Digital Union Terms
+                        Your Bond Charter · Standard Terms
                     </p>
                 </div>
 
