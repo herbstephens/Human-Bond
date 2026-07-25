@@ -18,14 +18,20 @@ import { AliveCta } from '@/app/components/agent/AliveCta';
 
 // ---------------------------------------------------------------------------
 
-/** Types text live into a single bubble, with a caret while writing. */
-function TypingText({ text, className }: { text: string; className?: string }) {
-  const [shown, setShown] = useState(0);
+/** Messages that already played their typing animation — never replay on remount/reload. */
+const typedOnce = new Set<string>();
+
+/** Types text live into a single bubble, with a caret while writing. Animates ONCE per message id. */
+function TypingText({ id, text, className }: { id: string; text: string; className?: string }) {
+  const [shown, setShown] = useState(() => (typedOnce.has(id) ? text.length : 0));
   useEffect(() => {
-    if (shown >= text.length) return;
+    if (shown >= text.length) {
+      typedOnce.add(id);
+      return;
+    }
     const t = setTimeout(() => setShown((n) => n + 1), 18);
     return () => clearTimeout(t);
-  }, [shown, text.length]);
+  }, [shown, text.length, id]);
   const done = shown >= text.length;
   return (
     <span className={className}>
@@ -237,6 +243,7 @@ export default function AgentChatPage() {
   if (bornPending) return <BornOverlay onHello={celebrateBorn} />;
 
   const openProposal = Object.values(payments).find((p) => p.stage === 'proposed');
+  const executing = Object.values(payments).some((p) => p.stage === 'confirmed' || p.stage === 'pulled');
   const lastAgentText = [...messages].reverse().find((m) => m.kind === 'text' && m.role === 'agent');
   const offerPay =
     !agentBusy &&
@@ -348,7 +355,7 @@ export default function AgentChatPage() {
                 <div key={m.id} className="animate-in fade-in duration-400 pl-1 max-w-[85%]">
                   <p className="text-[8px] font-black uppercase tracking-[0.25em] text-gray-300 mb-1">Reasoning</p>
                   <p className="text-[12.5px] text-gray-400 font-medium italic leading-relaxed">
-                    {m.typed ? <TypingText text={m.text} /> : m.text}
+                    {m.typed ? <TypingText id={m.id} text={m.text} /> : m.text}
                   </p>
                 </div>
               );
@@ -357,7 +364,7 @@ export default function AgentChatPage() {
               <div key={m.id} className="animate-in fade-in slide-in-from-bottom-2 duration-400">
                 <div className="bg-white rounded-3xl rounded-bl-lg px-5 py-3.5 border border-gray-100 max-w-[85%]">
                   <p className="text-sm text-gray-800 font-medium leading-relaxed">
-                    {m.typed ? <TypingText text={m.text} /> : m.text}
+                    {m.typed ? <TypingText id={m.id} text={m.text} /> : m.text}
                   </p>
                 </div>
               </div>
@@ -426,8 +433,8 @@ export default function AgentChatPage() {
               </AliveCta>
             </div>
           ) : null}
-          {/* Openers only when the agent is idle — they vanish the moment a flow runs */}
-          {!agentBusy && !openProposal && !offerGrant && !offerPay && !pendingReceipt && (
+          {/* Openers only when the agent is truly idle — they vanish the moment a flow runs */}
+          {!agentBusy && !typingIndicator && !executing && !openProposal && !offerGrant && !offerPay && !pendingReceipt && (
           <div className="flex flex-wrap gap-2 justify-end">
             <button
               onClick={scanBill}

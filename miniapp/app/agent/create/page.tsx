@@ -30,14 +30,20 @@ const VOICE_SAMPLES: Record<string, string> = {
   threshold: 'Ask me above €200.',
 };
 
-/** Types text live, with a caret while writing. */
-function TypingText({ text }: { text: string }) {
-  const [shown, setShown] = useState(0);
+/** Animate-once registry — the import summary must not retype on remounts. */
+const typedOnce = new Set<string>();
+
+/** Types text live, with a caret while writing. Animates once per id. */
+function TypingText({ id, text }: { id: string; text: string }) {
+  const [shown, setShown] = useState(() => (typedOnce.has(id) ? text.length : 0));
   useEffect(() => {
-    if (shown >= text.length) return;
+    if (shown >= text.length) {
+      typedOnce.add(id);
+      return;
+    }
     const t = setTimeout(() => setShown((n) => n + 1), 16);
     return () => clearTimeout(t);
-  }, [shown, text.length]);
+  }, [shown, text.length, id]);
   return (
     <>
       {text.slice(0, shown)}
@@ -211,6 +217,7 @@ export default function AgentCreatePage() {
             <div className="bg-white rounded-3xl rounded-bl-lg px-5 py-4 shadow-[0_10px_30px_rgba(0,0,0,0.04)] border border-gray-100 max-w-[85%]">
               <p className="text-sm text-gray-800 font-medium leading-relaxed">
                 <TypingText
+                  id="import-summary"
                   text={
                     'Got it. LinkedIn: Ben, Product Lead in Lisbon — employed, I’ll assume €4k+ a month. ' +
                     (importedSources.includes('chatgpt') || importedSources.includes('claude')

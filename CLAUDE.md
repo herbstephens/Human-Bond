@@ -34,12 +34,12 @@ HumanBond is a proof-of-humanity partnership protocol, live on World Chain Mainn
 
 - `contracts/lib/` (forge-std, OpenZeppelin, world-id) is **missing** — the contracts folder was uploaded without submodules. Run the installs from `contracts/.gitmodules` before `forge build`.
 - `docs/ARCHITECTURE.md` vs `docs/architecture.md` collide on case-insensitive filesystems (macOS): one of them will permanently show as modified in `git status`. **Never commit that phantom change**; don't `git add .` blindly.
-- Supabase-style backends, migrations, RLS: not applicable here — this project has no own database. State lives on-chain + Walrus.
+- Supabase-style backends, migrations, RLS: not applicable here — this project has no own database. State lives on-chain + 0G storage.
 - USDC and TIME are both plain ERC-20s on World Chain; the vault treats them identically. Repo-reality audit of what code actually exists: plan, P10/P11.
 
 # Team & Ownership (weekend)
 
-Herb — lead, protocol, pitch · Franco — frontend/MiniKit, ENS, World verification · Mischa (Mikhail) — contracts, Safe vault, hito wallet (W1–W4) · Francesca — 0G family agent, Walrus · Leon — product/PM/UX, copy, demo script, submission texts.
+Herb — lead, protocol, pitch · Franco — frontend/MiniKit, ENS, World verification · Mischa (Mikhail) — contracts, Safe vault, hito wallet (W1–W4) · Francesca — 0G family agent, 0G storage · Leon — product/PM/UX, copy, demo script, submission texts.
 
 # Design & Copy
 

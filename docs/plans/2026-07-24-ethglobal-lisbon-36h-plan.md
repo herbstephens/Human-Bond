@@ -18,7 +18,7 @@ deadline: SUBMISSION SUNDAY 09:00 — video + texts must be DONE SATURDAY NIGHT
 
 | # | Scene | What the audience sees | Sponsor visible |
 |---|---|---|---|
-| 1 | **Bond** | Two Orb/NFC-verified humans form a bond → VowNFT; Safe vault + `alice-bob.humanbond.eth` + charter on Walrus appear automatically | ENS · Walrus · World (tier gate: Selfie is NOT enough to open a shared wallet) |
+| 1 | **Bond** | Two Orb/NFC-verified humans form a bond → VowNFT; Safe vault + `alice-bob.humanbond.eth` + charter on 0G storage appear automatically | ENS · 0G · World (tier gate: Selfie is NOT enough to open a shared wallet) |
 | 2 | **Shared money** | USDC sent to the ENS name → accrues in the vault → partner claims 50% on the phone; per-partner spend stat | — (the claim primitive) |
 | 3 | **Hardware trust** | hito is linked to the trust; threshold set in onboarding; small spend passes phone-only, large spend → hito prompt, confirmed on-device | hito (WYSIWYS) |
 | 4 | **Agents** (Saturday) | Leon asks his personal agent → it asks the trust agent → trust agent (0G, TEE-signed) checks the charter, verifies via **AgentKit** that the requesting agent is backed by a real bonded human → proposes on the Safe → BOTH partners confirm via hito → executes | World AgentKit ($8k!) · 0G |
@@ -51,7 +51,7 @@ W1+W2 = Scene 3 (P0-adjacent). W3+W4 = Scene 4 (Saturday).
 |---|---|---|---|---|---|
 | T1 | Vault contract (generic claims table, states, claim fn) | 1/2/5 | Mischa | 🟡 **greenfield — the believed shared-wallet/USDC code is NOT in this repo (see P10)** | tonight |
 | T2 | ENS subname at bond creation → Safe | 1 | Franco | ✅ | tonight |
-| T3 | Walrus: charter (incl. heir allocations) at creation | 1/5 | Francesca | ✅ | tonight |
+| T3 | 0G storage: charter (incl. heir allocations) at creation | 1/5 | Francesca | ✅ | tonight |
 | T4 | World verification changes (Orb/NFC tier gate for wallet) | 1 | Franco | ✅ ("today" per Fri convo) | tonight |
 | T5 | HeartbeatRegistry + Selfie check-in wiring | 5 | Mischa + Franco | 🟡 | Sat AM |
 | T6 | Heir UI (add heirs, % sliders, pending entry for wallet-less kids) + inheritance opt-in question + spend stat | 5/2 | Leon (UX/copy) + Franco | ✅ | Sat AM |
@@ -73,7 +73,7 @@ W1+W2 = Scene 3 (P0-adjacent). W3+W4 = Scene 4 (Saturday).
 | World Selfie Check (Continuity variant exists) | $1,750 / $875×2 | Selfie as **proof-of-life heartbeat**, not login — the non-generic use the track demands |
 | World Identity Check NFC (Continuity variant exists) | $1,750 / $875×2 | NFC as tier gate for wallet creation + age gate for heirs |
 | ENS | $2,000 | Scene 1: the address that outlives you |
-| Walrus | $2,000 | Scene 1/5: the will that can't be lost |
+| ~~Walrus~~ | ~~$2,000~~ | **DROPPED Sat** — charter + receipts go directly to 0G storage instead |
 | The Graph | $4,000 | T11 if capacity: the public estate registry |
 | 0G Best AI Product | $6,000 | Scene 4 trust agent (requires real 0G Compute inference + live link + video) |
 
@@ -149,18 +149,18 @@ Access and accounts nobody has confirmed yet. Each unverified item silently bloc
 | P3 | **Safe Transaction Service on World Chain?** The proposal inbox (S15) needs off-chain proposal queueing — if the service doesn't run on World Chain, we self-host or queue on-chain | T1, T10, W3 | Mischa |
 | P4 | **Deployer wallet + gas:** who deploys vault + heartbeat to World Chain, with what funded key? Plus test USDC for demo wallets | T1, T5, T12 | Mischa |
 | P5 | **0G account funded** (prepaid ledger needs ≥3 0G) + decision where the family agent process runs (laptop vs. deployed — it must be alive Sunday 09:00) | T8 | Francesca |
-| P6 | **Walrus needs SUI/WAL for storage** — testnet is fine, but keys must exist | T3 | Francesca |
+| P6 | ~~Walrus SUI/WAL keys~~ **obsolete — Walrus dropped Sat, charter goes to 0G storage** | T3 | Francesca |
 | P7 | **Graph Studio supports World Chain?** + deploy key | T11 | whoever takes T11 |
 | P8 | **hito × World Chain:** does the device sign for our chain ID, and how does the app talk to it (WalletConnect/SDK)? | T7, W1–W4 | Mischa |
 | P9 | `.env.local` shared with every dev (NO `.env*` exists in the repo, not even an example); `contracts/lib` installed (forge deps are missing) | everyone | tonight |
-| P10 | **Where is Mischa's shared-wallet/limits code?** Repo audit (Sat): zero Safe/USDC/split/limit code exists in this repo — Friday's demo referred to code elsewhere. Locate & import it, or T1/W2 start from zero. Every sponsor SDK (Safe, ENS, Walrus, 0G) still needs `npm install` — miniapp web3 deps are only MiniKit + wagmi/viem | T1, T7, W1–W4 | Mischa |
+| P10 | **Where is Mischa's shared-wallet/limits code?** Repo audit (Sat): zero Safe/USDC/split/limit code exists in this repo — Friday's demo referred to code elsewhere. Locate & import it, or T1/W2 start from zero. Every sponsor SDK (Safe, ENS, 0G) still needs `npm install` — miniapp web3 deps are only MiniKit + wagmi/viem | T1, T7, W1–W4 | Mischa |
 | P11 | Screen reality: only S1–S3 exist (`/marriage/*` routes); S4–S19 are all new. Useful base: `lib/mocks/scenarios.ts` (6 demo scenarios, mock/real swap via `USE_MOCKS`) for T12; `contracts/script/Deploy.s.sol` covers only the 4 live contracts; verification code knows only Orb/Device — Selfie/NFC start from zero | T4, T5, T6, T12 | Franco |
 
 ## Definition of Done (per scene)
 
 A scene is DONE when it runs end-to-end on the demo devices **and is captured on backup video**. Not before.
 
-- **Scene 1:** bond → Safe + ENS resolves + charter blob retrievable from Walrus
+- **Scene 1:** bond → Safe + ENS resolves + charter blob retrievable from 0G storage
 - **Scene 2:** external USDC transfer arrives → each partner claims 50% to their own wallet
 - **Scene 3:** spend below threshold passes phone-only; above threshold requires hito on-device confirm
 - **Scene 4:** agent proposal created via real 0G inference, AgentKit verification shown (incl. one refused bot), executed after both hito confirms

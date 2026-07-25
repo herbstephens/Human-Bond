@@ -489,7 +489,7 @@ export const useAgentStore = create<AgentState>()(
                 : `Done — ${p.recipientEns} is paid in full: ${p.shareYou.toFixed(2)} USDC from your wallet, ${p.sharePartner.toFixed(2)} from Alice’s.`;
             const delivery = p.detail
               ? ' The two ticket NFTs just landed in your shared vault — you’ll see them in both your World App wallets, and the entry QR generates straight from the NFT at the gate. Sep 4 is in both calendars.'
-              : ' The receipt is archived in your charter history on Walrus — auditable forever.';
+              : ' The receipt is archived in your charter history on 0G storage — auditable forever.';
             get()._enqueue([{ type: 'text', text: settled + delivery }]);
           }, 3600);
         },
@@ -530,7 +530,8 @@ export const useAgentStore = create<AgentState>()(
         partnerAgentReady: s.partnerAgentReady,
         pullGranted: s.pullGranted,
         pendingReceipt: s.pendingReceipt,
-        messages: s.messages,
+        // Strip typed flags: after a reload, history renders instantly — only NEW messages type.
+        messages: s.messages.map((m) => (m.kind === 'text' && m.typed ? { ...m, typed: false } : m)),
         payments: s.payments,
       }),
     },
