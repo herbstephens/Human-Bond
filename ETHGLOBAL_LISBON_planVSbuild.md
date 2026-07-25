@@ -14,11 +14,48 @@ HumanBond is a two-person partnership protocol deployed and live on World Chain 
 
 ## What We Built at the Hackathon
 
+> The list below is the **Friday plan** (kept as-is — our pivots are part of the story).
+> What actually shipped is in **What the Weekend Actually Became**, directly below it.
+
 - `finalizeWorkAndDistribute()` — 50/50 Work TIME split on payment receipt. When a payment is received for verified work, the contract mints TIME and distributes 50% to the worker and 50% to their bonded partner automatically. No manual split required. No trust required.
 - **World 'Selfie Check' and 'NFC Credentials' ** — this adds two layers to the ID stack, eliminating use friction by introducing Tier 2 and Tier 3 sign-up [to the existing Tier 0 and Tier 4, iris orb scan].
 - **ENS subname registration** — During bond formation, partners register `name1-name2.humanbond.eth` as their shared economic address
 - **Walrus storage** — VowNFT metadata, partnership charter, and milestone records stored permanently on Walrus (Sui ecosystem)
 - **The Graph subgraph** — Partnership Registry indexed and queryable via standard subgraph API
+
+---
+
+## What the Weekend Actually Became
+
+The build pivoted on Saturday morning, and the pivots are how we found the real product: not
+storage and indexing around a partnership record, but a **living trust run by human-backed
+agents**. What actually shipped, all verifiable in this repo and on-chain:
+
+- **The shared wallet (V5, live on World Chain mainnet):** every bond ships with a Safe owned
+  2-of-2 by the partners, driven by our `BondVaultModule`. Creating it is ONE World App
+  confirmation — Safe deploy + vault registration + ENS subname in a single MiniKit batch.
+  212 unit tests + fork tests against the real Safe and the real Durin registry; two V4
+  re-bond defects found and fixed on the way.
+- **ENS subnames, mandatory at birth:** `name1-name2.humanbond.eth` is registered in the same
+  batch that creates the wallet (own registrar, authorised on the Durin L2Registry under
+  `humanbond.eth`), with live availability checking and an auto-label fallback so no couple
+  is ever blocked by a name collision.
+- **Live AI agents on 0G Compute:** each partner has a personal agent, the bond has a neutral
+  trustee — real inference over the 0G router, not scripts. Agents negotiate, sign one
+  canonical settlement hash, and the trustee executes only with BOTH signatures; the full
+  verification chain is documented in `docs/settlement-verification.md` and attacked by our
+  test runners (`agents:demo`).
+- **World AgentKit door policy:** the trustee refuses any agent whose wallet has no verified
+  human behind it — live AgentBook lookups on World Chain, a distinct-humans check for the
+  two partner agents, and a refused rogue agent proving the door works.
+- **World identity tiers as spending policy:** Selfie Check keeps a bond alive (the 90-day
+  proof of life); the wallet — a financial instrument — requires Orb or Identity Check 18+
+  from both partners. On-chain Orb proof verification, production app_id.
+- **Uniswap Trade API:** the trustee quotes real swaps (USDC → WLD, World Chain 480) inside
+  the conversation; swap terms are first-class fields of the signed settlement schema.
+- **The inheritance layer (UI + protocol design):** dead-man's timer per partner, will editor
+  with heirs and shares, charter rules co-signed by both. The estate state machine is
+  specified and demo-ready; its contracts are the next phase.
 
 ---
 
@@ -72,6 +109,11 @@ Anyone can resolve `herb-agatha.humanbond.eth` to reach the partnership's shared
 
 ### 🌊 Sui / Walrus — Best existing app integrating the Sui stack · $2,000
 
+> **Status: PIVOTED → 0G.** This was the Friday plan. On Saturday the agents became the
+> heart of the build, and 0G gave us compute AND storage in one ecosystem — so the
+> permanent-charter idea moved to 0G storage and the Walrus integration was not built.
+> The pivot is part of the story: storage was never the product, the living trust is.
+
 **Technology:** Walrus is a decentralised storage network from the Sui ecosystem. Chain-agnostic — works directly with EVM contracts.
 
 **Before:** HumanBond's VowNFTs, partnership charters, and milestone records had nowhere permanent to live. IPFS is reliable only as long as someone keeps pinning the content. Centralised metadata storage directly contradicts the promise of a soulbound, lifelong partnership record.
@@ -83,6 +125,10 @@ Anyone can resolve `herb-agatha.humanbond.eth` to reach the partnership's shared
 ---
 
 ### 🏆 The Graph — Best Use of Composable or Standardized Graph Data Products · $4,000
+
+> **Status: CUT — roadmap.** Planned Friday as the optional capacity track; the weekend's
+> capacity went into making the agents real (0G inference, AgentKit, live vault). The
+> Partnership-Registry-as-standard idea survives unchanged on the roadmap.
 
 **Technology:** The Graph is the indexing and query layer of web3. Subgraphs provide structured, real-time access to blockchain data.
 
@@ -140,6 +186,15 @@ HumanBond stays live on World Chain mainnet after the weekend as a beta learning
 ---
 
 ## Demo Script
+
+> **Original Friday storyboard below (kept for the record).** The actual demo is five
+> scenes: **1. Bond** (login → one confirmation creates Safe + vault + ENS name) ·
+> **2. Shared money** (send USDC to the ENS name, balance rises from zero on-chain,
+> spend with partner approval) · **3. Hardware trust** (thresholds; large moves confirmed
+> out-of-band on hito) · **4. Agents** (ask your agent to invest → trustee checks
+> AgentBook, refuses the rogue, quotes Uniswap live, both humans release) ·
+> **5. The bond that outlives you** (will, heirs, the 90-day Selfie-Check heartbeat).
+
 
 1. Open World App on phone · search `HumanBond` · show live app
 2. Show existing bond between two verified partners
