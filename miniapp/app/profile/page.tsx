@@ -16,6 +16,11 @@ import { AliveCta } from '@/app/components/agent/AliveCta';
 import { useMarriage } from '@/lib/marriage/context';
 import { useUsdcBalance } from '@/lib/hooks/useUsdcBalance';
 import { useLiveBondSync } from '@/lib/agent/useLiveBondSync';
+import { useWorldProfile, displayName } from '@/lib/worldcoin/useWorldProfile';
+import { useBondVault } from '@/lib/hooks/useBondVault';
+import { useVaultActions } from '@/lib/hooks/useVaultActions';
+import { VaultBalanceCard } from '@/app/components/vault/VaultBalanceCard';
+import { SendFundsForm } from '@/app/components/vault/SendFundsForm';
 import { formatUsdc } from '@/lib/vault/usdc';
 import { USE_MOCKS } from '@/lib/config';
 import { SelfieCheckOverlay } from '@/app/components/agent/SelfieCheck';
@@ -88,8 +93,28 @@ export default function ProfilePage() {
   // Live: this page is the dashboard — it reads the chain directly. The sync
   // also mirrors the ONE real bond into the store (Mika & co are mock-only).
   useLiveBondSync();
-  const { address } = useMarriage();
+  const { address, dashboard, marriageView } = useMarriage();
   const { balance: walletUsdc } = useUsdcBalance(address);
+  // The shared-wallet card (balance · address · send) — Franco's working vault
+  // UI, embedded here so the dashboard carries the money view.
+  const partnerAddr = (dashboard?.partner ?? null) as `0x${string}` | null;
+  const { profile: myProfile } = useWorldProfile(address ?? '');
+  const { profile: partnerProfile } = useWorldProfile(partnerAddr ?? '');
+  const partnerName = displayName(partnerAddr ?? '', partnerProfile.username);
+  const vaultPartnerA = (marriageView?.partnerA ?? null) as `0x${string}` | null;
+  const vaultPartnerB = (marriageView?.partnerB ?? null) as `0x${string}` | null;
+  const vaultBondId = (marriageView?.bondId ?? null) as `0x${string}` | null;
+  const { vault: liveVault, refetch: refetchLiveVault } = useBondVault(vaultPartnerA, vaultPartnerB, vaultBondId);
+  const [sendOpen, setSendOpen] = useState(false);
+  const {
+    state: spendState, error: spendError, txError: spendTxError, proposeSpend, reset: resetSpend,
+  } = useVaultActions({
+    bondId: vaultBondId,
+    partnerA: vaultPartnerA,
+    partnerB: vaultPartnerB,
+    partner: partnerAddr,
+    onDone: () => void refetchLiveVault(),
+  });
   const [draft, setDraft] = useState('');
   const [showSelfie, setShowSelfie] = useState(false);
   const [addingBond, setAddingBond] = useState(false);
@@ -112,7 +137,9 @@ export default function ProfilePage() {
       />
     );
 
-  const name = answers.name?.text?.replace(/^just call me /i, '') || 'Ben';
+  const name = USE_MOCKS
+    ? answers.name?.text?.replace(/^just call me /i, '') || 'Ben'
+    : myProfile.username ?? answers.name?.text?.replace(/^just call me /i, '') ?? 'you';
 
   // Learned facts fall out of what actually happened in the chat.
   const learned: BrainFact[] = Object.values(payments)
@@ -246,6 +273,25 @@ export default function ProfilePage() {
             </AliveCta>
           )}
         </div>
+
+        {/* Your shared wallet — the old, working vault card: balance, address, send */}
+        {!USE_MOCKS && liveVault?.isCreated && (
+          <section className="space-y-3">
+            <h2 className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-400">Your shared wallet</h2>
+            <VaultBalanceCard vault={liveVault} partnerName={partnerName} onSend={() => setSendOpen(true)} />
+            <SendFundsForm
+              open={sendOpen}
+              onOpenChange={setSendOpen}
+              vault={liveVault}
+              partnerName={partnerName}
+              txState={spendState}
+              error={spendError}
+              txError={spendTxError}
+              onSend={proposeSpend}
+              onReset={resetSpend}
+            />
+          </section>
+        )}
 
         {/* Your bonds */}
         <section className="space-y-3">
