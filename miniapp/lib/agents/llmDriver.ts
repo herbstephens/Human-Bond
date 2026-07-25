@@ -18,7 +18,9 @@ export type LlmConfig = {
 };
 
 const DEFAULT_BASE_URL = 'https://router-api.0g.ai/v1';
-const DEFAULT_MODEL = 'zai-org/GLM-5-FP8';
+/** Router model ids come from GET /v1/models — 'zai-org/GLM-5-FP8' from older
+ *  docs does NOT exist there; the GLM family is 'glm-5' / 'glm-5.1' / 'glm-5.2'. */
+const DEFAULT_MODEL = 'glm-5.2';
 
 const INTERFACE_BLOCK = `
 NEGOTIATION INTERFACE — you are in a live agent-to-agent negotiation.

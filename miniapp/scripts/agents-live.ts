@@ -97,7 +97,10 @@ async function main() {
   };
 
   const driverFor = (self: AgentIdentity, profile: StoredProfile, partner: string, note?: string) =>
-    new NarratedDriver(new LlmDriver({ apiKey }, personalSystemPrompt(profile, partner), note), self.id);
+    new NarratedDriver(
+      new LlmDriver({ apiKey, model: process.env.ZG_ROUTER_MODEL }, personalSystemPrompt(profile, partner), note),
+      self.id,
+    );
 
   h('LIVE negotiation — GLM via 0G router, trustee not in the room');
   const { settlement } = await negotiate(
