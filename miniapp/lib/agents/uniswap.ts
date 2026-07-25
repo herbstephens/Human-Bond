@@ -34,7 +34,7 @@ export async function getSwapQuote(opts: {
 
   const res = await fetch(`${TRADE_API}/quote`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'x-universal-router-version': '2.0' },
     body: JSON.stringify({
       type: 'EXACT_INPUT',
       tokenIn: opts.tokenIn,
