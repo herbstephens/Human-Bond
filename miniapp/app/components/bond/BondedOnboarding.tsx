@@ -74,9 +74,14 @@ export function BondedOnboarding({ partnerAddress }: { partnerAddress: string | 
               <p className="text-[9px] font-mono font-bold text-gray-400 mt-0.5">.humanbond.eth</p>
             </>
           ) : (
-            <p className="text-xl font-black text-gray-900 tracking-tighter leading-tight">
-              You are<br />bonded.
-            </p>
+            <>
+              <p className="text-xl font-black text-gray-900 tracking-tighter leading-tight">
+                You are<br />bonded.
+              </p>
+              <p className="text-[10px] font-bold text-gray-400 mt-1">
+                you &amp; {profile.username ?? 'alice'}
+              </p>
+            </>
           )}
         </div>
         {/* The agent-to-be already lives inside the bond */}
@@ -116,7 +121,8 @@ export function BondedOnboarding({ partnerAddress }: { partnerAddress: string | 
               <span className="text-[11px] font-mono font-bold text-gray-400 shrink-0">.humanbond.eth</span>
             </div>
             <p className="text-sm text-gray-600 font-medium leading-relaxed max-w-[320px]">
-              The name you two go by — where money arrives, where your agents live.
+              The name you two go by — like a shared purse. Money arrives here,
+              payments leave here, your agents take care of the rest. Runs on USDC.
             </p>
             <AliveCta onClick={claimName} className="w-full px-8 py-5 rounded-[1.75rem] text-sm tracking-[0.2em] mt-4">
               Claim your bond address

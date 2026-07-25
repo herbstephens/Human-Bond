@@ -45,7 +45,6 @@ const MarriageDashboard = dynamic(
   { ssr: false }
 );
 
-import { BondCelebrationOverlay } from "../components/marriage/BondCelebrationOverlay";
 import { BondedOnboarding } from "../components/bond/BondedOnboarding";
 import { BondDissolutionOverlay } from "../components/marriage/BondDissolutionOverlay";
 
@@ -76,16 +75,20 @@ export default function HomePage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
-  const [showCelebration, setShowCelebration] = useState(
+  // After an accept, the flag used to trigger a heart overlay saying "You're
+  // Bonded!" — right before BondedOnboarding says it again. One screen too many:
+  // now the flag only holds the loading state until the bond is visible on-chain,
+  // and the ring assembly does the celebrating.
+  const [awaitingBond, setAwaitingBond] = useState(
     () => typeof window !== "undefined" && peekBondCelebrationFlag()
   );
   const [dissolutionOverlay, setDissolutionOverlay] = useState<{ partnerName?: string } | null>(null);
   const showDissolution = dissolutionOverlay !== null;
 
-  const handleCelebrationComplete = useCallback(() => {
+  const handleBondArrived = useCallback(() => {
     consumeBondCelebrationFlag();
-    setShowCelebration(false);
-  }, []); 
+    setAwaitingBond(false);
+  }, []);
 
   const handleDissolutionComplete = useCallback(() => {
     setDissolutionOverlay(null);
@@ -186,24 +189,21 @@ export default function HomePage() {
   const hasIncomingProposals = isConnected && incomingProposals.length > 0;
   const effectiveHasPendingProposal = hasPendingProposal && !localProposalCancelled;
 
-  const { profile: celebrationPartnerProfile } = useWorldProfile(
-    showCelebration && dashboard?.partner ? dashboard.partner : null
-  );
-  const celebrationPartnerName = dashboard?.partner
-    ? displayName(dashboard.partner, celebrationPartnerProfile.username)
-    : undefined;
-
   // Poll dashboard while waiting for on-chain bond confirmation after accept
   useEffect(() => {
-    if (!showCelebration || isBonded) return;
+    if (!awaitingBond) return;
+    if (isBonded) {
+      handleBondArrived();
+      return;
+    }
     void refetch();
     const pollId = setInterval(() => { void refetch(); }, 1500);
-    const timeoutId = setTimeout(handleCelebrationComplete, 20000);
+    const timeoutId = setTimeout(handleBondArrived, 20000);
     return () => {
       clearInterval(pollId);
       clearTimeout(timeoutId);
     };
-  }, [showCelebration, isBonded, refetch, handleCelebrationComplete]);
+  }, [awaitingBond, isBonded, refetch, handleBondArrived]);
 
   // Poll dashboard while waiting for on-chain dissolution confirmation
   useEffect(() => {
@@ -241,7 +241,7 @@ export default function HomePage() {
   // Include isMarriageLoading only if the user is potentially married to unify animations
   const isDataLoading = isConnected && (isDashboardLoading || isProposalsLoading || (dashboard?.isBonded && isMarriageLoading));
 
-  if ((isLoading || isDataLoading) && !showCelebration && !showDissolution) {
+  if ((isLoading || isDataLoading || awaitingBond) && !showDissolution) {
     return (
       <div className="min-h-screen bg-[#E8E8E8] flex flex-col items-center justify-center p-6">
         <div className="relative">
@@ -258,23 +258,14 @@ export default function HomePage() {
 
   // Overlay active — render nothing but the background + overlay.
   // This prevents any flash of home content while the animation plays.
-  if (showCelebration || showDissolution) {
+  if (showDissolution) {
     return (
       <div className="min-h-screen bg-[#E8E8E8]">
-        {showCelebration && (
-          <BondCelebrationOverlay
-            isReady={isBonded}
-            partnerName={celebrationPartnerName}
-            onComplete={handleCelebrationComplete}
-          />
-        )}
-        {showDissolution && (
-          <BondDissolutionOverlay
-            isReady={!isBonded}
-            partnerName={dissolutionOverlay.partnerName}
-            onComplete={handleDissolutionComplete}
-          />
-        )}
+        <BondDissolutionOverlay
+          isReady={!isBonded}
+          partnerName={dissolutionOverlay.partnerName}
+          onComplete={handleDissolutionComplete}
+        />
       </div>
     );
   }
@@ -489,7 +480,7 @@ export default function HomePage() {
             )}
           </div>
         ) : (
-          <div className={`w-full max-w-lg mx-auto space-y-4 ${showCelebration ? "" : "animate-in fade-in zoom-in duration-700"}`}>
+          <div className="w-full max-w-lg mx-auto space-y-4 animate-in fade-in zoom-in duration-700">
             {/* Demo focus: post-bond ONBOARDING, not a dashboard. The full
                 MarriageDashboard (wallet, gallery, milestones, TIME) returns later. */}
             {dashboard && isConnected && (
