@@ -48,9 +48,8 @@ const MarriageDashboard = dynamic(
 import { BondCelebrationOverlay } from "../components/marriage/BondCelebrationOverlay";
 import { BondedOnboarding } from "../components/bond/BondedOnboarding";
 import { BondDissolutionOverlay } from "../components/marriage/BondDissolutionOverlay";
-// Temporary Hito handoff probe. Lives on the unbonded screen on purpose, so it can
-// be tested without an active bond. Remove once the integration is settled.
-import { HitoLinkTest } from "../components/marriage/HitoLinkTest";
+
+import { AliveCta } from "../components/agent/AliveCta";
 
 // ---------------------------------------------------------------------------
 
@@ -417,34 +416,25 @@ export default function HomePage() {
                     {effectiveHasPendingProposal ? "Proposal in Progress" : "Cooldown Active"}
                   </div>
                 ) : (
-                  <Link
-                    href="/marriage/create"
-                    className="group w-full bg-black text-white px-8 py-5 rounded-2xl text-xs font-black uppercase tracking-[0.2em] hover:bg-gray-900 transition-all duration-300 shadow-xl shadow-gray-200 flex items-center justify-center gap-3 hover:-translate-y-1 active:translate-y-0"
+                  <AliveCta
+                    onClick={() => router.push("/marriage/create")}
+                    className="w-full px-8 py-5 rounded-2xl text-xs tracking-[0.2em]"
                   >
-                    <span>Create your first bond</span>
-                    <Sparkles size={16} className="text-white group-hover:rotate-12 transition-transform" />
-                  </Link>
+                    Create your first bond
+                  </AliveCta>
                 )}
 
+                {/* Secondary = text link, never a competing button */}
                 <Link
                   href="/marriage/proposals"
-                  className="w-full bg-white text-black px-8 py-5 rounded-2xl text-xs font-black uppercase tracking-[0.2em] border border-gray-100 hover:bg-gray-50 transition-all duration-300 shadow-sm flex items-center justify-center gap-3 hover:-translate-y-1 active:translate-y-0 relative"
+                  className="text-[11px] font-bold text-gray-400 hover:text-gray-700 uppercase tracking-widest transition-colors text-center"
                 >
-                  <Users size={16} className="text-gray-400" />
-                  <span>Accept a bond invite</span>
+                  Accept a bond invite
                   {hasIncomingProposals && (
-                    <span className="absolute -top-2 -right-2 bg-black-500 text-white text-[10px] font-black rounded-full h-6 w-6 flex items-center justify-center shadow-lg shadow-black-200">
+                    <span className="ml-2 inline-flex items-center justify-center bg-amber-400 text-black text-[10px] font-black rounded-full h-5 w-5">
                       {incomingProposals.length}
                     </span>
                   )}
-                </Link>
-
-                <Link
-                  href="/marriage/gallery"
-                  className="w-full bg-white text-black px-8 py-5 rounded-2xl text-xs font-black uppercase tracking-[0.2em] border border-gray-100 hover:bg-gray-50 transition-all duration-300 shadow-sm flex items-center justify-center gap-3 hover:-translate-y-1 active:translate-y-0"
-                >
-                  <ImageIcon size={16} className="text-gray-400" />
-                  <span>My Gallery</span>
                 </Link>
 
                 {/* TIME balance from previous bond — subtle footer pill */}
@@ -468,9 +458,6 @@ export default function HomePage() {
                     <span>Enable notifications</span>
                   </button>
                 )}
-
-                {/* Temporary — see import note */}
-                <HitoLinkTest />
               </div>
             ) : (
               <div className="flex flex-col items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-1000">
