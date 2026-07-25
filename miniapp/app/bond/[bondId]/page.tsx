@@ -67,6 +67,7 @@ export default function BondProfilePage() {
   const [orderAmount, setOrderAmount] = useState(String(standingOrders[bond.id] ?? 0));
   const endRef = useRef<HTMLDivElement>(null);
   const greeted = useRef(false);
+  const rogueShown = useRef(false);
 
   useEffect(() => {
     if (!agentReady) router.replace('/home');
@@ -130,9 +131,10 @@ export default function BondProfilePage() {
     }, 2600);
   };
 
-  /** The model flagged a vault action → put it on the release track. Amounts are
-   *  clamped against live store state; the mutation itself only runs after BOTH
-   *  hito releases in releaseLiveAction — chat is model, money is protocol. */
+  /** The model flagged a vault action → AgentKit door policy first, then the
+   *  release track. Amounts are clamped against live store state; the mutation
+   *  itself only runs after BOTH hito releases in releaseLiveAction — chat is
+   *  model, money is protocol, and only human-backed agents get past the door. */
   const runTrusteeAction = (a: unknown) => {
     const act = a as { type?: string; amountUsdc?: number; aprPct?: number } | null;
     if (!act || (act.type !== 'divest' && act.type !== 'invest')) return;
@@ -140,19 +142,77 @@ export default function BondProfilePage() {
     const st = useAgentStore.getState();
     const inv = st.investments[bond.id];
     const liq = (st.vaultBalances[bond.id] ?? 0) - (inv?.amount ?? 0);
-    if (act.type === 'divest') {
-      if (!inv) {
-        pushTrustee('Nothing is invested right now — the whole vault already sits liquid.');
-        return;
-      }
-      setLiveAction({ kind: 'divest', amount: Math.min(act.amountUsdc, inv.amount), apr: inv.apr, stage: 'proposed' });
-    } else {
-      if (liq <= 0) {
-        pushTrustee('There is nothing liquid to invest right now — the vault is fully deployed.');
-        return;
-      }
-      setLiveAction({ kind: 'invest', amount: Math.min(act.amountUsdc, liq), apr: act.aprPct ?? 4.1, stage: 'proposed' });
+    if (act.type === 'divest' && !inv) {
+      pushTrustee('Nothing is invested right now — the whole vault already sits liquid.');
+      return;
     }
+    if (act.type === 'invest' && liq <= 0) {
+      pushTrustee('There is nothing liquid to invest right now — the vault is fully deployed.');
+      return;
+    }
+    // LIVE World AgentKit check: both personal agents must be human-backed in
+    // AgentBook (World Chain) before anything reaches the release track.
+    const myName = answers.name?.text?.replace(/^just call me /i, '') || 'Ben';
+    const seeds = [myName.toLowerCase(), bond.partner.toLowerCase()];
+    setBusy(true);
+    fetch('/api/agent/verify-backing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ seeds }),
+    })
+      .then(async (res) => {
+        const j = await res.json();
+        if (!res.ok) throw new Error(j.error ?? `verify-backing ${res.status}`);
+        setBusy(false);
+        const [mine, theirs] = j.agents as { seed: string; address: string; backed: boolean }[];
+        if (!mine.backed || !theirs.backed) {
+          const failed = [!mine.backed ? `${myName}’s agent (${mine.address.slice(0, 6)}…)` : null, !theirs.backed ? `${bond.partner}’s agent (${theirs.address.slice(0, 6)}…)` : null]
+            .filter(Boolean)
+            .join(' and ');
+          pushTrustee(
+            `AgentBook check failed: ${failed} carries no verified human. I don’t put unbacked proposals on the release track — register the agent wallet with World AgentKit first.`,
+          );
+          return;
+        }
+        pushTrustee(
+          `AgentBook check (World Chain): ${myName}’s agent ✓ human-backed · ${bond.partner}’s agent ✓ human-backed — ${j.distinctHumans ? 'two distinct humans' : 'WARNING: same human behind both'}. Putting it on the release track.`,
+          () => {
+            if (act.type === 'divest' && inv) {
+              setLiveAction({ kind: 'divest', amount: Math.min(act.amountUsdc!, inv.amount), apr: inv.apr, stage: 'proposed' });
+            } else {
+              setLiveAction({ kind: 'invest', amount: Math.min(act.amountUsdc!, liq), apr: act.aprPct ?? 4.1, stage: 'proposed' });
+            }
+          },
+        );
+      })
+      .catch((e: Error) => {
+        setBusy(false);
+        pushTrustee(`AgentBook lookup broke on my side: ${e.message}`);
+      });
+  };
+
+  /** Once per visit, right after an execution: an unknown agent knocks and is
+   *  refused — the same LIVE AgentBook lookup, answering null. The door works. */
+  const maybeRogueBeat = () => {
+    if (rogueShown.current) return;
+    rogueShown.current = true;
+    fetch('/api/agent/verify-backing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ seeds: ['rogue'] }),
+    })
+      .then(async (res) => {
+        const j = await res.json();
+        if (!res.ok) throw new Error(j.error ?? `verify-backing ${res.status}`);
+        const rogue = j.agents[0] as { address: string; backed: boolean };
+        if (rogue.backed) return; // someone registered the rogue — then there is no story to tell
+        pushTrustee(
+          `One more thing: while we settled, an unknown agent (${rogue.address.slice(0, 6)}…${rogue.address.slice(-4)}) proposed a 400 USDC transfer out of this vault. AgentBook lookup: no verified human behind it. Refused at the door — bots don’t get a seat at this table.`,
+        );
+      })
+      .catch(() => {
+        rogueShown.current = false; // lookup failed — try again after the next execution
+      });
   };
 
   /** Dual-hito walk for a live action: you → partner → executed → store mutation. */
@@ -169,12 +229,14 @@ export default function BondProfilePage() {
         if (inv && la.amount >= inv.amount) setYieldState('none');
         pushTrustee(
           `Executed. ${la.amount.toFixed(0)} USDC are out of the yield package and sit liquid in the vault again — the vault card is current. Settlement logged; you both hold the receipt.`,
+          maybeRogueBeat,
         );
       } else {
         st.invest(bond.id, (inv?.amount ?? 0) + la.amount, la.apr);
         setYieldState('done');
         pushTrustee(
           `Executed. ${la.amount.toFixed(0)} USDC moved into the yield vault at ${la.apr}% — projection updates on the vault card. Settlement logged for both of you.`,
+          maybeRogueBeat,
         );
       }
     }, 1500);
