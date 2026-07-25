@@ -122,7 +122,10 @@ export function BondedOnboarding({ partnerAddress }: { partnerAddress: string | 
             </div>
             <p className="text-sm text-gray-600 font-medium leading-relaxed max-w-[320px]">
               The name you two go by — like a shared purse. Money arrives here,
-              payments leave here, your agents take care of the rest. Runs on USDC.
+              payments leave here, your agents take care of the rest.
+            </p>
+            <p className="text-xs text-gray-400 font-medium leading-relaxed max-w-[320px]">
+              Runs on USDC. Nothing leaves unless you both confirm.
             </p>
             <AliveCta onClick={claimName} className="w-full px-8 py-5 rounded-[1.75rem] text-sm tracking-[0.2em] mt-4">
               Claim your bond address
@@ -130,10 +133,17 @@ export function BondedOnboarding({ partnerAddress }: { partnerAddress: string | 
           </>
         ) : (
           <>
-            <p className="text-sm text-gray-600 font-medium leading-relaxed max-w-[320px]">
-              <span className="font-black text-gray-900">One thing left.</span> Your personal agent
-              handles the money between you two — so you never have to argue about it.
-            </p>
+            {agentReady ? (
+              <p className="text-sm text-gray-600 font-medium leading-relaxed max-w-[320px]">
+                <span className="font-black text-gray-900">Your agent is already here.</span> It
+                now takes care of this bond too — the money between you two, no arguing.
+              </p>
+            ) : (
+              <p className="text-sm text-gray-600 font-medium leading-relaxed max-w-[320px]">
+                <span className="font-black text-gray-900">One thing left.</span> Your personal agent
+                handles the money between you two — so you never have to argue about it.
+              </p>
+            )}
             <AliveCta
               onClick={() => router.push(agentReady ? '/agent' : '/agent/create')}
               className="w-full px-8 py-6 rounded-[1.75rem] text-sm tracking-[0.2em]"
