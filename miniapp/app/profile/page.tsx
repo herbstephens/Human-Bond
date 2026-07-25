@@ -10,7 +10,7 @@
 
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowLeft, ArrowUp, Lock, MessageCircle, X } from 'lucide-react';
 import { AliveCta } from '@/app/components/agent/AliveCta';
 import {
@@ -73,10 +73,12 @@ export default function ProfilePage() {
   } = useAgentStore();
   const [draft, setDraft] = useState('');
 
-  if (!agentReady) {
-    router.replace('/agent/create');
-    return null;
-  }
+  // Guard in an effect (never during render — the store hydrates client-side).
+  useEffect(() => {
+    if (!agentReady) router.replace('/home');
+  }, [agentReady, router]);
+
+  if (!agentReady) return null;
 
   const name = answers.name?.text?.replace(/^just call me /i, '') || 'Ben';
 

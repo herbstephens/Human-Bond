@@ -10,9 +10,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import Image from 'next/image';
 import { ArrowUp, Check, ScanLine } from 'lucide-react';
 import { useAgentStore, type ChoreoStage, type Payment } from '@/lib/agent/agentStore';
 import { AliveCta } from '@/app/components/agent/AliveCta';
@@ -321,15 +319,8 @@ export default function AgentChatPage() {
 
   return (
     <div className="min-h-screen bg-[#E8E8E8] flex flex-col">
-      {/* Header — the ring logo is the way to your profile */}
-      <header className="px-6 pt-6 pb-4 flex items-center gap-4">
-        <Link
-          href="/profile"
-          title="Your profile"
-          className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-all overflow-hidden p-1.5"
-        >
-          <Image src="/Isotype.png" alt="Profile" width={28} height={28} className="w-full h-full object-contain" />
-        </Link>
+      {/* Header — the global ring logo (top-left, above) opens your profile */}
+      <header className="px-6 pt-4 pb-4 flex items-center gap-4">
         <div className="flex-1">
           <h1 className="text-base font-black text-gray-900 tracking-tight">Your agent</h1>
           <p className="text-[9px] font-bold uppercase tracking-[0.25em] flex items-center gap-1.5">
