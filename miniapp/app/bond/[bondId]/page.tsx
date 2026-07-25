@@ -11,9 +11,9 @@
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowUp, Bell, Check, Landmark, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ArrowUp, Bell, Check, Landmark, X } from 'lucide-react';
 import { AliveCta } from '@/app/components/agent/AliveCta';
-import { BONDS, VAULT_BALANCES, useAgentStore } from '@/lib/agent/agentStore';
+import { BONDS, useAgentStore, type Heir } from '@/lib/agent/agentStore';
 
 // --- tiny self-contained chat for the trustee room ------------------------
 
@@ -42,9 +42,12 @@ export default function BondProfilePage() {
   const params = useParams<{ bondId: string }>();
   const bond = BONDS.find((b) => b.id === params.bondId) ?? BONDS[0];
   const isInheritance = bond.type === 'inheritance';
-  const balance = VAULT_BALANCES[bond.id] ?? 0;
 
-  const { agentReady, answers, payments, heirs, addHeir, removeHeir } = useAgentStore();
+  const {
+    agentReady, answers, payments, heirs, addHeir, requestRemoveHeir,
+    vaultBalances, deposits, standingOrders, deposit, setStandingOrder,
+  } = useAgentStore();
+  const balance = vaultBalances[bond.id] ?? 0;
 
   const [msgs, setMsgs] = useState<RoomMsg[]>([]);
   const [busy, setBusy] = useState(false);
@@ -52,6 +55,10 @@ export default function BondProfilePage() {
   const [yieldState, setYieldState] = useState<YieldState>('none');
   const [heirName, setHeirName] = useState('');
   const [heirShare, setHeirShare] = useState(100);
+  const [confirmRemove, setConfirmRemove] = useState<Heir | null>(null);
+  const [panel, setPanel] = useState<'none' | 'deposit' | 'order'>('none');
+  const [depositAmount, setDepositAmount] = useState('250');
+  const [orderAmount, setOrderAmount] = useState(String(standingOrders[bond.id] ?? 0));
   const endRef = useRef<HTMLDivElement>(null);
   const greeted = useRef(false);
 
@@ -134,12 +141,31 @@ export default function BondProfilePage() {
   };
 
   const activity = [
+    ...deposits
+      .filter((d) => d.bondId === bond.id)
+      .map((d) => ({ id: d.id, text: `Deposit — ${d.amount.toFixed(2)} from you`, tag: 'Deposit' })),
     ...Object.values(payments)
       .filter((p) => p.stage === 'paid' && !p.personal)
       .map((p) => ({ id: p.id, text: `${p.label} — ${p.amountUsdc.toFixed(2)} to ${p.recipientEns}`, tag: 'Agent payment' })),
-    { id: 'so-1', text: 'Standing order — 500.00 from Ben, monthly', tag: 'Standing order' },
+    ...((standingOrders[bond.id] ?? 0) > 0
+      ? [{ id: 'so-1', text: `Standing order — ${(standingOrders[bond.id] ?? 0).toFixed(2)} from you, monthly`, tag: 'Standing order' }]
+      : []),
     { id: 'so-2', text: 'Standing order — 500.00 from Alice, monthly', tag: 'Standing order' },
   ];
+
+  const submitDeposit = () => {
+    const amount = Number(depositAmount);
+    if (!amount || amount <= 0) return;
+    deposit(bond.id, amount);
+    setPanel('none');
+  };
+
+  const submitOrder = () => {
+    const amount = Number(orderAmount);
+    if (Number.isNaN(amount) || amount < 0) return;
+    setStandingOrder(bond.id, amount);
+    setPanel('none');
+  };
 
   return (
     <div className="min-h-screen bg-[#E8E8E8] flex flex-col">
@@ -177,6 +203,52 @@ export default function BondProfilePage() {
             </div>
             <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">fed by standing orders</span>
           </div>
+          {/* Money in: one-time or recurring */}
+          <div className="mt-4 flex gap-2 relative z-10">
+            <button
+              onClick={() => setPanel(panel === 'deposit' ? 'none' : 'deposit')}
+              className={`flex-1 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] border transition-all ${
+                panel === 'deposit' ? 'bg-white text-black border-white' : 'bg-white/10 text-white border-white/15 hover:bg-white/20'
+              }`}
+            >
+              Add money
+            </button>
+            <button
+              onClick={() => setPanel(panel === 'order' ? 'none' : 'order')}
+              className={`flex-1 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] border transition-all ${
+                panel === 'order' ? 'bg-white text-black border-white' : 'bg-white/10 text-white border-white/15 hover:bg-white/20'
+              }`}
+            >
+              Standing order{(standingOrders[bond.id] ?? 0) > 0 ? ` · ${standingOrders[bond.id]}/mo` : ''}
+            </button>
+          </div>
+          {panel !== 'none' && (
+            <div className="mt-3 bg-white/5 border border-white/10 rounded-xl p-4 space-y-3 relative z-10 animate-in fade-in duration-300">
+              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
+                {panel === 'deposit' ? 'One-time transfer from your wallet' : 'Monthly, from your wallet — cancel anytime'}
+              </p>
+              <div className="flex items-center gap-2">
+                <input
+                  value={panel === 'deposit' ? depositAmount : orderAmount}
+                  onChange={(e) =>
+                    panel === 'deposit' ? setDepositAmount(e.target.value.replace(/[^0-9.]/g, '')) : setOrderAmount(e.target.value.replace(/[^0-9.]/g, ''))
+                  }
+                  inputMode="decimal"
+                  className="flex-1 bg-white/10 rounded-xl px-4 py-3 text-lg font-black font-mono text-white outline-none border border-white/10"
+                />
+                <span className="text-[10px] font-black text-gray-400 uppercase">USDC</span>
+              </div>
+              <AliveCta
+                onClick={panel === 'deposit' ? submitDeposit : submitOrder}
+                className="w-full px-4 py-3 rounded-xl text-[10px] tracking-[0.15em]"
+              >
+                {panel === 'deposit' ? 'Send to the vault' : 'Set standing order'}
+              </AliveCta>
+              <p className="text-[9px] text-gray-500 font-medium">
+                Your money into the shared vault needs only you — spending it out again follows the bond’s rules.
+              </p>
+            </div>
+          )}
         </section>
 
         {/* Trustee room */}
@@ -289,13 +361,18 @@ export default function BondProfilePage() {
                   <p className="text-sm font-black text-gray-900">{h.name}</p>
                   <p
                     className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 ${
-                      h.status === 'awaiting-partner' ? 'text-amber-600' : 'text-gray-400'
+                      h.status === 'awaiting-partner' || h.status === 'awaiting-removal' ? 'text-amber-600' : 'text-gray-400'
                     }`}
                   >
                     {h.status === 'awaiting-partner' ? (
                       <span className="inline-flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                         Waiting for {bond.partner} to co-sign
+                      </span>
+                    ) : h.status === 'awaiting-removal' ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        Removal requested — waiting for {bond.partner}
                       </span>
                     ) : (
                       'In the will · claimable at 18 via NFC'
@@ -304,12 +381,14 @@ export default function BondProfilePage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <p className="text-sm font-black text-gray-900 font-mono">{h.sharePct}%</p>
-                  <button
-                    onClick={() => removeHeir(h.id)}
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors"
-                  >
-                    <X size={12} />
-                  </button>
+                  {h.status !== 'awaiting-removal' && (
+                    <button
+                      onClick={() => setConfirmRemove(h)}
+                      className="w-6 h-6 rounded-full flex items-center justify-center text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
@@ -381,6 +460,47 @@ export default function BondProfilePage() {
           </p>
         </section>
       </main>
+
+      {/* ACHTUNG: removing someone from the will is a two-person decision */}
+      {confirmRemove && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-md" onClick={() => setConfirmRemove(null)} />
+          <div className="relative bg-white rounded-[2rem] p-7 max-w-sm w-full shadow-2xl space-y-5 animate-in fade-in zoom-in duration-300">
+            <div className="flex justify-center">
+              <div className="w-16 h-16 rounded-full bg-amber-50 text-amber-500 flex items-center justify-center">
+                <AlertTriangle size={30} />
+              </div>
+            </div>
+            <div className="text-center space-y-2">
+              <h3 className="text-xl font-black text-gray-900 tracking-tight">
+                Remove {confirmRemove.name} from your will?
+              </h3>
+              <p className="text-sm text-gray-500 font-medium leading-relaxed">
+                This changes what you both promised. Nothing happens on your tap alone —{' '}
+                {bond.partner} has to co-sign the removal on her device before{' '}
+                {confirmRemove.name} loses the {confirmRemove.sharePct}% claim.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2.5 pt-1">
+              <button
+                onClick={() => {
+                  requestRemoveHeir(confirmRemove.id);
+                  setConfirmRemove(null);
+                }}
+                className="w-full py-4 px-6 rounded-2xl text-sm font-black text-white bg-red-500 hover:bg-red-600 transition-all active:scale-95 shadow-lg shadow-red-200"
+              >
+                Request removal
+              </button>
+              <button
+                onClick={() => setConfirmRemove(null)}
+                className="w-full py-3 px-6 rounded-2xl text-sm font-bold text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-all"
+              >
+                Keep {confirmRemove.name} in the will
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

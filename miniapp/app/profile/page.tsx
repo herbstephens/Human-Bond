@@ -16,7 +16,6 @@ import { AliveCta } from '@/app/components/agent/AliveCta';
 import {
   BONDS,
   INTERVIEW_QUESTIONS,
-  VAULT_BALANCES,
   useAgentStore,
   type BrainFact,
 } from '@/lib/agent/agentStore';
@@ -69,6 +68,8 @@ export default function ProfilePage() {
     importedSources,
     customFacts,
     payments,
+    vaultBalances,
+    heartbeatOk,
     addFact,
     removeFact,
   } = useAgentStore();
@@ -120,6 +121,7 @@ export default function ProfilePage() {
           <h1 className="text-2xl font-black text-gray-900 tracking-tighter">{name}</h1>
           <p className="text-[9px] font-bold text-gray-400 uppercase tracking-[0.25em]">
             World ID · Orb verified
+            {heartbeatOk && <span className="text-emerald-500"> · proof of life ✓</span>}
           </p>
         </div>
         <div className="text-right">
@@ -168,7 +170,7 @@ export default function ProfilePage() {
                       : 'No activity yet'}
                   </p>
                   <p className="text-[11px] font-black text-gray-900 font-mono">
-                    {(VAULT_BALANCES[b.id] ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} USDC
+                    {(vaultBalances[b.id] ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} USDC
                   </p>
                 </div>
               </Link>

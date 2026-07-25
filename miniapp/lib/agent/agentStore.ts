@@ -150,7 +150,12 @@ export const VAULT_BALANCES: Record<string, number> = { alice: 10000, mika: 0 };
 /** An heir inside a bond's charter — claims bind to the human, not a wallet.
  *  awaiting-partner: written by you, waiting for the partner's release.
  *  pending-nfc: in the will; claim unlocks via NFC age verification at 18. */
-export type Heir = { id: string; name: string; sharePct: number; status: 'awaiting-partner' | 'pending-nfc' | 'active' };
+export type Heir = {
+  id: string;
+  name: string;
+  sharePct: number;
+  status: 'awaiting-partner' | 'pending-nfc' | 'active' | 'awaiting-removal';
+};
 
 /** Sources the agent can pull an existing self from. */
 export const IMPORT_SOURCES = [
@@ -222,6 +227,15 @@ type AgentState = {
   customFacts: BrainFact[];
   /** Heirs written into the inheritance bond's charter. */
   heirs: Heir[];
+  /** Live vault balances — deposits move them. */
+  vaultBalances: Record<string, number>;
+  /** One-time deposits you made, per bond (for the activity feed). */
+  deposits: { id: string; bondId: string; amount: number }[];
+  /** YOUR monthly standing order per bond. */
+  standingOrders: Record<string, number>;
+  /** Proof of life: has the agent pinged you, and did you check in? */
+  lifePingDone: boolean;
+  heartbeatOk: boolean;
   /** Which bond requests route to by default — the inheritance bond, if one exists. */
   defaultBondId: string;
 
@@ -252,7 +266,13 @@ type AgentState = {
   addFact: (text: string) => void;
   removeFact: (id: string) => void;
   addHeir: (name: string, sharePct: number) => void;
-  removeHeir: (id: string) => void;
+  /** Removal from the will ALSO needs the partner — status walk, then gone. */
+  requestRemoveHeir: (id: string) => void;
+  deposit: (bondId: string, amount: number) => void;
+  setStandingOrder: (bondId: string, amount: number) => void;
+  /** The agent writes YOU first: proof-of-life reminder + trustee heads-up. */
+  lifePing: () => void;
+  heartbeatChecked: () => void;
   setDefaultBond: (bondId: string) => void;
   resetAgent: () => void;
 
@@ -316,6 +336,11 @@ export const useAgentStore = create<AgentState>()(
         agentBusy: false,
         customFacts: [],
         heirs: [],
+        vaultBalances: { ...VAULT_BALANCES },
+        deposits: [],
+        standingOrders: { alice: 500, mika: 0 },
+        lifePingDone: false,
+        heartbeatOk: false,
         defaultBondId: 'alice',
         pullGranted: false,
         pendingReceipt: null,
@@ -610,7 +635,43 @@ export const useAgentStore = create<AgentState>()(
           );
         },
 
-        removeHeir: (id) => set((s) => ({ heirs: s.heirs.filter((h) => h.id !== id) })),
+        requestRemoveHeir: (id) => {
+          set((s) => ({
+            heirs: s.heirs.map((h) => (h.id === id ? { ...h, status: 'awaiting-removal' as const } : h)),
+          }));
+          // Alice co-signs the removal on her device, then the entry is gone.
+          setTimeout(() => set((s) => ({ heirs: s.heirs.filter((h) => h.id !== id) })), 3200);
+        },
+
+        deposit: (bondId, amount) =>
+          set((s) => ({
+            vaultBalances: { ...s.vaultBalances, [bondId]: (s.vaultBalances[bondId] ?? 0) + amount },
+            deposits: [...s.deposits, { id: mid(), bondId, amount }],
+          })),
+
+        setStandingOrder: (bondId, amount) =>
+          set((s) => ({ standingOrders: { ...s.standingOrders, [bondId]: amount } })),
+
+        lifePing: () => {
+          if (get().lifePingDone) return;
+          set(() => ({ lifePingDone: true }));
+          get()._enqueue([
+            {
+              type: 'text',
+              text: 'One thing from my side today: your 90-day proof of life is due — ten seconds, look into the camera, done. It keeps every claim and the will exactly as you set them. And a heads-up: the trustee sent you and Alice an opportunity — I already checked it, your buffer stays untouched.',
+            },
+          ]);
+        },
+
+        heartbeatChecked: () => {
+          set(() => ({ heartbeatOk: true }));
+          get()._enqueue([
+            {
+              type: 'text',
+              text: 'Alive and verified — heartbeat renewed on-chain, Alice can see it’s green. Next check in 90 days; I’ll remind you.',
+            },
+          ]);
+        },
 
         setDefaultBond: (bondId) => set(() => ({ defaultBondId: bondId })),
 
@@ -630,6 +691,13 @@ export const useAgentStore = create<AgentState>()(
             pendingReceipt: null,
             messages: [],
             payments: {},
+            customFacts: [],
+            heirs: [],
+            vaultBalances: { ...VAULT_BALANCES },
+            deposits: [],
+            standingOrders: { alice: 500, mika: 0 },
+            lifePingDone: false,
+            heartbeatOk: false,
           }));
         },
       };
@@ -647,6 +715,11 @@ export const useAgentStore = create<AgentState>()(
         partnerAgentReady: s.partnerAgentReady,
         customFacts: s.customFacts,
         heirs: s.heirs,
+        vaultBalances: s.vaultBalances,
+        deposits: s.deposits,
+        standingOrders: s.standingOrders,
+        lifePingDone: s.lifePingDone,
+        heartbeatOk: s.heartbeatOk,
         defaultBondId: s.defaultBondId,
         pullGranted: s.pullGranted,
         pendingReceipt: s.pendingReceipt,
