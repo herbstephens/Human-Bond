@@ -223,8 +223,10 @@ export default function AgentChatPage() {
     buyShared,
     buyPersonal,
     say,
-    agentSay,
     resetAgent,
+    typingIndicator,
+    agentBusy,
+    _enqueue,
   } = useAgentStore();
   const [draft, setDraft] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
@@ -242,36 +244,45 @@ export default function AgentChatPage() {
 
   const lastAgentText = [...messages].reverse().find((m) => m.kind === 'text' && m.role === 'agent');
   const offerPay =
+    !agentBusy &&
     pendingReceipt !== null &&
     lastAgentText?.kind === 'text' &&
     lastAgentText.text.startsWith('Want me to settle');
   const offerGrant =
+    !agentBusy &&
     pendingReceipt !== null &&
     !pullGranted &&
     lastAgentText?.kind === 'text' &&
-    lastAgentText.text.startsWith('One thing first');
+    (lastAgentText.text.startsWith('One thing first') || lastAgentText.text.startsWith('Before I can'));
 
   const askFinances = () => {
     say('How are our finances?');
-    setTimeout(
-      () =>
-        agentSay(
-          'Clean. The shared account settles per expense — nothing parked there. You have used €62 of your protected budget, Alice €118 of hers. Your emergency buffer is untouched; I know that matters to you.',
-          { typed: true },
-        ),
-      800,
-    );
+    _enqueue([
+      {
+        type: 'text',
+        text: 'Clean. The shared account settles per expense — nothing parked there. You have used €62 of your protected budget, Alice €118 of hers. Your emergency buffer is untouched; I know that matters to you.',
+      },
+    ]);
   };
 
   const submitDraft = () => {
     const text = draft.trim();
     if (!text) return;
-    say(text);
     setDraft('');
-    setTimeout(
-      () => agentSay('Noted — I’ll factor that in. If it should become a shared rule, I’ll take it to the trustee.', { typed: true }),
-      800,
-    );
+    // Context-aware: an affirmative answers the open question, not the void.
+    const affirmative = /^(y(es|ep|eah)?|ok(ay)?|sure|ja|jo|go|do it|grant(ed)?|release)\b/i.test(text);
+    if (offerGrant && affirmative) {
+      grantPull(text);
+      return;
+    }
+    if (offerPay && affirmative) {
+      requestPay(text);
+      return;
+    }
+    say(text);
+    _enqueue([
+      { type: 'text', text: 'Noted — I’ll factor that in. If it should become a shared rule, I’ll take it to the trustee.' },
+    ]);
   };
 
   return (
@@ -356,42 +367,50 @@ export default function AgentChatPage() {
           );
         })}
 
-        {/* Contextual action: settle the bill */}
-        {offerPay && (
-          <div className="flex flex-col gap-2 items-end animate-in fade-in duration-500">
-            <button
-              onClick={requestPay}
-              className="bg-black text-white px-6 py-3.5 rounded-2xl text-[11px] font-black uppercase tracking-[0.15em] hover:bg-gray-900 transition-all active:scale-95 shadow-lg"
-            >
-              Yes — settle it fairly
-            </button>
-            <button
-              onClick={() => say('Not now.')}
-              className="text-[10px] font-bold text-gray-400 hover:text-gray-600 uppercase tracking-widest transition-colors px-2"
-            >
-              Not now
-            </button>
-          </div>
-        )}
-
-        {/* Contextual action: the funding moment */}
-        {offerGrant && (
-          <div className="flex justify-end animate-in fade-in duration-500">
-            <button
-              onClick={grantPull}
-              className="bg-black text-white px-6 py-3.5 rounded-2xl text-[11px] font-black uppercase tracking-[0.15em] hover:bg-gray-900 transition-all active:scale-95 shadow-lg"
-            >
-              Grant pull access
-            </button>
+        {/* The agent is thinking / writing */}
+        {typingIndicator && (
+          <div className="animate-in fade-in duration-300">
+            <div className="bg-white rounded-3xl rounded-bl-lg px-5 py-4 border border-gray-100 inline-flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '0ms' }} />
+              <span className="w-1.5 h-1.5 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '150ms' }} />
+              <span className="w-1.5 h-1.5 rounded-full bg-gray-300 animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
           </div>
         )}
 
         <div ref={endRef} />
       </main>
 
-      {/* Input bar with the three openers */}
+      {/* Input bar — contextual answers ALWAYS live here, right above the input */}
       <div className="fixed bottom-0 inset-x-0 bg-gradient-to-t from-[#E8E8E8] via-[#E8E8E8] to-transparent pt-10 pb-8 px-6">
         <div className="max-w-lg mx-auto space-y-3">
+          {/* Contextual answers to the agent's open question */}
+          {offerPay && (
+            <div className="flex gap-2 justify-end animate-in fade-in slide-in-from-bottom-2 duration-400">
+              <button
+                onClick={() => say('Not now.')}
+                className="px-4 py-3 rounded-2xl text-[11px] font-bold text-gray-400 hover:text-gray-600 bg-white/70 border border-gray-200 transition-all"
+              >
+                Not now
+              </button>
+              <button
+                onClick={() => requestPay()}
+                className="bg-black text-white px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-[0.15em] hover:bg-gray-900 transition-all active:scale-95 shadow-lg"
+              >
+                Yes — settle it fairly
+              </button>
+            </div>
+          )}
+          {offerGrant && (
+            <div className="flex justify-end animate-in fade-in slide-in-from-bottom-2 duration-400">
+              <button
+                onClick={() => grantPull()}
+                className="bg-black text-white px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-[0.15em] hover:bg-gray-900 transition-all active:scale-95 shadow-lg"
+              >
+                Grant pull access
+              </button>
+            </div>
+          )}
           <div className="flex flex-wrap gap-2 justify-end">
             <button
               onClick={scanBill}

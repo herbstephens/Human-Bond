@@ -1,15 +1,14 @@
 /**
  * Personal-agent clickable dummy — state for the interview and the chat.
  *
- * Payment model (per team decision Sat): the shared account starts EMPTY.
- * Both partners grant the bond pull access to their personal wallets — like
- * a card on file. At payment time the personal agent and the trustee agent
- * compare incomes and split the bill fairly (demo: you 10% / Alice 90%),
- * then each share is pulled from its wallet in the moment, like a card charge.
+ * DESIGN RULE (chat pacing): the agent must always feel like someone who is
+ * thinking and writing. Everything the agent produces goes through ONE
+ * sequential queue: typing indicator → one bubble types out → pause → next.
+ * Never two bubbles at once.
  *
- * Self-contained on purpose. Integration points for the real build:
- * `grantPull` → ERC-20 approve to the bond module; `startPayment` →
- * trustee backend + BondVaultModule; typing/reasoning → real agent stream.
+ * Payment model: routing first (personal vs shared), the trustee negotiates
+ * the fair split, the human releases the proposal on hito, shares are pulled
+ * from each wallet (card on file) OR paid from a standing balance.
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
@@ -136,14 +135,17 @@ export function profileSummary(answers: Record<string, InterviewAnswer>): string
   return lines;
 }
 
+/** Sources the agent can pull an existing self from. */
+export const IMPORT_SOURCES = [
+  { id: 'linkedin', label: 'LinkedIn' },
+  { id: 'x', label: 'X / Twitter' },
+  { id: 'chatgpt', label: 'ChatGPT' },
+  { id: 'claude', label: 'Claude' },
+] as const;
+
 // ---------------------------------------------------------------------------
 // Chat + fair-split payment choreography
 
-/**
- * A shared payment's life: the agents negotiate → the human SEES the proposal
- * and releases it on hito → shares are pulled → the recipient is paid.
- * Money never moves on agent agreement alone.
- */
 export type ChoreoStage = 'proposed' | 'confirmed' | 'pulled' | 'paid';
 
 export type ChatMessage =
@@ -154,50 +156,48 @@ export type ChatMessage =
 
 export type Payment = {
   id: string;
-  /** What is being paid for, human words. */
   label: string;
-  /** Who receives the money — the counterparty's ENS. */
   recipientEns: string;
   amountUsdc: number;
-  /** Fair split, negotiated by your agent + the trustee from both incomes. */
   shareYouPct: number;
   shareYou: number;
   sharePartner: number;
   stage: ChoreoStage;
-  /** Set after a feelings-loop renegotiation ("Alice covers this one…"). */
   note?: string;
-  /** Only one renegotiation round in the dummy. */
   renegotiated?: boolean;
 };
 
 let nextId = 1;
 const mid = () => `m${nextId++}-${Date.now()}`;
 
-/** Sources the agent can pull an existing self from. */
-export const IMPORT_SOURCES = [
-  { id: 'linkedin', label: 'LinkedIn' },
-  { id: 'x', label: 'X / Twitter' },
-  { id: 'chatgpt', label: 'ChatGPT' },
-  { id: 'claude', label: 'Claude' },
-] as const;
+/** One sequential production line for everything the agent shows. */
+type QueueItem =
+  | { type: 'text'; text: string; thinking?: boolean }
+  | { type: 'receipt'; vendor: string; amountUsdc: number }
+  | { type: 'grant' }
+  | { type: 'choreo'; paymentId: string }
+  | { type: 'action'; run: () => void };
+
+// Queue lives outside the persisted state — a reload starts calm, not mid-monologue.
+let queue: QueueItem[] = [];
+let processing = false;
 
 type AgentState = {
   // interview
   step: number;
   answers: Record<string, InterviewAnswer>;
-  /** Question ids answered live in the chat (imported ones never appear as Q&A). */
   askedIds: string[];
-  /** Sources connected during import — empty means classic interview. */
   importedSources: string[];
   agentReady: boolean;
-  /** True right after the interview — the "your agent is alive" celebration is pending. */
   bornPending: boolean;
   partnerAgentReady: boolean;
 
+  // chat pacing (transient, not persisted)
+  typingIndicator: boolean;
+  agentBusy: boolean;
+
   // payment rails
-  /** Both partners granted the bond pull access to their wallets (card on file). */
   pullGranted: boolean;
-  /** A shared expense parsed/requested and waiting for the grant before proposal. */
   pendingReceipt: { vendor: string; amountUsdc: number; recipientEns: string } | null;
 
   // chat
@@ -205,301 +205,327 @@ type AgentState = {
   payments: Record<string, Payment>;
 
   answer: (questionId: string, answer: InterviewAnswer) => void;
-  /** Pull what's already out there — prefills name, job and an income estimate. */
   connectSources: (sources: string[]) => void;
   completeInterview: () => void;
-  /** Dismiss the born celebration; the agent says hello (one bubble, typed live). */
   celebrateBorn: () => void;
   scanBill: () => void;
-  /** User wants the bill settled. Inserts the grant step if pull access is missing. */
-  requestPay: () => void;
-  grantPull: () => void;
-  /** Shared purchase: routed to the trustee, negotiated, proposed. */
+  /** userText: what the human actually typed (falls back to the button label). */
+  requestPay: (userText?: string) => void;
+  grantPull: (userText?: string) => void;
   buyShared: () => void;
-  /** Internal: negotiation (typed) → proposal card awaiting hito release. */
-  proposeShared: (label: string, recipientEns: string, amountUsdc: number, fromReceipt: boolean) => void;
-  /** Personal purchase: own wallet, own rule — the partner is never involved. */
   buyPersonal: () => void;
-  /** The feelings loop: "I don't feel good about this" → agents renegotiate. */
+  proposeShared: (label: string, recipientEns: string, amountUsdc: number) => void;
   renegotiate: (paymentId: string) => void;
-  /** The human releases the negotiated proposal on their hito. */
   confirmOnHito: (paymentId: string) => void;
   say: (text: string) => void;
-  agentSay: (text: string, opts?: { typed?: boolean; thinking?: boolean }) => void;
   resetAgent: () => void;
+
+  /** Internal: enqueue agent output and run the production line. */
+  _enqueue: (items: QueueItem[]) => void;
 };
 
 export const useAgentStore = create<AgentState>()(
   persist(
-    (set, get) => ({
-      step: 0,
-      answers: {},
-      askedIds: [],
-      importedSources: [],
-      agentReady: false,
-      bornPending: false,
-      partnerAgentReady: true,
-      pullGranted: false,
-      pendingReceipt: null,
-      messages: [],
-      payments: {},
-
-      answer: (questionId, a) =>
-        set((s) => ({
-          answers: { ...s.answers, [questionId]: a },
-          askedIds: [...s.askedIds, questionId],
-          step: s.step + 1,
-        })),
-
-      connectSources: (sources) =>
-        set((s) => ({
-          importedSources: sources,
-          answers: {
-            ...s.answers,
-            name: { id: null, text: 'Ben' },
-            job: { id: 'employed', text: 'Employed' },
-            income: { id: 'gt4k', text: '€4k+ (LinkedIn estimate)' },
-          },
-        })),
-
-      completeInterview: () =>
-        set(() => ({
-          agentReady: true,
-          bornPending: true,
-          messages: [],
-        })),
-
-      celebrateBorn: () => {
-        set(() => ({ bornPending: false }));
-        // One bubble, typed live — hello, who I am, what next.
-        get().agentSay(
-          'Hey. I’m alive — and I’m yours. I already know what matters to you. So: want me to pay a receipt, buy something for you, or look at your finances?',
-          { typed: true },
-        );
-      },
-
-      scanBill: () => {
-        set((s) => ({
-          messages: [
-            ...s.messages,
-            { id: mid(), role: 'user', kind: 'text', text: 'Scanned a bill' },
-            { id: mid(), role: 'agent', kind: 'receipt', vendor: 'Cervejaria Ramiro', amountUsdc: 84.5 },
-          ],
-          pendingReceipt: { vendor: 'Cervejaria Ramiro', amountUsdc: 84.5, recipientEns: 'ramiro.eth' },
-        }));
-        // Visible reasoning: read → CLASSIFY (the routing decision) → conclusion.
-        setTimeout(
-          () =>
-            get().agentSay(
-              'Reading it… restaurant receipt — Cervejaria Ramiro, Lisbon. Two covers, tonight. For both of you → not your personal budget. This goes to the trustee.',
-              { typed: true, thinking: true },
-            ),
-          600,
-        );
-        setTimeout(
-          () => get().agentSay('Want me to settle it fairly between the two of you?', { typed: true }),
-          3600,
-        );
-      },
-
-      requestPay: () => {
-        const s = get();
-        const receipt = s.pendingReceipt;
-        if (!receipt) return;
-        s.say('Yes — settle it.');
-        if (!s.pullGranted) {
-          // The shared account is empty — the funding moment.
-          setTimeout(
-            () =>
-              s.agentSay(
-                'One thing first: our shared account holds no balance yet. Grant the bond pull access to your wallet — like a card on file — and each of you gets charged your fair share, in the moment.',
-                { typed: true },
-              ),
-            500,
-          );
+    (set, get) => {
+      /** Sequential processor: indicator → reveal one item → pause → next. */
+      const processQueue = () => {
+        if (processing) return;
+        const item = queue.shift();
+        if (!item) {
+          set({ agentBusy: false, typingIndicator: false });
           return;
         }
-        get().proposeShared(receipt.vendor, receipt.recipientEns, receipt.amountUsdc, true);
-      },
+        processing = true;
+        set({ agentBusy: true });
 
-      grantPull: () => {
-        const s = get();
-        set((st) => ({
-          pullGranted: true,
-          messages: [...st.messages, { id: mid(), role: 'system', kind: 'grant' }],
-        }));
-        // Alice's agent mirrors the grant on her side, then negotiation starts.
-        const receipt = s.pendingReceipt;
-        if (receipt) {
-          setTimeout(() => get().proposeShared(receipt.vendor, receipt.recipientEns, receipt.amountUsdc, true), 1400);
-        }
-      },
-
-      buyShared: () => {
-        const s = get();
-        s.say('Buy two Kalorama festival tickets for us — about 120 USDC.');
-        // Routing decision, visible.
-        setTimeout(
-          () =>
-            s.agentSay(
-              'Tickets for two → that’s for both of you, not your personal budget. Taking it to the trustee.',
-              { typed: true, thinking: true },
-            ),
-          700,
-        );
-        if (!s.pullGranted) {
-          setTimeout(
-            () =>
-              get().agentSay(
-                'Before I can: our shared account holds no balance yet. Grant the bond pull access to your wallet — like a card on file.',
-                { typed: true },
-              ),
-            2800,
-          );
-          set(() => ({
-            pendingReceipt: { vendor: 'Kalorama tickets ×2', amountUsdc: 120, recipientEns: 'kalorama-tickets.eth' },
-          }));
+        if (item.type === 'action') {
+          item.run();
+          processing = false;
+          setTimeout(processQueue, 250);
           return;
         }
-        get().proposeShared('Kalorama tickets ×2', 'kalorama-tickets.eth', 120, false);
-      },
 
-      buyPersonal: () => {
-        const s = get();
-        s.say('And buy me new running shoes — about €90.');
-        setTimeout(
-          () =>
-            s.agentSay(
-              'For you alone → your wallet, and €90 sits under your €200 rule. No trustee, no Alice.',
-              { typed: true, thinking: true },
-            ),
-          700,
-        );
-        setTimeout(
-          () =>
-            get().agentSay(
-              'Done — ordered, 90 USDC from your own wallet. Alice never hears about this one.',
-              { typed: true },
-            ),
-          3200,
-        );
-      },
-
-      /** Internal: negotiation (typed, visible) → proposal card awaiting hito release. */
-      proposeShared: (label: string, recipientEns: string, amountUsdc: number, fromReceipt: boolean) => {
-        const g = get();
-        const delay = fromReceipt ? 500 : 2600;
-        setTimeout(
-          () =>
-            g.agentSay(
-              'Negotiating with the trustee… I argued your cash flow is tight this month. The trustee compared incomes — Alice earns more right now — and came back with: you 10%, Alice 90%.',
-              { typed: true, thinking: true },
-            ),
-          delay,
-        );
+        // Think first…
+        set({ typingIndicator: true });
         setTimeout(() => {
+          set((s) => {
+            const msg: ChatMessage =
+              item.type === 'text'
+                ? { id: mid(), role: 'agent', kind: 'text', text: item.text, typed: true, thinking: item.thinking }
+                : item.type === 'receipt'
+                  ? { id: mid(), role: 'agent', kind: 'receipt', vendor: item.vendor, amountUsdc: item.amountUsdc }
+                  : item.type === 'grant'
+                    ? { id: mid(), role: 'system', kind: 'grant' }
+                    : { id: mid(), role: 'system', kind: 'choreo', paymentId: item.paymentId };
+            return { typingIndicator: false, messages: [...s.messages, msg] };
+          });
+          // …then let it finish writing before the next thought.
+          const settle = item.type === 'text' ? item.text.length * 18 + 700 : 700;
+          setTimeout(() => {
+            processing = false;
+            processQueue();
+          }, settle);
+        }, 750);
+      };
+
+      return {
+        step: 0,
+        answers: {},
+        askedIds: [],
+        importedSources: [],
+        agentReady: false,
+        bornPending: false,
+        partnerAgentReady: true,
+        typingIndicator: false,
+        agentBusy: false,
+        pullGranted: false,
+        pendingReceipt: null,
+        messages: [],
+        payments: {},
+
+        _enqueue: (items) => {
+          queue.push(...items);
+          processQueue();
+        },
+
+        answer: (questionId, a) =>
+          set((s) => ({
+            answers: { ...s.answers, [questionId]: a },
+            askedIds: [...s.askedIds, questionId],
+            step: s.step + 1,
+          })),
+
+        connectSources: (sources) =>
+          set((s) => ({
+            importedSources: sources,
+            answers: {
+              ...s.answers,
+              name: { id: null, text: 'Ben' },
+              job: { id: 'employed', text: 'Employed' },
+              income: { id: 'gt4k', text: '€4k+ (LinkedIn estimate)' },
+            },
+          })),
+
+        completeInterview: () =>
+          set(() => ({ agentReady: true, bornPending: true, messages: [] })),
+
+        celebrateBorn: () => {
+          set(() => ({ bornPending: false }));
+          get()._enqueue([
+            {
+              type: 'text',
+              text: 'Hey. I’m alive — and I’m yours. I already know what matters to you. So: want me to pay a receipt, buy something, or look at your finances?',
+            },
+          ]);
+        },
+
+        scanBill: () => {
+          get().say('Scanned a bill');
+          set(() => ({
+            pendingReceipt: { vendor: 'Cervejaria Ramiro', amountUsdc: 84.5, recipientEns: 'ramiro.eth' },
+          }));
+          get()._enqueue([
+            { type: 'receipt', vendor: 'Cervejaria Ramiro', amountUsdc: 84.5 },
+            {
+              type: 'text',
+              thinking: true,
+              text: 'Reading it… restaurant receipt — Cervejaria Ramiro, Lisbon. Two covers, tonight. For both of you → not your personal budget. This goes to the trustee.',
+            },
+            { type: 'text', text: 'Want me to settle it fairly between the two of you?' },
+          ]);
+        },
+
+        requestPay: (userText) => {
+          const s = get();
+          const receipt = s.pendingReceipt;
+          if (!receipt) return;
+          s.say(userText ?? 'Yes — settle it.');
+          if (!s.pullGranted) {
+            s._enqueue([
+              {
+                type: 'text',
+                text: 'One thing first: our shared account holds no balance yet. Grant the bond pull access to your wallet — like a card on file — and each of you gets charged your fair share, in the moment.',
+              },
+            ]);
+            return;
+          }
+          s.proposeShared(receipt.vendor, receipt.recipientEns, receipt.amountUsdc);
+        },
+
+        grantPull: (userText) => {
+          const s = get();
+          if (userText) s.say(userText);
+          set(() => ({ pullGranted: true }));
+          s._enqueue([{ type: 'grant' }]);
+          const receipt = s.pendingReceipt;
+          if (receipt) s.proposeShared(receipt.vendor, receipt.recipientEns, receipt.amountUsdc);
+        },
+
+        buyShared: () => {
+          const s = get();
+          s.say('Buy two Kalorama festival tickets for us — about 120 USDC.');
+          s._enqueue([
+            {
+              type: 'text',
+              thinking: true,
+              text: 'Tickets for two → that’s for both of you, not your personal budget. Taking it to the trustee.',
+            },
+          ]);
+          if (!s.pullGranted) {
+            set(() => ({
+              pendingReceipt: { vendor: 'Kalorama tickets ×2', amountUsdc: 120, recipientEns: 'kalorama-tickets.eth' },
+            }));
+            s._enqueue([
+              {
+                type: 'text',
+                text: 'Before I can: our shared account holds no balance yet. Grant the bond pull access to your wallet — like a card on file.',
+              },
+            ]);
+            return;
+          }
+          s.proposeShared('Kalorama tickets ×2', 'kalorama-tickets.eth', 120);
+        },
+
+        buyPersonal: () => {
+          const s = get();
+          s.say('And buy me new running shoes — about €90.');
+          s._enqueue([
+            {
+              type: 'text',
+              thinking: true,
+              text: 'For you alone → your wallet, and €90 sits under your €200 rule. No trustee, no Alice.',
+            },
+            { type: 'text', text: 'Done — ordered, 90 USDC from your own wallet. Alice never hears about this one.' },
+          ]);
+        },
+
+        proposeShared: (label, recipientEns, amountUsdc) => {
           const id = mid();
           const shareYou = Math.round(amountUsdc * 10) / 100;
           const sharePartner = Math.round(amountUsdc * 90) / 100;
-          set((s) => ({
-            pendingReceipt: null,
-            payments: {
-              ...s.payments,
-              [id]: {
-                id, label, recipientEns, amountUsdc,
-                shareYouPct: 10, shareYou, sharePartner,
-                stage: 'proposed' as ChoreoStage,
-              },
+          get()._enqueue([
+            {
+              type: 'text',
+              thinking: true,
+              text: 'Negotiating with the trustee… I argued your cash flow is tight this month. The trustee compared incomes — Alice earns more right now — and came back with: you 10%, Alice 90%.',
             },
-            messages: [...s.messages, { id: mid(), role: 'system', kind: 'choreo', paymentId: id }],
-          }));
-        }, delay + 3400);
-      },
+            {
+              type: 'action',
+              run: () =>
+                set((s) => ({
+                  pendingReceipt: null,
+                  payments: {
+                    ...s.payments,
+                    [id]: {
+                      id, label, recipientEns, amountUsdc,
+                      shareYouPct: 10, shareYou, sharePartner,
+                      stage: 'proposed' as ChoreoStage,
+                    },
+                  },
+                })),
+            },
+            { type: 'choreo', paymentId: id },
+          ]);
+        },
 
-      renegotiate: (paymentId) => {
-        const g = get();
-        g.say('I don’t feel good about this.');
-        setTimeout(
-          () => g.agentSay('Heard. Your feeling counts as an interest — I’m going back in.', { typed: true }),
-          600,
-        );
-        setTimeout(
-          () =>
-            g.agentSay(
-              'Alice’s agent offered: she covers this one fully, you take the next one. New proposal on the table.',
-              { typed: true, thinking: true },
-            ),
-          2600,
-        );
-        setTimeout(() => {
-          set((s) => {
-            const p = s.payments[paymentId];
-            if (!p) return s;
-            return {
-              payments: {
-                ...s.payments,
-                [paymentId]: {
-                  ...p,
-                  shareYouPct: 0,
-                  shareYou: 0,
-                  sharePartner: p.amountUsdc,
-                  note: 'Alice covers this one — you take the next.',
-                  renegotiated: true,
-                },
+        renegotiate: (paymentId) => {
+          const g = get();
+          g.say('I don’t feel good about this.');
+          g._enqueue([
+            { type: 'text', text: 'Heard. Your feeling counts as an interest — I’m going back in.' },
+            {
+              type: 'text',
+              thinking: true,
+              text: 'Alice’s agent offered: she covers this one fully, you take the next one. New proposal on the table.',
+            },
+            {
+              type: 'action',
+              run: () =>
+                set((s) => {
+                  const p = s.payments[paymentId];
+                  if (!p) return s;
+                  return {
+                    payments: {
+                      ...s.payments,
+                      [paymentId]: {
+                        ...p,
+                        shareYouPct: 0,
+                        shareYou: 0,
+                        sharePartner: p.amountUsdc,
+                        note: 'Alice covers this one — you take the next.',
+                        renegotiated: true,
+                      },
+                    },
+                  };
+                }),
+            },
+          ]);
+        },
+
+        confirmOnHito: (paymentId) => {
+          const advance = (stage: ChoreoStage) =>
+            set((s) => {
+              const p = s.payments[paymentId];
+              if (!p) return s;
+              return { payments: { ...s.payments, [paymentId]: { ...p, stage } } };
+            });
+          advance('confirmed');
+          setTimeout(() => advance('pulled'), 1500);
+          setTimeout(() => advance('paid'), 3000);
+          setTimeout(() => {
+            const p = get().payments[paymentId];
+            if (!p) return;
+            get()._enqueue([
+              {
+                type: 'text',
+                text:
+                  p.shareYou === 0
+                    ? `Done — ${p.recipientEns} is paid. Alice covered this one; the trustee remembers you take the next.`
+                    : `Done — ${p.recipientEns} is paid. ${p.shareYou.toFixed(2)} USDC pulled from your wallet, ${p.sharePartner.toFixed(2)} from Alice’s. Filed in your history.`,
               },
-            };
-          });
-        }, 4600);
-      },
+            ]);
+          }, 3600);
+        },
 
-      confirmOnHito: (paymentId) => {
-        const advance = (stage: ChoreoStage) =>
-          set((s) => {
-            const p = s.payments[paymentId];
-            if (!p) return s;
-            return { payments: { ...s.payments, [paymentId]: { ...p, stage } } };
-          });
-        advance('confirmed');
-        setTimeout(() => advance('pulled'), 1500);
-        setTimeout(() => advance('paid'), 3000);
-        setTimeout(() => {
-          const p = get().payments[paymentId];
-          if (!p) return;
-          get().agentSay(
-            p.shareYou === 0
-              ? `Done — ${p.recipientEns} is paid. Alice covered this one; the trustee remembers you take the next.`
-              : `Done — ${p.recipientEns} is paid. ${p.shareYou.toFixed(2)} USDC pulled from your wallet, ${p.sharePartner.toFixed(2)} from Alice’s. Filed in your history.`,
-            { typed: true },
-          );
-        }, 4000);
-      },
+        say: (text) =>
+          set((s) => ({ messages: [...s.messages, { id: mid(), role: 'user', kind: 'text', text }] })),
 
-      say: (text) =>
-        set((s) => ({ messages: [...s.messages, { id: mid(), role: 'user', kind: 'text', text }] })),
-
-      agentSay: (text, opts) =>
-        set((s) => ({
-          messages: [
-            ...s.messages,
-            { id: mid(), role: 'agent', kind: 'text', text, typed: opts?.typed, thinking: opts?.thinking },
-          ],
-        })),
-
-      resetAgent: () =>
-        set(() => ({
-          step: 0,
-          answers: {},
-          askedIds: [],
-          importedSources: [],
-          agentReady: false,
-          bornPending: false,
-          pullGranted: false,
-          pendingReceipt: null,
-          messages: [],
-          payments: {},
-        })),
-    }),
-    // v2: key bumped so stale pre-rework chats (the old two-bubble greeting) don't resurface
-    { name: 'humanbond-agent-dummy-v2' },
+        resetAgent: () => {
+          queue = [];
+          processing = false;
+          set(() => ({
+            step: 0,
+            answers: {},
+            askedIds: [],
+            importedSources: [],
+            agentReady: false,
+            bornPending: false,
+            typingIndicator: false,
+            agentBusy: false,
+            pullGranted: false,
+            pendingReceipt: null,
+            messages: [],
+            payments: {},
+          }));
+        },
+      };
+    },
+    {
+      name: 'humanbond-agent-dummy-v2',
+      // Transient pacing state never persists — a reload starts calm.
+      partialize: (s) => ({
+        step: s.step,
+        answers: s.answers,
+        askedIds: s.askedIds,
+        importedSources: s.importedSources,
+        agentReady: s.agentReady,
+        bornPending: s.bornPending,
+        partnerAgentReady: s.partnerAgentReady,
+        pullGranted: s.pullGranted,
+        pendingReceipt: s.pendingReceipt,
+        messages: s.messages,
+        payments: s.payments,
+      }),
+    },
   ),
 );

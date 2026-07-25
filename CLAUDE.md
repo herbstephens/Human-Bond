@@ -43,4 +43,10 @@ Herb — lead, protocol, pitch · Franco — frontend/MiniKit, ENS, World verifi
 
 # Design & Copy
 
+**Chat rules (agent surfaces — bindend):**
+
+1. **Never two bubbles at once.** The agent must always feel like someone thinking and writing: typing indicator first, then ONE message that types out live, a pause, then the next. All agent output goes through the sequential queue in `lib/agent/agentStore.ts` (`_enqueue`) — never push two agent messages in the same tick.
+2. **Contextual answers live at the bottom.** Buttons that answer the agent's open question always render directly above the input bar — never floating inside the message stream.
+3. **Free text is context-aware.** If the agent asked a question, an affirmative typed answer ("yes", "ok", "ja") answers THAT question — it never falls through to a generic reply.
+
 Aesthetic: **ceremony × protocol** — serif italics for the human layer, monospace for the on-chain layer; warm dark editorial (see `demo-onepager.html` for the reference implementation). Copy tone: short sentences, concrete, emotional truth + product truth ("A face, not a password"). All docs and code comments in English.
