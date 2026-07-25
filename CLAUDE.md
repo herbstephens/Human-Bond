@@ -16,6 +16,7 @@ HumanBond is a proof-of-humanity partnership protocol, live on World Chain Mainn
 # Repo Structure
 
 - `miniapp/` — Next.js 16 (Turbopack) World App Mini App. MiniKit, wagmi/viem, Tailwind 4, shadcn-style components, Zustand. `cd miniapp && npm install && npm run dev` → localhost:3000.
+- `miniapp/lib/agents/` — the three-agent runtime (phase 2): dual-signed Settlement protocol, role-gated tools (personal agents cannot execute, trustee cannot negotiate), prompts rendered from the second brain, storage interface for 0G. Headless test of the whole choreography incl. attack cases: `cd miniapp && npm run agents:demo`. The UI mock (`lib/agent/agentStore.ts`) keeps its public actions — the runtime replaces their insides behind `NEXT_PUBLIC_USE_MOCKS=0`.
 - `contracts/` — Foundry. `src/HumanBond.sol` (LIVE on mainnet), `TimeToken.sol`, `BondNFT.sol`, `MilestoneNFT.sol`. `ABI/` has exported ABIs.
 - `docs/` — plans, brainstorms, architecture.
 - Root MD files (README, ETHGLOBAL_LISBON, ARCHITECTURE…) — pitch/protocol docs, Herb's domain.
