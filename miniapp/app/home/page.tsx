@@ -387,37 +387,38 @@ export default function HomePage() {
             <div className="space-y-5">
               {!effectiveHasPendingProposal && !hasIncomingProposals && (
                 <div className="flex justify-center">
-                  {/* Like the logo top-left: both rings black, drifting together
-                      slowly, then WELDED with the CTA's amber glow — one ring. */}
-                  <svg
-                    width="128" height="68" viewBox="0 0 120 64" fill="none" aria-hidden
-                    style={{ animation: 'hbWeld 4s ease-out both, hbWeldBreathe 3s ease-in-out 4s infinite' }}
-                  >
+                  {/* THE logo — the two rings drift in from the sides as halves
+                      of the mark, meet, and get WELDED with the CTA's amber glow. */}
+                  <div className="relative w-[104px] h-[104px]" aria-hidden>
                     <style>{`
-                      @keyframes hbLinkA { 0% { transform: translateX(-26px); opacity: .3; } 70% { opacity: 1; } 100% { transform: translateX(0); } }
-                      @keyframes hbLinkB { 0% { transform: translateX(26px); opacity: .3; } 70% { opacity: 1; } 100% { transform: translateX(0); } }
-                      @keyframes hbLinkLock { 0%, 85% { opacity: 0; } 100% { opacity: 1; } }
-                      @keyframes hbWeld { 0%, 80% { filter: none; } 100% { filter: drop-shadow(0 0 10px rgba(245,158,11,.55)); } }
+                      @keyframes hbHalfL { 0% { transform: translateX(-30px); opacity: 0; } 55% { opacity: 1; } 100% { transform: translateX(0); } }
+                      @keyframes hbHalfR { 0% { transform: translateX(30px); opacity: 0; } 55% { opacity: 1; } 100% { transform: translateX(0); } }
+                      @keyframes hbWeld { 0%, 82% { filter: none; } 100% { filter: drop-shadow(0 0 12px rgba(245,158,11,.55)); } }
                       @keyframes hbWeldBreathe {
                         0%, 100% { filter: drop-shadow(0 0 8px rgba(245,158,11,.4)); }
-                        50% { filter: drop-shadow(0 0 16px rgba(245,158,11,.6)); }
+                        50% { filter: drop-shadow(0 0 18px rgba(245,158,11,.65)); }
                       }
                     `}</style>
-                    <circle
-                      cx="46" cy="32" r="21" stroke="#111111" strokeWidth="7"
-                      style={{ animation: 'hbLinkA 3.2s cubic-bezier(.3,.7,.2,1) both', transformBox: 'fill-box', transformOrigin: 'center' }}
-                    />
-                    <circle
-                      cx="74" cy="32" r="21" stroke="#111111" strokeWidth="7"
-                      style={{ animation: 'hbLinkB 3.2s cubic-bezier(.3,.7,.2,1) both', transformBox: 'fill-box', transformOrigin: 'center' }}
-                    />
-                    {/* The left ring threads back over the right at the bottom crossing — the weld. */}
-                    <path
-                      d="M 64.5 42.5 A 21 21 0 0 1 54 52.2"
-                      stroke="#111111" strokeWidth="7" strokeLinecap="round"
-                      style={{ animation: 'hbLinkLock 3.8s ease-out both' }}
-                    />
-                  </svg>
+                    <div
+                      className="absolute inset-0"
+                      style={{ animation: 'hbWeld 4s ease-out both, hbWeldBreathe 3s ease-in-out 4s infinite' }}
+                    >
+                      {/* left half of the mark slides in from the left */}
+                      <div
+                        className="absolute inset-0 overflow-hidden"
+                        style={{ clipPath: 'inset(0 50% 0 0)', animation: 'hbHalfL 3.2s cubic-bezier(.3,.7,.2,1) both' }}
+                      >
+                        <Image src="/Isotype.png" alt="" width={104} height={104} className="w-full h-full object-contain" />
+                      </div>
+                      {/* right half slides in from the right */}
+                      <div
+                        className="absolute inset-0 overflow-hidden"
+                        style={{ clipPath: 'inset(0 0 0 50%)', animation: 'hbHalfR 3.2s cubic-bezier(.3,.7,.2,1) both' }}
+                      >
+                        <Image src="/Isotype.png" alt="" width={104} height={104} className="w-full h-full object-contain" />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
               <h1 className="text-5xl md:text-7xl font-black text-gray-900 tracking-tighter leading-[0.9] flex flex-col">

@@ -257,6 +257,8 @@ type AgentState = {
   heartbeatDaysLeft: number;
   /** All bonds you hold — starts with the two mock bonds, grows via addBond. */
   bonds: Bond[];
+  /** The chosen ENS label of the inheritance bond — null until the humans name it. */
+  bondEnsLabel: string | null;
   /** Which bond requests route to by default — the inheritance bond, if one exists. */
   defaultBondId: string;
 
@@ -301,6 +303,7 @@ type AgentState = {
   heartbeatChecked: () => void;
   /** Start a new bond — it only comes alive once the partner signs too. */
   addBond: (partner: string, type: Bond['type']) => void;
+  setBondEnsLabel: (label: string) => void;
   setDefaultBond: (bondId: string) => void;
   resetAgent: () => void;
 
@@ -373,6 +376,7 @@ export const useAgentStore = create<AgentState>()(
         heartbeatOk: false,
         heartbeatDaysLeft: HEARTBEAT_START_DAYS_LEFT,
         bonds: [...BONDS],
+        bondEnsLabel: null,
         defaultBondId: 'alice',
         pullGranted: false,
         pendingReceipt: null,
@@ -804,6 +808,8 @@ export const useAgentStore = create<AgentState>()(
           );
         },
 
+        setBondEnsLabel: (label) => set(() => ({ bondEnsLabel: label })),
+
         setDefaultBond: (bondId) => set(() => ({ defaultBondId: bondId })),
 
         resetAgent: () => {
@@ -833,6 +839,7 @@ export const useAgentStore = create<AgentState>()(
             heartbeatOk: false,
             heartbeatDaysLeft: HEARTBEAT_START_DAYS_LEFT,
             bonds: [...BONDS],
+            bondEnsLabel: null,
           }));
         },
       };
@@ -859,6 +866,7 @@ export const useAgentStore = create<AgentState>()(
         heartbeatOk: s.heartbeatOk,
         heartbeatDaysLeft: s.heartbeatDaysLeft,
         bonds: s.bonds,
+        bondEnsLabel: s.bondEnsLabel,
         defaultBondId: s.defaultBondId,
         pullGranted: s.pullGranted,
         pendingReceipt: s.pendingReceipt,
