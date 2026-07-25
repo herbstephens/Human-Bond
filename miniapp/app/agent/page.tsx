@@ -12,7 +12,8 @@
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowUp, Check, ScanLine } from 'lucide-react';
+import Image from 'next/image';
+import { ArrowUp, Check, ScanLine } from 'lucide-react';
 import { useAgentStore, type ChoreoStage, type Payment } from '@/lib/agent/agentStore';
 import { AliveCta } from '@/app/components/agent/AliveCta';
 
@@ -320,13 +321,14 @@ export default function AgentChatPage() {
 
   return (
     <div className="min-h-screen bg-[#E8E8E8] flex flex-col">
-      {/* Header */}
+      {/* Header — the ring logo is the way to your profile */}
       <header className="px-6 pt-6 pb-4 flex items-center gap-4">
         <Link
-          href="/home"
-          className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-600 shadow-sm transition-colors"
+          href="/profile"
+          title="Your profile"
+          className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-all overflow-hidden p-1.5"
         >
-          <ArrowLeft size={16} />
+          <Image src="/Isotype.png" alt="Profile" width={28} height={28} className="w-full h-full object-contain" />
         </Link>
         <div className="flex-1">
           <h1 className="text-base font-black text-gray-900 tracking-tight">Your agent</h1>
@@ -335,12 +337,6 @@ export default function AgentChatPage() {
             <span className="text-gray-400">{partnerAgentReady ? 'Trustee active' : 'Waiting for Alice’s agent'}</span>
           </p>
         </div>
-        <Link
-          href="/agent/brain"
-          className="text-[9px] font-black text-amber-600 hover:text-amber-700 uppercase tracking-widest transition-colors"
-        >
-          Brain
-        </Link>
         <button
           onClick={resetAgent}
           className="text-[9px] font-black text-gray-300 hover:text-gray-500 uppercase tracking-widest transition-colors"
