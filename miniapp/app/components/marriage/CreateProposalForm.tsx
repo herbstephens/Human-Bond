@@ -230,11 +230,20 @@ export function CreateProposalForm() {
               This is a beginning.
             </h1>
             <p className="text-[14px] font-medium text-gray-500 leading-relaxed max-w-[310px] mx-auto">
-              Sharing a life shouldn&apos;t mean keeping score. This is a place made to be
-              shared, not divided. One address, held by two, that no one can move alone, and
-              that stays whole even when only one of you is left. What you begin today, your
-              heirs will one day hold.
+              HumanBond improves how partnerships operate.
             </p>
+            <div className="pt-1 space-y-1.5 max-w-[310px] mx-auto">
+              {[
+                'Less mental load',
+                'Fewer everyday decisions',
+                'Stay on top of things',
+                'More time for what matters',
+              ].map((line) => (
+                <p key={line} className="text-[13px] font-bold text-gray-700">
+                  {line}
+                </p>
+              ))}
+            </div>
             <p className="text-[12px] font-medium text-gray-400 max-w-[310px] mx-auto pt-1">
               Your agents handle the money, so it never comes between you.
             </p>
