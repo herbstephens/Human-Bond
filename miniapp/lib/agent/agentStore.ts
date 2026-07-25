@@ -144,6 +144,12 @@ export const BONDS = [
   { id: 'mika', partner: 'Mika', type: 'business' as const },
 ];
 
+/** Parked vault balances (mock) — fed by standing orders from both partners. */
+export const VAULT_BALANCES: Record<string, number> = { alice: 10000, mika: 0 };
+
+/** An heir inside a bond's charter — claims bind to the human, not a wallet. */
+export type Heir = { id: string; name: string; sharePct: number; status: 'pending-nfc' | 'active' };
+
 /** Sources the agent can pull an existing self from. */
 export const IMPORT_SOURCES = [
   { id: 'linkedin', label: 'LinkedIn' },
@@ -212,6 +218,8 @@ type AgentState = {
   // second brain
   /** Facts the human added themselves — interview/import facts are derived. */
   customFacts: BrainFact[];
+  /** Heirs written into the inheritance bond's charter. */
+  heirs: Heir[];
   /** Which bond requests route to by default — the inheritance bond, if one exists. */
   defaultBondId: string;
 
@@ -241,6 +249,8 @@ type AgentState = {
   say: (text: string) => void;
   addFact: (text: string) => void;
   removeFact: (id: string) => void;
+  addHeir: (name: string, sharePct: number) => void;
+  removeHeir: (id: string) => void;
   setDefaultBond: (bondId: string) => void;
   resetAgent: () => void;
 
@@ -303,6 +313,7 @@ export const useAgentStore = create<AgentState>()(
         typingIndicator: false,
         agentBusy: false,
         customFacts: [],
+        heirs: [],
         defaultBondId: 'alice',
         pullGranted: false,
         pendingReceipt: null,
@@ -582,6 +593,13 @@ export const useAgentStore = create<AgentState>()(
         removeFact: (id) =>
           set((s) => ({ customFacts: s.customFacts.filter((f) => f.id !== id) })),
 
+        addHeir: (name, sharePct) =>
+          set((s) => ({
+            heirs: [...s.heirs, { id: mid(), name, sharePct, status: 'pending-nfc' as const }],
+          })),
+
+        removeHeir: (id) => set((s) => ({ heirs: s.heirs.filter((h) => h.id !== id) })),
+
         setDefaultBond: (bondId) => set(() => ({ defaultBondId: bondId })),
 
         resetAgent: () => {
@@ -616,6 +634,7 @@ export const useAgentStore = create<AgentState>()(
         bornPending: s.bornPending,
         partnerAgentReady: s.partnerAgentReady,
         customFacts: s.customFacts,
+        heirs: s.heirs,
         defaultBondId: s.defaultBondId,
         pullGranted: s.pullGranted,
         pendingReceipt: s.pendingReceipt,
