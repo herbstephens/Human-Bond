@@ -229,11 +229,8 @@ export function CreateProposalForm() {
             <h1 className="text-4xl font-black text-black tracking-tighter">
               This is a beginning.
             </h1>
-            <p className="text-[14px] font-medium text-gray-500 leading-relaxed max-w-[310px] mx-auto">
-              HumanBond improves how partnerships operate.
-            </p>
             <div className="pt-1 space-y-1.5 max-w-[240px] mx-auto text-left">
-              <p className="text-[13px] font-medium text-gray-500">Unlock your bond agent to:</p>
+              <p className="text-[13px] font-medium text-gray-500">Unlock your Bond Agent to:</p>
               {[
                 'Less mental load',
                 'Fewer everyday decisions',
