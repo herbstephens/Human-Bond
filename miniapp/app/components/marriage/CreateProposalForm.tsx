@@ -232,21 +232,20 @@ export function CreateProposalForm() {
             <p className="text-[14px] font-medium text-gray-500 leading-relaxed max-w-[310px] mx-auto">
               HumanBond improves how partnerships operate.
             </p>
-            <div className="pt-1 space-y-1.5 max-w-[310px] mx-auto">
+            <div className="pt-1 space-y-1.5 max-w-[240px] mx-auto text-left">
+              <p className="text-[13px] font-medium text-gray-500">Unlock your bond agent to:</p>
               {[
                 'Less mental load',
                 'Fewer everyday decisions',
                 'Stay on top of things',
                 'More time for what matters',
               ].map((line) => (
-                <p key={line} className="text-[13px] font-bold text-gray-700">
-                  {line}
-                </p>
+                <div key={line} className="flex items-start gap-2">
+                  <span className="w-1 h-1 rounded-full bg-gray-400 mt-[7px] shrink-0" />
+                  <p className="text-[13px] font-medium text-gray-500">{line}</p>
+                </div>
               ))}
             </div>
-            <p className="text-[12px] font-medium text-gray-400 max-w-[310px] mx-auto pt-1">
-              Your agents handle the money, so it never comes between you.
-            </p>
           </div>
         </div>
 
