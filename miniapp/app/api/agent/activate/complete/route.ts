@@ -8,11 +8,14 @@ import {
 import {
   AGENTKIT_AGENT_BOOK,
   AGENTKIT_AGENT_BOOK_ABI,
+  AGENTKIT_APP_ID,
   AGENTKIT_REGISTER_SIGNATURE,
+  AGENTKIT_ACTION,
   AGENTKIT_RELAY_URL,
   decodeKnownAgentBookError,
   normalizeWorldIdProof,
 } from '@/lib/agents/agentkitRegistration';
+import { WORLD_APP_CONFIG } from '@/lib/contracts';
 
 type CompleteActivationBody = {
   agentAddress: `0x${string}`;
@@ -76,6 +79,13 @@ async function activate(request: Request) {
     nullifierHash: body.nullifierHash,
   });
   console.info('[agentkit] registration contract call', {
+    appIds: {
+      humanBondMiniKitAppId: WORLD_APP_CONFIG.APP_ID,
+      nextPublicWorldAppId: process.env.NEXT_PUBLIC_WORLD_APP_ID ?? null,
+      defaultHumanBondAppId: 'app_bfc3261816aeadc589f9c6f80a98f5df',
+      agentKitAppId: AGENTKIT_APP_ID,
+      action: AGENTKIT_ACTION,
+    },
     contract: AGENTKIT_AGENT_BOOK,
     function: AGENTKIT_REGISTER_SIGNATURE,
     args: {
