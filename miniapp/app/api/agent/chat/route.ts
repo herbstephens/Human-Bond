@@ -1,7 +1,7 @@
 /**
  * Live personal-agent chat. Free text in the /agent conversation goes to the
  * real model; the model answers as the agent AND decides the routing — is
- * this a shared purchase (→ propose_shared action, the deterministic
+ * this a shared purchase (→ propose_spend tool call, the deterministic
  * choreography takes over) or just conversation?
  *
  * Chat = model. Money = protocol. The model can only TALK and flag intent;
@@ -15,6 +15,16 @@ import { NextResponse } from 'next/server';
 const BASE_URL =
   process.env.ZG_ROUTER_CHAT_BASE_URL ?? process.env.ZG_ROUTER_BASE_URL ?? 'https://router-api.0g.ai/v1';
 const MODEL = process.env.ZG_ROUTER_CHAT_MODEL ?? process.env.ZG_ROUTER_MODEL ?? 'zai-org/GLM-5-FP8';
+const DEBUG_AGENT_TOOLS = process.env.NODE_ENV !== 'production' || process.env.ZG_AGENT_DEBUG === '1';
+
+function debugAgentTool(message: string, data?: unknown): void {
+  if (!DEBUG_AGENT_TOOLS) return;
+  if (data === undefined) {
+    console.info(`[agent-tools] ${message}`);
+    return;
+  }
+  console.info(`[agent-tools] ${message}`, data);
+}
 
 type ChatBody = {
   profile: { name: string; income: string; budget: string; threshold: string; stress: string; fear: string };
@@ -26,6 +36,92 @@ type ChatBody = {
   history: { role: 'user' | 'assistant'; text: string }[];
   userText: string;
 };
+
+type AgentAction =
+  | {
+      type: 'propose_spend';
+      bondId: string;
+      label: string;
+      recipient: string;
+      amountUsdc: number;
+      detail: string | null;
+    }
+  | {
+      type: 'cancel_spend';
+      spendId: `0x${string}`;
+      reason: string;
+    };
+
+type ToolCall = {
+  function: {
+    name: string;
+    arguments: string;
+  };
+};
+
+const AGENT_TOOLS = [
+  {
+    type: 'function',
+    function: {
+      name: 'propose_spend',
+      description:
+        'Draft a shared-vault USDC spend for human review. This proposes only; it never executes a payment.',
+      strict: true,
+      parameters: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          bondId: {
+            type: 'string',
+            description: 'The exact id of the active bond whose shared vault should fund the spend.',
+          },
+          label: {
+            type: 'string',
+            description: 'A short human-readable purchase label.',
+          },
+          recipient: {
+            type: 'string',
+            description: 'The recipient ENS name or 0x-prefixed EVM address.',
+          },
+          amountUsdc: {
+            type: 'number',
+            description: 'The positive USDC amount to propose.',
+          },
+          detail: {
+            type: ['string', 'null'],
+            description: 'Optional venue, date, or payment context.',
+          },
+        },
+        required: ['bondId', 'label', 'recipient', 'amountUsdc', 'detail'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'cancel_spend',
+      description:
+        'Draft cancellation of an existing pending shared-vault spend for human review.',
+      strict: true,
+      parameters: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          spendId: {
+            type: 'string',
+            description: 'The pending spend identifier as a 32-byte 0x-prefixed hex string.',
+            pattern: '^0x[a-fA-F0-9]{64}$',
+          },
+          reason: {
+            type: 'string',
+            description: 'A short explanation for cancelling the spend.',
+          },
+        },
+        required: ['spendId', 'reason'],
+      },
+    },
+  },
+] as const;
 
 function systemPrompt(b: ChatBody): string {
   return `You are ${b.profile.name}'s personal financial agent in HumanBond. You advocate for ${b.profile.name} and nobody else. Warm, brief, first person, no emojis. Always answer the CONCRETE message — never a stock phrase, and never repeat a sentence you already used in this conversation.
@@ -45,11 +141,53 @@ ${b.bonds.map((bd) => `  - bondId "${bd.id}": ${bd.type} bond with ${bd.partner}
 - Personal spends stay ${b.profile.name}'s alone — no partner ever hears about them.
 ${b.rules?.length ? `\nRULES YOU TWO WROTE INTO THE CHARTER (binding — follow them over everything else):\n${b.rules.map((r) => `- ${r}`).join('\n')}` : ''}
 
-REPLY WITH EXACTLY ONE JSON OBJECT, nothing else:
-{"say": "<your reply to ${b.profile.name}, 1–3 short sentences>", "action": null}
-OR, when ${b.profile.name} asks you to buy/pay something SHARED ("for us", dinner together, tickets for the two of them, anything for a bond's household or business):
-{"say": "<confirm the routing: which bond this runs over and that you'll settle it with that partner's agent>", "action": {"type": "propose_shared", "bondId": "<id from the bond list above>", "label": "<short purchase label>", "recipientEns": "<plausible-merchant>.eth", "amountUsdc": <your realistic price estimate as a number>, "detail": <"<venue/date context>" or null>}}
-If no amount is given, estimate a realistic one yourself. If your previous message said you would settle something with a partner agent and the human now confirms (yes / do it / go), return the propose_shared action for exactly that now. Never invent an action for personal purchases, questions, or feelings — those get action null. Never state a vault balance other than the ones above.`;
+Answer ${b.profile.name} in 1–3 short sentences. When they ask to buy or pay for something SHARED ("for us", dinner together, tickets for two, or anything for a bond's household or business), call propose_spend with the exact bondId from the list above. If no amount is given, estimate a realistic one. If your previous message said you would settle something with a partner agent and the human now confirms (yes / do it / go), call propose_spend for exactly that request. When they explicitly ask to cancel a known pending spend and provide its spend ID, call cancel_spend.
+
+Never call a tool for personal purchases, questions, feelings, or vague cancellation requests. A tool call creates a draft for human review; it never executes. Never state a vault balance other than the ones above.`;
+}
+
+function actionFromToolCall(call: ToolCall): AgentAction | null {
+  const args: unknown = JSON.parse(call.function.arguments);
+  if (!args || typeof args !== 'object') throw new Error(`${call.function.name} returned invalid arguments`);
+  const value = args as Record<string, unknown>;
+
+  if (call.function.name === 'propose_spend') {
+    if (
+      typeof value.bondId !== 'string' ||
+      typeof value.label !== 'string' ||
+      typeof value.recipient !== 'string' ||
+      typeof value.amountUsdc !== 'number' ||
+      value.amountUsdc <= 0 ||
+      (typeof value.detail !== 'string' && value.detail !== null)
+    ) {
+      throw new Error('propose_spend returned invalid arguments');
+    }
+    return {
+      type: 'propose_spend',
+      bondId: value.bondId,
+      label: value.label,
+      recipient: value.recipient,
+      amountUsdc: value.amountUsdc,
+      detail: value.detail,
+    };
+  }
+
+  if (call.function.name === 'cancel_spend') {
+    if (
+      typeof value.spendId !== 'string' ||
+      !/^0x[a-fA-F0-9]{64}$/.test(value.spendId) ||
+      typeof value.reason !== 'string'
+    ) {
+      throw new Error('cancel_spend returned invalid arguments');
+    }
+    return {
+      type: 'cancel_spend',
+      spendId: value.spendId as `0x${string}`,
+      reason: value.reason,
+    };
+  }
+
+  throw new Error(`0G router returned unknown tool: ${call.function.name}`);
 }
 
 export async function POST(req: Request) {
@@ -57,6 +195,11 @@ export async function POST(req: Request) {
   if (!apiKey)
     return NextResponse.json({ error: 'ZG_ROUTER_(CHAT_)API_KEY is not set in miniapp/.env.local' }, { status: 500 });
   const body = (await req.json()) as ChatBody;
+  debugAgentTool('sending chat request to 0G', {
+    model: MODEL,
+    historyMessages: body.history.length,
+    availableTools: AGENT_TOOLS.map((tool) => tool.function.name),
+  });
 
   const res = await fetch(`${BASE_URL}/chat/completions`, {
     method: 'POST',
@@ -69,27 +212,43 @@ export async function POST(req: Request) {
         ...body.history.map((m) => ({ role: m.role, content: m.text })),
         { role: 'user', content: body.userText },
       ],
+      tools: AGENT_TOOLS,
+      tool_choice: 'auto',
     }),
   });
   if (!res.ok) return NextResponse.json({ error: `0G router ${res.status}: ${await res.text()}` }, { status: 502 });
 
-  const json = (await res.json()) as { choices: { message: { content: string } }[] };
-  const content = (json.choices?.[0]?.message?.content ?? '').replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-  if (!content) return NextResponse.json({ error: `0G router returned empty content (${MODEL})` }, { status: 502 });
+  const json = (await res.json()) as {
+    choices?: { message?: { content?: string | null; tool_calls?: ToolCall[] } }[];
+  };
+  const message = json.choices?.[0]?.message;
+  if (!message) return NextResponse.json({ error: `0G router returned no message (${MODEL})` }, { status: 502 });
 
-  // Two accepted formats: JSON {say, action} — or plain text, which IS the
-  // say with no action (small models drop the JSON wrapper; only talk, no
-  // money intent, ever gets through that way).
-  const start = content.indexOf('{');
-  const end = content.lastIndexOf('}');
-  if (start !== -1 && end > start) {
-    let parsed: { say?: string; action?: unknown } | null = null;
-    try {
-      parsed = JSON.parse(content.slice(start, end + 1));
-    } catch {
-      parsed = null; // brace-containing prose — treat as plain text below
-    }
-    if (parsed?.say?.trim()) return NextResponse.json({ say: parsed.say, action: parsed.action ?? null });
+  const content = (message.content ?? '').replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+  const calls = message.tool_calls ?? [];
+  debugAgentTool('received 0G response', {
+    toolCalls: calls.map((call) => ({
+      name: call.function.name,
+      arguments: call.function.arguments,
+    })),
+    hasText: content.length > 0,
+    trace: (json as { x_0g_trace?: unknown }).x_0g_trace,
+  });
+  if (calls.length > 1) {
+    return NextResponse.json({ error: 'The agent returned more than one vault action' }, { status: 502 });
   }
-  return NextResponse.json({ say: content, action: null });
+
+  const action = calls.length === 1 ? actionFromToolCall(calls[0]) : null;
+  debugAgentTool(action ? `normalized ${action.type}` : 'no tool call selected', action);
+  if (!content && !action) {
+    return NextResponse.json({ error: `0G router returned an empty response (${MODEL})` }, { status: 502 });
+  }
+
+  const say =
+    content ||
+    (action?.type === 'propose_spend'
+      ? `I’ll settle ${action.label} with the partner agent and prepare it for your review.`
+      : `I’ll prepare that cancellation for your review.`);
+
+  return NextResponse.json({ say, action });
 }
