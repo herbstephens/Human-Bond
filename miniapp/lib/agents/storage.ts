@@ -6,9 +6,8 @@
  *   charter/<bondId>   — the bond's rules: split rule, hito threshold, will
  *   history/<bondId>   — append-only execution + negotiation log
  *
- * MemoryStorage runs the headless demo. The 0G adapter (via @0glabs/0g-ts-sdk)
- * implements the same four methods against 0G storage; until it is wired,
- * requesting it fails hard — no silent local fallback in production paths.
+ * MemoryStorage runs the headless demo. ZeroGKvStorage (zeroGKv.ts) is the
+ * real adapter on 0G-KV — same four methods, funded Galileo key required.
  */
 export interface HBStorage {
   putJson(key: string, value: unknown): Promise<void>;
@@ -41,12 +40,6 @@ export class MemoryStorage implements HBStorage {
   async readLog(log: string): Promise<unknown[]> {
     return (this.logs.get(log) ?? []).map((e) => JSON.parse(e));
   }
-}
-
-export function zeroGStorage(): HBStorage {
-  throw new Error(
-    '0G storage adapter not wired yet. Implement HBStorage with @0glabs/0g-ts-sdk (docs.0g.ai) — the runtime needs no changes.',
-  );
 }
 
 // --- typed shapes stored per namespace -------------------------------------
