@@ -616,7 +616,7 @@ export default function BondProfilePage() {
               It serves the bond, not either of you — and only executes what both of you confirm.
             </p>
           </div>
-          <div className="bg-white rounded-[1.75rem] border border-gray-100 p-4 space-y-3">
+          <div className="bg-white rounded-[1.75rem] p-4 space-y-3">
             {/* Constant-height history — the room never grows or shifts the
                 page; new messages (and cards) scroll inside. */}
             <div className="h-96 overflow-y-auto space-y-3 pr-1">
@@ -624,7 +624,7 @@ export default function BondProfilePage() {
               if (m.card === 'yield') return yieldState !== 'none' ? <div key={m.id}>{yieldCard}</div> : null;
               if (m.card === 'live') return liveAction && m.id === lastLiveMarkerId ? <div key={m.id}>{liveCard}</div> : null;
               return m.who === 'trustee' ? (
-                <div key={m.id} className="bg-amber-50 border border-amber-100 rounded-2xl rounded-bl-md px-4 py-3 max-w-[90%]">
+                <div key={m.id} className="bg-amber-50 rounded-2xl rounded-bl-md px-4 py-3 max-w-[90%]">
                   <p className="text-[13px] text-gray-800 font-medium leading-relaxed">
                     {m.typed ? <TypeOnce text={m.text} /> : m.text}
                   </p>
@@ -638,7 +638,7 @@ export default function BondProfilePage() {
               );
             })}
             {busy && (
-              <div className="bg-amber-50 border border-amber-100 rounded-2xl rounded-bl-md px-4 py-3 inline-flex items-center gap-1.5">
+              <div className="bg-amber-50 rounded-2xl rounded-bl-md px-4 py-3 inline-flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-300 animate-bounce" style={{ animationDelay: '0ms' }} />
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-300 animate-bounce" style={{ animationDelay: '150ms' }} />
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-300 animate-bounce" style={{ animationDelay: '300ms' }} />
@@ -656,7 +656,7 @@ export default function BondProfilePage() {
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && submitDraft()}
                 placeholder="Ask the trustee anything…"
-                className="flex-1 bg-gray-50 rounded-full px-4 py-2.5 text-[13px] text-gray-800 font-medium placeholder:text-gray-300 outline-none border border-gray-100"
+                className="flex-1 bg-gray-50 rounded-full px-4 py-2.5 text-[13px] text-gray-800 font-medium placeholder:text-gray-300 outline-none"
               />
               <button
                 onClick={submitDraft}
@@ -669,107 +669,11 @@ export default function BondProfilePage() {
           </div>
         </section>
 
-        {/* Heirs — the will lives inside this bond */}
-        {isInheritance && (
-          <section className="space-y-3">
-            <div>
-              <h2 className="text-2xl font-anton text-black tracking-wide">YOUR WILL</h2>
-              <p className="text-[11px] text-gray-500 font-medium mt-0.5">
-                Who claims when you’re both gone. Adding or removing an heir takes both of you.
-              </p>
-            </div>
-            {heirs.map((h) => (
-              <div
-                key={h.id}
-                className={`bg-white rounded-2xl border px-5 py-4 flex items-center justify-between ${
-                  h.status === 'awaiting-partner' ? 'border-amber-200' : 'border-gray-100'
-                }`}
-              >
-                <div>
-                  <p className="text-sm font-black text-gray-900">{h.name}</p>
-                  <p
-                    className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 ${
-                      h.status === 'awaiting-partner' || h.status === 'awaiting-removal' ? 'text-amber-600' : 'text-gray-400'
-                    }`}
-                  >
-                    {h.status === 'awaiting-partner' ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                        Waiting for {bond.partner} to co-sign
-                      </span>
-                    ) : h.status === 'awaiting-removal' ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                        Removal requested — waiting for {bond.partner}
-                      </span>
-                    ) : (
-                      'In the will · claimable at 18 via NFC'
-                    )}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <p className="text-sm font-black text-gray-900 font-mono">{h.sharePct}%</p>
-                  {h.status !== 'awaiting-removal' && (
-                    <button
-                      onClick={() => setConfirmRemove(h)}
-                      className="w-6 h-6 rounded-full flex items-center justify-center text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors"
-                    >
-                      <X size={12} />
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-            {remainingPct < 5 ? (
-              <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-5">
-                <p className="text-[12px] font-medium text-gray-500">
-                  <span className="font-black text-gray-700">100% of the estate is allocated.</span> Remove
-                  an heir first to redistribute — the will can never promise more than there is.
-                </p>
-              </div>
-            ) : (
-            <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-5 space-y-4">
-              <input
-                value={heirName}
-                onChange={(e) => setHeirName(e.target.value)}
-                placeholder="Name — e.g. your son Paul"
-                className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm text-gray-800 font-medium placeholder:text-gray-300 outline-none border border-gray-100"
-              />
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                    Share of the estate · {remainingPct}% unallocated
-                  </p>
-                  <p className="text-sm font-black text-gray-900 font-mono">{effectiveShare}%</p>
-                </div>
-                <input
-                  type="range"
-                  min={5}
-                  max={remainingPct}
-                  step={5}
-                  value={effectiveShare}
-                  onChange={(e) => setHeirShare(Number(e.target.value))}
-                  className="w-full accent-amber-500"
-                />
-              </div>
-              <AliveCta onClick={submitHeir} className="w-full px-6 py-3.5 rounded-xl text-[11px] tracking-[0.15em]">
-                Write into our will
-              </AliveCta>
-              <p className="text-[10px] text-gray-400 font-medium">
-                A will entry needs both of you — {bond.partner} gets asked to co-sign on her device.
-                No wallet needed for the heir: the claim binds to the human, unlocks at 18 via NFC,
-                and only after both of you are gone.
-              </p>
-            </div>
-            )}
-          </section>
-        )}
-
         {/* Activity — LIVE: the Safe's real USDC transfers (time shown, tap
             opens the transaction on Worldscan). MOCK: the playground list. */}
         <section className="space-y-3">
           <h2 className="text-2xl font-anton text-black tracking-wide">ACTIVITY</h2>
-          <div className="bg-white rounded-2xl border border-gray-100 divide-y divide-gray-100">
+          <div className="bg-white rounded-2xl divide-y divide-gray-100">
             {!USE_MOCKS ? (
               transfers && transfers.length > 0 ? (
                 <>
@@ -825,7 +729,7 @@ export default function BondProfilePage() {
             <h2 className="text-2xl font-anton text-black tracking-wide">RULES</h2>
             <p className="text-[11px] text-gray-500 font-medium mt-0.5">What you two agreed.</p>
           </div>
-          <div className="bg-white rounded-2xl border border-gray-100 divide-y divide-gray-100">
+          <div className="bg-white rounded-2xl divide-y divide-gray-100">
             {[
               { k: 'Split of shared expenses', v: 'By income — currently you 10% · Alice 90%' },
               { k: 'Your hardware threshold', v: `hito above ${threshold}` },
@@ -858,7 +762,7 @@ export default function BondProfilePage() {
             ))}
           </div>
           {/* Write your own rule — context that makes the agents better */}
-          <div className="bg-white rounded-full border border-gray-100 pl-4 pr-1.5 py-1.5 flex items-center gap-2">
+          <div className="bg-white rounded-full pl-4 pr-1.5 py-1.5 flex items-center gap-2">
             <input
               value={ruleDraft}
               onChange={(e) => setRuleDraft(e.target.value)}
@@ -879,6 +783,100 @@ export default function BondProfilePage() {
             co-sign — changing any rule = a new charter version on 0G.
           </p>
         </section>
+
+        {/* Heirs — the will lives inside this bond, at the very bottom */}
+        {isInheritance && (
+          <section className="space-y-3">
+            <div>
+              <h2 className="text-2xl font-anton text-black tracking-wide">YOUR WILL</h2>
+              <p className="text-[11px] text-gray-500 font-medium mt-0.5">
+                Who claims when you’re both gone. Adding or removing an heir takes both of you.
+              </p>
+            </div>
+            {heirs.map((h) => (
+              <div
+                key={h.id}
+                className="bg-white rounded-2xl px-5 py-4 flex items-center justify-between"
+              >
+                <div>
+                  <p className="text-sm font-black text-gray-900">{h.name}</p>
+                  <p
+                    className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 ${
+                      h.status === 'awaiting-partner' || h.status === 'awaiting-removal' ? 'text-gray-700' : 'text-gray-400'
+                    }`}
+                  >
+                    {h.status === 'awaiting-partner' ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-pulse" />
+                        Waiting for {bond.partner} to co-sign
+                      </span>
+                    ) : h.status === 'awaiting-removal' ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-pulse" />
+                        Removal requested — waiting for {bond.partner}
+                      </span>
+                    ) : (
+                      'In the will · claimable at 18 via NFC'
+                    )}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <p className="text-sm font-black text-gray-900 font-mono">{h.sharePct}%</p>
+                  {h.status !== 'awaiting-removal' && (
+                    <button
+                      onClick={() => setConfirmRemove(h)}
+                      className="w-6 h-6 rounded-full flex items-center justify-center text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+            {remainingPct < 5 ? (
+              <div className="bg-white rounded-2xl p-5">
+                <p className="text-[12px] font-medium text-gray-500">
+                  <span className="font-black text-gray-700">100% of the estate is allocated.</span> Remove
+                  an heir first to redistribute — the will can never promise more than there is.
+                </p>
+              </div>
+            ) : (
+            <div className="bg-white rounded-2xl p-5 space-y-4">
+              <input
+                value={heirName}
+                onChange={(e) => setHeirName(e.target.value)}
+                placeholder="Name — e.g. your son Paul"
+                className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm text-gray-800 font-medium placeholder:text-gray-300 outline-none"
+              />
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                    Share of the estate · {remainingPct}% unallocated
+                  </p>
+                  <p className="text-sm font-black text-gray-900 font-mono">{effectiveShare}%</p>
+                </div>
+                <input
+                  type="range"
+                  min={5}
+                  max={remainingPct}
+                  step={5}
+                  value={effectiveShare}
+                  onChange={(e) => setHeirShare(Number(e.target.value))}
+                  className="w-full accent-black"
+                />
+              </div>
+              <AliveCta glow={false} onClick={submitHeir} className="w-full px-6 py-3.5 rounded-xl text-[11px] tracking-[0.15em]">
+                Write into our will
+              </AliveCta>
+              <p className="text-[10px] text-gray-400 font-medium">
+                A will entry needs both of you — {bond.partner} gets asked to co-sign on her device.
+                No wallet needed for the heir: the claim binds to the human, unlocks at 18 via NFC,
+                and only after both of you are gone.
+              </p>
+            </div>
+            )}
+          </section>
+        )}
       </main>
 
       {/* Floating hand-off to YOUR OWN agent — Claude-app-style pill, only while

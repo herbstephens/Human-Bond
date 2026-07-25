@@ -11,7 +11,7 @@
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { ArrowLeft, ArrowUp, Lock, MessageCircle, Plus, X } from 'lucide-react';
+import { ArrowLeft, ArrowUp, MessageCircle, Plus, X } from 'lucide-react';
 import { AliveCta } from '@/app/components/agent/AliveCta';
 import { useMarriage } from '@/lib/marriage/context';
 import { useUsdcBalance } from '@/lib/hooks/useUsdcBalance';
@@ -62,7 +62,7 @@ function derivedFacts(
 }
 
 const SOURCE_COLORS: Record<string, string> = {
-  You: 'text-amber-600 border-amber-200 bg-amber-50',
+  You: 'text-gray-600 border-gray-200 bg-gray-100',
   Interview: 'text-gray-500 border-gray-200 bg-gray-50',
   LinkedIn: 'text-sky-700 border-sky-200 bg-sky-50',
   X: 'text-gray-700 border-gray-300 bg-gray-100',
@@ -169,8 +169,8 @@ export default function ProfilePage() {
         >
           <ArrowLeft size={16} />
         </Link>
-        <div className="flex-1">
-          <h1 className="text-2xl font-black text-gray-900 tracking-tighter">{name}</h1>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-3xl font-anton text-black tracking-wide truncate">{name.toUpperCase()}</h1>
           <p className="text-[9px] font-bold text-gray-400 uppercase tracking-[0.25em]">
             World ID · Orb verified
             {heartbeatOk && <span className="text-emerald-500"> · proof of life ✓</span>}
@@ -188,12 +188,8 @@ export default function ProfilePage() {
         {/* Proof of life — PERSON-level dead-man's timer. Always visible: the
             countdown is the product. Green far out, red when it gets tight. */}
         <div
-          className={`bg-white rounded-2xl border p-5 space-y-3 transition-colors duration-700 ${
-            zone === 'red'
-              ? 'border-red-300 shadow-[0_0_0_3px_rgba(239,68,68,0.10)]'
-              : zone === 'amber'
-                ? 'border-amber-200 shadow-[0_0_0_3px_rgba(245,158,11,0.08)]'
-                : 'border-emerald-100'
+          className={`bg-white rounded-2xl p-5 space-y-3 transition-colors duration-700 ${
+            zone === 'red' ? 'shadow-[0_0_0_3px_rgba(239,68,68,0.10)]' : ''
           }`}
         >
           <div className="flex items-center justify-between gap-3">
@@ -203,13 +199,13 @@ export default function ProfilePage() {
                   zone === 'red'
                     ? 'bg-red-500 animate-pulse'
                     : zone === 'amber'
-                      ? 'bg-amber-500 animate-pulse'
+                      ? 'bg-gray-400 animate-pulse'
                       : 'bg-emerald-500'
                 }`}
               />
               <p
                 className={`text-[10px] font-black uppercase tracking-[0.2em] ${
-                  zone === 'red' ? 'text-red-600' : zone === 'amber' ? 'text-amber-600' : 'text-emerald-600'
+                  zone === 'red' ? 'text-red-600' : zone === 'amber' ? 'text-gray-600' : 'text-emerald-600'
                 }`}
               >
                 {zone === 'green' ? 'Proof of life ✓' : 'Proof of life due'}
@@ -217,7 +213,7 @@ export default function ProfilePage() {
             </div>
             <p
               className={`text-sm font-black font-mono tabular-nums ${
-                zone === 'red' ? 'text-red-600' : zone === 'amber' ? 'text-amber-600' : 'text-emerald-600'
+                zone === 'red' ? 'text-red-600' : zone === 'amber' ? 'text-gray-600' : 'text-emerald-600'
               }`}
             >
               {daysLeft} {daysLeft === 1 ? 'day' : 'days'}
@@ -228,7 +224,7 @@ export default function ProfilePage() {
           <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-1000 ${
-                zone === 'red' ? 'bg-red-500' : zone === 'amber' ? 'bg-amber-400' : 'bg-emerald-400'
+                zone === 'red' ? 'bg-red-500' : zone === 'amber' ? 'bg-gray-400' : 'bg-emerald-400'
               }`}
               style={{ width: `${timerPct * 100}%` }}
             />
@@ -250,7 +246,7 @@ export default function ProfilePage() {
               Check early
             </button>
           ) : (
-            <AliveCta onClick={() => setShowSelfie(true)} className="w-full px-5 py-3.5 rounded-xl text-[11px] tracking-[0.15em]">
+            <AliveCta glow={false} onClick={() => setShowSelfie(true)} className="w-full px-5 py-3.5 rounded-xl text-[11px] tracking-[0.15em]">
               Do the Selfie Check
             </AliveCta>
           )}
@@ -258,7 +254,7 @@ export default function ProfilePage() {
 
         {/* Your bonds */}
         <section className="space-y-3">
-          <h2 className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-400">Your bonds</h2>
+          <h2 className="text-2xl font-anton text-black tracking-wide">YOUR BONDS</h2>
           {bonds.map((b) => {
             const isInheritance = b.type === 'inheritance';
             const pending = b.status === 'awaiting-partner';
@@ -267,21 +263,21 @@ export default function ProfilePage() {
               return (
                 <div
                   key={b.id}
-                  className="w-full bg-white/60 rounded-2xl px-5 py-4 border border-dashed border-amber-300"
+                  className="w-full bg-white/60 rounded-2xl px-5 py-4 border border-dashed border-gray-300"
                 >
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-black text-gray-900">You &amp; {b.partner}</p>
-                      <p className="text-[10px] font-bold text-amber-600 mt-0.5 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                      <p className="text-[10px] font-bold text-gray-500 mt-0.5 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-pulse" />
                         Invite sent — waiting for {b.partner} to sign
                       </p>
                     </div>
-                    <span className="text-[9px] font-black uppercase tracking-widest rounded-full px-2.5 py-1 border text-amber-600 bg-amber-50 border-amber-200">
+                    <span className="text-[9px] font-black uppercase tracking-widest rounded-full px-2.5 py-1 text-gray-500 bg-gray-100">
                       {typeLabel}
                     </span>
                   </div>
-                  <p className="mt-3 pt-3 border-t border-amber-100 text-[11px] font-medium text-gray-400">
+                  <p className="mt-3 pt-3 border-t border-gray-100 text-[11px] font-medium text-gray-400">
                     A bond only exists once both of you sign — the shared address forms then.
                   </p>
                 </div>
@@ -290,9 +286,7 @@ export default function ProfilePage() {
               <Link
                 href={`/bond/${b.id}`}
                 key={b.id}
-                className={`block w-full bg-white rounded-2xl px-5 py-4 border transition-all hover:shadow-md active:scale-[0.99] ${
-                  isInheritance ? 'border-amber-300 shadow-[0_0_0_3px_rgba(245,158,11,0.10)]' : 'border-gray-100'
-                }`}
+                className="block w-full bg-white rounded-2xl px-5 py-4 transition-all hover:shadow-md active:scale-[0.99]"
               >
                 <div className="flex items-center justify-between">
                   <div>
@@ -301,13 +295,7 @@ export default function ProfilePage() {
                       {!USE_MOCKS && bondEnsLabel ? bondEnsLabel : `ben-${b.partner.toLowerCase().split(/\s+/)[0]}`}.{ENS_PARENT}
                     </p>
                   </div>
-                  <span
-                    className={`text-[9px] font-black uppercase tracking-widest rounded-full px-2.5 py-1 border ${
-                      isInheritance
-                        ? 'text-amber-600 bg-amber-50 border-amber-200'
-                        : 'text-gray-400 bg-gray-50 border-gray-200'
-                    }`}
-                  >
+                  <span className="text-[9px] font-black uppercase tracking-widest rounded-full px-2.5 py-1 text-gray-500 bg-gray-100">
                     {typeLabel}
                   </span>
                 </div>
@@ -397,15 +385,17 @@ export default function ProfilePage() {
 
         {/* Second brain */}
         <section className="space-y-3">
-          <h2 className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-400 flex items-center gap-1.5">
-            <Lock size={9} className="text-amber-500" />
-            Second brain · encrypted in your 0G profile · moves with you
-          </h2>
+          <div>
+            <h2 className="text-2xl font-anton text-black tracking-wide">SECOND BRAIN</h2>
+            <p className="text-[11px] text-gray-500 font-medium mt-0.5">
+              Encrypted in your 0G profile · moves with you.
+            </p>
+          </div>
           <div className="space-y-2">
             {facts.map((f) => (
               <div
                 key={f.id}
-                className="bg-white rounded-2xl px-4 py-3 border border-gray-100 flex items-center gap-3"
+                className="bg-white rounded-2xl px-4 py-3 flex items-center gap-3"
               >
                 <span
                   className={`text-[8px] font-black uppercase tracking-widest border rounded-full px-2 py-0.5 shrink-0 ${
@@ -427,7 +417,7 @@ export default function ProfilePage() {
             ))}
           </div>
           {/* Add a fact — inline, part of the brain */}
-          <div className="bg-white rounded-full border border-gray-100 pl-4 pr-1.5 py-1.5 flex items-center gap-2">
+          <div className="bg-white rounded-full pl-4 pr-1.5 py-1.5 flex items-center gap-2">
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
@@ -466,6 +456,7 @@ export default function ProfilePage() {
       <div className="fixed bottom-0 inset-x-0 bg-gradient-to-t from-[#E8E8E8] via-[#E8E8E8] to-transparent pt-10 pb-8 px-6">
         <div className="max-w-lg mx-auto">
           <AliveCta
+            glow={false}
             onClick={() => router.push('/agent')}
             className="w-full px-8 py-5 rounded-[1.75rem] text-sm tracking-[0.2em] flex items-center justify-center gap-3"
           >
