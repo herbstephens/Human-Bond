@@ -30,6 +30,20 @@ function storageKey(address: string): string {
   return `agent-keys/${address.toLowerCase()}`;
 }
 
+/**
+ * Read-your-own-write for the activation flow.
+ *
+ * 0G-KV is eventually consistent: putJson submits a storage transaction and the
+ * KV node indexes it afterwards. Activation writes the key in /activate/start and
+ * reads it back in /activate/complete seconds later — far inside that window, so
+ * the read hangs until the client times out and registration never reaches the
+ * relay. Keeping what we just wrote in process closes the gap.
+ *
+ * 0G-KV stays the system of record: this only serves records THIS process wrote,
+ * and any address it has not seen still goes to the network.
+ */
+const recentWrites = new Map<string, StoredAgentKey>();
+
 export async function createAndStoreAgentKey(nonce: bigint): Promise<StoredAgentKey> {
   const privateKey = generatePrivateKey();
   const account = privateKeyToAccount(privateKey);
@@ -54,10 +68,14 @@ export async function createAndStoreAgentKey(nonce: bigint): Promise<StoredAgent
   };
 
   await zeroGKvStorageFromEnv().putJson(storageKey(account.address), record);
+  recentWrites.set(account.address.toLowerCase(), record);
   return record;
 }
 
 export async function getStoredAgentKey(address: `0x${string}`): Promise<StoredAgentKey> {
+  const justWritten = recentWrites.get(address.toLowerCase());
+  if (justWritten) return justWritten;
+
   const record = await zeroGKvStorageFromEnv().getJson<StoredAgentKey>(storageKey(address));
   if (record.address.toLowerCase() !== address.toLowerCase()) {
     throw new Error('Stored agent-key address does not match the requested agent');
@@ -69,14 +87,16 @@ export async function markAgentRegistered(
   record: StoredAgentKey,
   txHash: `0x${string}`,
 ): Promise<void> {
-  await zeroGKvStorageFromEnv().putJson(storageKey(record.address), {
+  const updated = {
     ...record,
     agentBook: {
       ...record.agentBook,
       status: 'registered',
       txHash,
     },
-  } satisfies StoredAgentKey);
+  } satisfies StoredAgentKey;
+  recentWrites.set(record.address.toLowerCase(), updated);
+  await zeroGKvStorageFromEnv().putJson(storageKey(record.address), updated);
 }
 
 export async function loadAgentPrivateKey(address: `0x${string}`): Promise<`0x${string}`> {

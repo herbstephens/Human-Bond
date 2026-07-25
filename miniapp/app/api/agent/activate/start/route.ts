@@ -10,6 +10,16 @@ import {
 } from '@/lib/agents/agentkitRegistration';
 
 export async function POST() {
+  try {
+    return await start();
+  } catch (caught) {
+    const message = caught instanceof Error ? caught.message : String(caught);
+    console.error('[agentkit] start failed:', message);
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+async function start() {
   const client = createPublicClient({
     chain: worldchain,
     transport: http(process.env.WORLDCHAIN_RPC_URL),

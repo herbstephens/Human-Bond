@@ -1,12 +1,32 @@
 'use client';
 
-import { useState } from 'react';
+/**
+ * AgentKit activation test — runs the real 0G KV, World ID, relay and AgentBook flow.
+ *
+ * TWO verification paths, picked from the environment:
+ *
+ *  - Inside World App → MiniKit.commandsAsync.verify. The proof is issued under
+ *    the app the mini app was opened as (HumanBondMultisig), because MiniKit's
+ *    VerifyCommandInput has no app_id field — it cannot target another app.
+ *    Requires the `agentbook-registration` action to exist in OUR app.
+ *  - Desktop browser → the original IDKit bridge, which DOES take an explicit
+ *    app_id and therefore targets AgentKit's own app. Misha's flow, untouched.
+ *
+ * The open question this test answers: whether AgentBook accepts a proof whose
+ * external nullifier derives from our app_id instead of AgentKit's. If the relay
+ * rejects it, registration must stay outside the mini app and the app should only
+ * READ `lookupHuman(agent)` to display human-backed status.
+ */
+
+import { useEffect, useState } from 'react';
 import {
   createWorldBridgeStore,
   VerificationLevel,
   VerificationState,
 } from '@worldcoin/idkit-core';
 import { solidityEncode } from '@worldcoin/idkit-core/hashing';
+import { MiniKit, VerificationLevel as MiniKitVerificationLevel } from '@worldcoin/minikit-js';
+import { isInWorldApp } from '@/lib/worldcoin/initMiniKit';
 import { AliveCta } from '@/app/components/agent/AliveCta';
 
 type StartResult = {
@@ -25,10 +45,22 @@ type CompleteResult = {
 
 type TestState = 'idle' | 'starting' | 'verifying' | 'registering' | 'complete' | 'failed';
 
+/** What the proof commits to — must match on both paths or AgentBook rejects it. */
+type ProofFields = { merkleRoot: string; nullifierHash: string; proof: string };
+
 async function responseJson<T>(response: Response): Promise<T> {
   const text = await response.text();
   if (!response.ok) {
-    throw new Error(text || `Request failed with HTTP ${response.status}`);
+    // The routes answer failures as { error }. Unwrap it so the phone shows the
+    // real reason (relay/contract message) instead of a bare status code.
+    let detail = text;
+    try {
+      const parsed = JSON.parse(text) as { error?: string };
+      if (parsed.error) detail = parsed.error;
+    } catch {
+      // Not JSON — the raw text is already the best available detail.
+    }
+    throw new Error(detail || `Request failed with HTTP ${response.status}`);
   }
   return JSON.parse(text) as T;
 }
@@ -39,9 +71,74 @@ export function TestAgentCreateClient() {
   const [txHash, setTxHash] = useState<`0x${string}` | null>(null);
   const [events, setEvents] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // Detected after mount — isInWorldApp touches the browser only.
+  const [inWorldApp, setInWorldApp] = useState(false);
+  useEffect(() => setInWorldApp(isInWorldApp()), []);
 
   const log = (message: string) =>
     setEvents((current) => [...current, `${new Date().toLocaleTimeString()} — ${message}`]);
+
+  /** World App path: one native sheet, proof comes straight back. */
+  const verifyWithMiniKit = async (start: StartResult): Promise<ProofFields> => {
+    log('Verifying with MiniKit (World App native sheet)');
+    const { finalPayload } = await MiniKit.commandsAsync.verify({
+      action: start.action,
+      signal: solidityEncode(['address', 'uint256'], [start.agentAddress, BigInt(start.nonce)]),
+      verification_level: MiniKitVerificationLevel.Orb,
+    });
+    if (finalPayload.status === 'error') {
+      throw new Error(
+        `MiniKit verification failed: ${JSON.stringify(finalPayload)}. If this is an unknown-action error, the action must exist in THIS app (app_925d0aaa…).`,
+      );
+    }
+    return {
+      merkleRoot: finalPayload.merkle_root,
+      nullifierHash: finalPayload.nullifier_hash,
+      proof: finalPayload.proof,
+    };
+  };
+
+  /** Desktop path: IDKit bridge, targets AgentKit's own app_id explicitly. */
+  const verifyWithBridge = async (start: StartResult): Promise<ProofFields> => {
+    const verificationWindow = window.open('', '_blank');
+    try {
+      if (!verificationWindow) throw new Error('World ID verification window was blocked');
+      const worldId = createWorldBridgeStore();
+      await worldId.getState().createClient({
+        app_id: start.appId,
+        action: start.action,
+        signal: solidityEncode(['address', 'uint256'], [start.agentAddress, BigInt(start.nonce)]),
+        verification_level: VerificationLevel.Orb,
+      });
+
+      const connectorUri = worldId.getState().connectorURI;
+      if (!connectorUri) throw new Error('World ID returned no verification link');
+      verificationWindow.location.href = connectorUri;
+      log('World ID verification opened — scan with World App');
+
+      const deadline = Date.now() + 5 * 60 * 1000;
+      while (Date.now() < deadline) {
+        await worldId.getState().pollForUpdates();
+        const current = worldId.getState();
+        if (current.verificationState === VerificationState.Failed) {
+          throw new Error(`World ID verification failed: ${current.errorCode ?? 'unknown error'}`);
+        }
+        if (current.result) {
+          verificationWindow.close();
+          return {
+            merkleRoot: current.result.merkle_root,
+            nullifierHash: current.result.nullifier_hash,
+            proof: current.result.proof,
+          };
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1_000));
+      }
+      throw new Error('World ID verification timed out after five minutes');
+    } catch (caught) {
+      verificationWindow?.close();
+      throw caught;
+    }
+  };
 
   const run = async () => {
     setState('starting');
@@ -51,73 +148,36 @@ export function TestAgentCreateClient() {
     setError(null);
     log('Creating and encrypting a fresh agent key');
 
-    const verificationWindow = window.open('', '_blank');
-
     try {
-      if (!verificationWindow) throw new Error('World ID verification window was blocked');
-
       const start = await responseJson<StartResult>(
         await fetch('/api/agent/activate/start', { method: 'POST' }),
       );
       setAgentAddress(start.agentAddress);
       log(`Encrypted key stored in 0G KV for ${start.agentAddress}`);
 
-      const worldId = createWorldBridgeStore();
-      await worldId.getState().createClient({
-        app_id: start.appId,
-        action: start.action,
-        signal: solidityEncode(
-          ['address', 'uint256'],
-          [start.agentAddress, BigInt(start.nonce)],
-        ),
-        verification_level: VerificationLevel.Orb,
-      });
-
-      const connectorUri = worldId.getState().connectorURI;
-      if (!connectorUri) throw new Error('World ID returned no verification link');
-      verificationWindow.location.href = connectorUri;
       setState('verifying');
-      log('World ID verification opened');
+      const fields = inWorldApp ? await verifyWithMiniKit(start) : await verifyWithBridge(start);
 
-      const deadline = Date.now() + 5 * 60 * 1000;
-      while (Date.now() < deadline) {
-        await worldId.getState().pollForUpdates();
-        const current = worldId.getState();
-        if (current.verificationState === VerificationState.Failed) {
-          throw new Error(`World ID verification failed: ${current.errorCode ?? 'unknown error'}`);
-        }
+      setState('registering');
+      log('Proof received; submitting AgentKit registration to the relay');
+      const completed = await responseJson<CompleteResult>(
+        await fetch('/api/agent/activate/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            agentAddress: start.agentAddress,
+            nonce: start.nonce,
+            merkleRoot: fields.merkleRoot,
+            nullifierHash: fields.nullifierHash,
+            proof: fields.proof,
+          }),
+        }),
+      );
 
-        if (current.result) {
-          verificationWindow.close();
-          setState('registering');
-          log('Proof received; submitting AgentKit registration');
-
-          const completed = await responseJson<CompleteResult>(
-            await fetch('/api/agent/activate/complete', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                agentAddress: start.agentAddress,
-                nonce: start.nonce,
-                merkleRoot: current.result.merkle_root,
-                nullifierHash: current.result.nullifier_hash,
-                proof: current.result.proof,
-              }),
-            }),
-          );
-
-          setTxHash(completed.txHash);
-          setState('complete');
-          log('AgentBook confirmed the agent is human-backed');
-          return;
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, 1_000));
-      }
-
-      throw new Error('World ID verification timed out after five minutes');
+      setTxHash(completed.txHash);
+      setState('complete');
+      log('AgentBook confirmed the agent is human-backed');
     } catch (caught) {
-      verificationWindow?.close();
       const message = caught instanceof Error ? caught.message : 'Agent activation failed';
       setState('failed');
       setError(message);
@@ -138,6 +198,21 @@ export function TestAgentCreateClient() {
           This runs the real 0G KV, World ID, AgentKit relay, and AgentBook flow.
           Every click creates a new agent wallet.
         </p>
+
+        {/* Which path will run — the whole point of this test. */}
+        <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+          <p className="font-mono text-[10px] uppercase tracking-widest text-[#8f8372]">
+            Verification path
+          </p>
+          <p className="mt-1 font-mono text-xs text-amber-300">
+            {inWorldApp ? 'MiniKit · proof under HumanBondMultisig' : 'IDKit bridge · proof under AgentKit app'}
+          </p>
+          <p className="mt-2 text-[11px] leading-5 text-[#8f8372]">
+            {inWorldApp
+              ? 'Inside World App MiniKit cannot target another app, so the proof is issued under our app. If the relay rejects it, registration has to happen outside the mini app.'
+              : 'Desktop uses the bridge, which targets AgentKit’s app_id directly. Open this page inside World App to test the mini-app path.'}
+          </p>
+        </div>
 
         <AliveCta
           onClick={run}
@@ -173,7 +248,7 @@ export function TestAgentCreateClient() {
             </div>
           )}
 
-          {error && <p className="mt-5 text-sm text-red-400">{error}</p>}
+          {error && <p className="mt-5 break-words text-sm text-red-400">{error}</p>}
 
           <ol className="mt-6 space-y-2 border-t border-white/10 pt-5">
             {events.length === 0 ? (
