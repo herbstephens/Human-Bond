@@ -198,11 +198,8 @@ export default function AgentCreatePage() {
   const activateAgent = async () => {
     setActivationState('creating-key');
     setActivationError(null);
-    const verificationWindow = window.open('', '_blank');
 
     try {
-      if (!verificationWindow) throw new Error('World ID verification window was blocked');
-
       const startResponse = await fetch('/api/agent/activate/start', { method: 'POST' });
       const start = (await startResponse.json()) as {
         agentAddress?: `0x${string}`;
@@ -228,7 +225,7 @@ export default function AgentCreatePage() {
       });
       const connectorUri = worldId.getState().connectorURI;
       if (!connectorUri) throw new Error('AgentKit returned no World ID verification link');
-      verificationWindow.location.href = connectorUri;
+      window.open(connectorUri, '_blank');
       setActivationState('waiting-for-world-id');
 
       const deadline = Date.now() + 5 * 60 * 1000;
@@ -263,7 +260,6 @@ export default function AgentCreatePage() {
       }
       throw new Error('World ID verification timed out after five minutes');
     } catch (error) {
-      verificationWindow?.close();
       setActivationState('idle');
       setActivationError(error instanceof Error ? error.message : 'Agent activation failed');
     }
