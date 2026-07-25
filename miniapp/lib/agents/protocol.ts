@@ -37,6 +37,8 @@ export type Settlement = {
   amountUsdc: number;
   /** agentId -> share in USDC pulled from that agent's human. Must sum to amountUsdc. */
   shares: Record<string, number>;
+  /** Investment terms are SIGNED terms — required when kind is 'investment'. */
+  aprPct?: number;
   memo: string;
   /** keccak of the negotiation transcript archived on 0G storage. */
   transcriptHash: `0x${string}`;
@@ -72,6 +74,7 @@ export function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
   if (value !== null && typeof value === 'object') {
     const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => v !== undefined)
       .sort(([a], [b]) => (a < b ? -1 : 1))
       .map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`);
     return `{${entries.join(',')}}`;

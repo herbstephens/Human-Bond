@@ -13,6 +13,8 @@ export interface HBStorage {
   putJson(key: string, value: unknown): Promise<void>;
   /** Throws when the key is missing — callers must know what they expect. */
   getJson<T>(key: string): Promise<T>;
+  /** For polling keys that legitimately may not exist yet (e.g. the peer's signature). */
+  getJsonOrNull<T>(key: string): Promise<T | null>;
   append(log: string, entry: unknown): Promise<void>;
   readLog(log: string): Promise<unknown[]>;
 }
@@ -29,6 +31,11 @@ export class MemoryStorage implements HBStorage {
     const raw = this.objects.get(key);
     if (raw === undefined) throw new Error(`Storage miss: no object at "${key}"`);
     return JSON.parse(raw) as T;
+  }
+
+  async getJsonOrNull<T>(key: string): Promise<T | null> {
+    const raw = this.objects.get(key);
+    return raw === undefined ? null : (JSON.parse(raw) as T);
   }
 
   async append(log: string, entry: unknown): Promise<void> {

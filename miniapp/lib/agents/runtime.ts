@@ -29,6 +29,8 @@ export type PaymentRequest = {
   label: string;
   recipient: string;
   amountUsdc: number;
+  /** Investment terms — carried into the signed settlement. */
+  aprPct?: number;
   /** The human whose agent opens the negotiation. */
   requestedBy: string;
 };
@@ -119,6 +121,7 @@ export async function negotiate(
         recipient: request.recipient,
         amountUsdc: request.amountUsdc,
         shares: currentOffer.shares,
+        aprPct: request.aprPct,
         memo: `${request.label} · ${currentOffer.rationale}`,
         transcriptHash: transcriptHash(fullTranscript),
       };
@@ -188,7 +191,9 @@ export class TrusteeExecutor {
     const receipts: PullReceipt[] = [];
     if (settlement.kind === 'investment') {
       assertToolAllowed('trustee', 'place_investment');
-      await this.rail.invest(settlement.bondId, settlement.amountUsdc, 4.1);
+      if (settlement.aprPct === undefined)
+        throw new Error('Refused: investment settlement without signed APR terms.');
+      await this.rail.invest(settlement.bondId, settlement.amountUsdc, settlement.aprPct);
     } else {
       assertToolAllowed('trustee', 'execute_payment');
       for (const [agentId, share] of Object.entries(settlement.shares)) {

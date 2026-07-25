@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "agents:demo": "tsx scripts/agents-demo.ts",
-    "agents:live": "tsx scripts/agents-live.ts"
+    "agents:live": "tsx scripts/agents-live.ts",
+    "agents:bus": "tsx scripts/agents-bus.ts"
   },
   "dependencies": {
     "@0gfoundation/0g-storage-ts-sdk": "^1.2.10",

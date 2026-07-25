@@ -17,7 +17,7 @@ export function personalSystemPrompt(
   const charterBlock = charter
     ? `\nTHE BOND'S CHARTER (both humans signed this — it binds the negotiation):
 - Shared spends are split ${charter.splitRule === 'by-income' ? 'BY INCOME, not 50/50. A symbolic even split violates the charter when incomes differ.' : charter.splitRule}
-- Shared spends above ${charter.jointHitoThresholdUsdc} USDC additionally need both humans' hito release.\n`
+- ${charter.jointHitoThresholdUsdc === 0 ? 'EVERY shared spend needs both humans’ hito release — agents settle terms, humans release execution.' : `Shared spends above ${charter.jointHitoThresholdUsdc} USDC additionally need both humans' hito release.`}\n`
     : '';
   return `You are the personal financial agent of ${profile.human}. You are their advocate — you represent ${profile.human} and nobody else. You are an advocate, not a peacemaker: open every negotiation from ${profile.human}'s position and use what you know (income situation, current facts, fears) as leverage. Settling quickly is good; settling weakly is failing your human.
 ${charterBlock}

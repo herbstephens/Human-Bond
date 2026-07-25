@@ -17,7 +17,7 @@ import { resolve } from 'node:path';
 import { demoAgentIdentity, signSettlement } from '../lib/agents/identity';
 import { LlmDriver } from '../lib/agents/llmDriver';
 import { settlementHash, type AgentIdentity } from '../lib/agents/protocol';
-import { negotiate, TrusteeExecutor, type AgentDriver, type NegotiationContext, type AgentTurn } from '../lib/agents/runtime';
+import { HumanReleaseRequired, negotiate, TrusteeExecutor, type AgentDriver, type NegotiationContext, type AgentTurn } from '../lib/agents/runtime';
 import { MemoryStorage, type HBStorage, type StoredCharter, type StoredProfile } from '../lib/agents/storage';
 import { personalSystemPrompt } from '../lib/agents/prompts';
 import { MockRail } from '../lib/agents/tools';
@@ -78,7 +78,8 @@ async function main() {
     bondId: 'bond-ben-alice',
     partners: ['Ben', 'Alice'],
     splitRule: 'by-income',
-    jointHitoThresholdUsdc: 200,
+    // DEMO RULE: every transaction is released on hito — threshold 0.
+    jointHitoThresholdUsdc: 0,
     heirs: [{ name: 'Paul', sharePct: 100 }],
   };
 
@@ -136,11 +137,20 @@ async function main() {
     console.log(`  re-settled → ${JSON.stringify(finalSettlement.shares)}`);
   }
 
-  h('Dual signature → trustee verifies → executes');
-  const receipts = await trustee.execute({
+  h('Dual signature → trustee verifies → hito gate → executes');
+  const signed = {
     settlement: finalSettlement,
     signatures: [await signSettlement(ben, finalSettlement), await signSettlement(alice, finalSettlement)],
-  });
+  };
+  let payGate: Error | null = null;
+  try {
+    await trustee.execute(signed);
+  } catch (e) {
+    payGate = e as Error;
+  }
+  if (!(payGate instanceof HumanReleaseRequired)) throw new Error('GUARDRAIL HOLE: payment executed without hito release');
+  console.log(`  \x1b[33mhito gate\x1b[0m: ${payGate.message.split('.')[0]} → both humans release`);
+  const receipts = await trustee.execute(signed, { humansReleased: true });
   for (const r of receipts) console.log(`  ${r.txRef}: ${r.amountUsdc.toFixed(2)} from ${r.fromHuman} → ${r.to}`);
   const history = await storage.readLog(`history/${charter.bondId}`);
   console.log(`  history on ${useKv ? '0G-KV' : 'memory'}: ${history.length} entr${history.length === 1 ? 'y' : 'ies'}`);
@@ -153,6 +163,7 @@ async function main() {
       label: 'USDC yield vault · 4.1% APR · audited · instant exit',
       recipient: 'vault',
       amountUsdc: 8000,
+      aprPct: 4.1,
       requestedBy: 'trustee-scan',
     };
     const investNote =

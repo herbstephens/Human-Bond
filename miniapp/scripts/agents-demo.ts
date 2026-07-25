@@ -57,7 +57,8 @@ async function main() {
     bondId: 'bond-ben-alice',
     partners: ['Ben', 'Alice'],
     splitRule: 'by-income',
-    jointHitoThresholdUsdc: 200,
+    // DEMO RULE: every transaction is released on hito — threshold 0.
+    jointHitoThresholdUsdc: 0,
     heirs: [{ name: 'Paul', sharePct: 100 }],
   };
   await storage.putJson('brain/Ben', benProfile);
@@ -104,8 +105,18 @@ async function main() {
   ok(`agent-ben signed   (${sigBen.address})`);
   ok(`agent-alice signed (${sigAlice.address})`);
 
-  h('Trustee verifies + executes');
-  const receipts = await trustee.execute({ settlement, signatures: [sigBen, sigAlice] });
+  h('Trustee verifies — and stops at the hito gate (demo rule: EVERYTHING releases on hito)');
+  let ramiroGate: Error | null = null;
+  try {
+    await trustee.execute({ settlement, signatures: [sigBen, sigAlice] });
+  } catch (e) {
+    ramiroGate = e as Error;
+  }
+  if (!(ramiroGate instanceof HumanReleaseRequired))
+    throw new Error('GUARDRAIL HOLE: payment executed without hito release');
+  ok(`blocked without humans: ${ramiroGate.message.split('.')[0]}`);
+  const receipts = await trustee.execute({ settlement, signatures: [sigBen, sigAlice] }, { humansReleased: true });
+  ok('released on both hitos → executed');
   for (const r of receipts) console.log(`  ${r.txRef}: ${r.amountUsdc.toFixed(2)} from ${r.fromHuman} → ${r.to}`);
   const history = await storage.readLog(`history/${charter.bondId}`);
   ok(`archived to history (${history.length} entry) — transcriptHash links the chat`);
@@ -149,6 +160,7 @@ async function main() {
     label: 'USDC yield vault 4.1%',
     recipient: 'vault',
     amountUsdc: 8000,
+    aprPct: 4.1,
     requestedBy: 'trustee-scan',
   };
   const { settlement: investment } = await negotiate(

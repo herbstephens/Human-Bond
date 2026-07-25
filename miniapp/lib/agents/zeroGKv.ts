@@ -59,8 +59,14 @@ export class ZeroGKvStorage implements HBStorage {
   }
 
   async getJson<T>(key: string): Promise<T> {
+    const parsed = await this.getJsonOrNull<T>(key);
+    if (parsed === null) throw new Error(`0G-KV: no value at "${key}" in stream ${this.cfg.streamId}`);
+    return parsed;
+  }
+
+  async getJsonOrNull<T>(key: string): Promise<T | null> {
     const value = await this.kv.getValue(this.cfg.streamId, Uint8Array.from(Buffer.from(key, 'utf-8')));
-    if (value === null) throw new Error(`0G-KV: no value at "${key}" in stream ${this.cfg.streamId}`);
+    if (value === null) return null;
     return JSON.parse(Buffer.from(value.data, 'base64').toString('utf-8')) as T;
   }
 
