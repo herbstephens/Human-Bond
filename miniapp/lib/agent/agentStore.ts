@@ -12,6 +12,7 @@
  */
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { USE_MOCKS } from '@/lib/config';
 
 function debugMockAgent(message: string, data?: unknown): void {
   if (process.env.NODE_ENV === 'production') return;
@@ -156,10 +157,19 @@ export type Bond = {
   status: 'active' | 'awaiting-partner';
 };
 
-export const BONDS: Bond[] = [
-  { id: 'alice', partner: 'Alice', type: 'inheritance', status: 'active' },
-  { id: 'mika', partner: 'Mika', type: 'business', status: 'active' },
-];
+/** Playground fixtures. In live mode (USE_MOCKS=0) every fixture below is
+ *  EMPTY: the chain seeds the store via useLiveBondSync, never these demo
+ *  couples. Mixing them was how Alice's heirs ended up next to a real bond. */
+export const BONDS: Bond[] = USE_MOCKS
+  ? [
+      { id: 'alice', partner: 'Alice', type: 'inheritance', status: 'active' },
+      { id: 'mika', partner: 'Mika', type: 'business', status: 'active' },
+    ]
+  : [];
+
+/** Must match LIVE_BOND_ID in lib/agent/useLiveBondSync.ts — the one real bond. */
+const DEFAULT_BOND_ID = USE_MOCKS ? 'alice' : 'main';
+const STANDING_ORDERS: Record<string, number> = USE_MOCKS ? { alice: 500, mika: 0 } : {};
 
 /** Proof of life runs on a 90-day dead-man's timer. The demo starts near the
  *  end of a cycle so the reset can be played through once: red → check → 90. */
@@ -167,7 +177,7 @@ export const HEARTBEAT_CYCLE_DAYS = 90;
 export const HEARTBEAT_START_DAYS_LEFT = 4;
 
 /** Parked vault balances (mock) — fed by standing orders from both partners. */
-export const VAULT_BALANCES: Record<string, number> = { alice: 1000, mika: 0 };
+export const VAULT_BALANCES: Record<string, number> = USE_MOCKS ? { alice: 1000, mika: 0 } : {};
 
 /** An heir inside a bond's charter — claims bind to the human, not a wallet.
  *  awaiting-partner: written by you, waiting for the partner's release.
@@ -384,14 +394,14 @@ export const useAgentStore = create<AgentState>()(
         bondRules: [],
         vaultBalances: { ...VAULT_BALANCES },
         deposits: [],
-        standingOrders: { alice: 500, mika: 0 },
+        standingOrders: { ...STANDING_ORDERS },
         investments: {},
         lifePingDone: false,
         heartbeatOk: false,
         heartbeatDaysLeft: HEARTBEAT_START_DAYS_LEFT,
         bonds: [...BONDS],
         bondEnsLabel: null,
-        defaultBondId: 'alice',
+        defaultBondId: DEFAULT_BOND_ID,
         pullGranted: false,
         pendingReceipt: null,
         messages: [],
@@ -918,7 +928,7 @@ export const useAgentStore = create<AgentState>()(
             bondRules: [],
             vaultBalances: { ...VAULT_BALANCES },
             deposits: [],
-            standingOrders: { alice: 500, mika: 0 },
+            standingOrders: { ...STANDING_ORDERS },
             investments: {},
             lifePingDone: false,
             heartbeatOk: false,
@@ -930,7 +940,9 @@ export const useAgentStore = create<AgentState>()(
       };
     },
     {
-      name: 'humanbond-agent-dummy-v2',
+      // Mode-scoped keys: the live app must never rehydrate playground demo data
+      // (heirs, Alice chats, fake payments) persisted by a mock session — and vice versa.
+      name: USE_MOCKS ? 'humanbond-agent-dummy-v2' : 'humanbond-agent-live-v1',
       // Transient pacing state never persists — a reload starts calm.
       partialize: (s) => ({
         step: s.step,

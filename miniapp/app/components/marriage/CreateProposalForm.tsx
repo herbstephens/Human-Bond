@@ -15,6 +15,7 @@ import { useState, useEffect } from "react";
 import { MiniKit, VerificationLevel } from "@worldcoin/minikit-js";
 import { CONTRACT_ADDRESSES, HUMAN_BOND_ABI, WORLD_APP_CONFIG } from "@/lib/contracts";
 import { useAuthStore } from "@/state/authStore";
+import { useMarriage } from "@/lib/marriage/context";
 import { isInWorldApp } from "@/lib/worldcoin/initMiniKit";
 import { Sparkles, ScanFace, MessageCircle } from "lucide-react";
 import Image from "next/image";
@@ -49,6 +50,20 @@ export function CreateProposalForm() {
   const [showPrenup, setShowPrenup] = useState(false);
 
   const { walletAddress, setWalletAddress } = useAuthStore();
+
+  // The contract enforces hard rules the form must SAY instead of letting the tx
+  // fail mute: one active bond per human, one outgoing proposal, and a re-bond
+  // cooldown after dissolution. Testers read a silent revert as "the app is broken".
+  const { dashboard, hasPendingProposal, cooldown } = useMarriage();
+  const blockReason = !USE_MOCKS
+    ? dashboard?.isBonded
+      ? 'You already have an active bond. The protocol allows one bond per human — dissolve it before proposing again.'
+      : hasPendingProposal
+        ? 'You already have an outgoing proposal. Cancel it from Home before proposing to someone else.'
+        : cooldown?.isActive
+          ? 'Your re-bond cooldown is still running. You can propose again once it ends — the countdown is on Home.'
+          : null
+    : null;
 
   // Warm the partner's World profile cache once the proposal succeeds
   useWorldProfile(state === 'success' ? resolvedAddress : null);
@@ -249,6 +264,13 @@ export function CreateProposalForm() {
           </div>
         </div>
 
+        {blockReason && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="text-xs font-black text-amber-800">Proposals are paused for you</p>
+            <p className="text-[11px] font-medium text-amber-700 mt-0.5">{blockReason}</p>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-4">
             <div className="space-y-2">
@@ -311,7 +333,7 @@ export function CreateProposalForm() {
           <button
             type="submit"
             className="group w-full bg-black text-white px-8 py-5 rounded-3xl text-sm font-black uppercase tracking-widest hover:bg-gray-900 transition-all duration-300 shadow-xl shadow-gray-100 flex items-center justify-center gap-3 hover:-translate-y-1 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={!resolvedAddress || isResolving || isLoading || !isWorldApp}
+            disabled={!resolvedAddress || isResolving || isLoading || !isWorldApp || !!blockReason}
           >
             {isLoading ? (
               <>

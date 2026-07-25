@@ -19,6 +19,8 @@ import { useLiveBondSync } from '@/lib/agent/useLiveBondSync';
 import { useWorldProfile } from '@/lib/worldcoin/useWorldProfile';
 import { formatUsdc } from '@/lib/vault/usdc';
 import { USE_MOCKS } from '@/lib/config';
+import { useRouteGuard } from '@/lib/hooks/useLiveStage';
+import { ENS_PARENT } from '@/lib/contracts/registrar';
 import { SelfieCheckOverlay } from '@/app/components/agent/SelfieCheck';
 import {
   HEARTBEAT_CYCLE_DAYS,
@@ -98,12 +100,15 @@ export default function ProfilePage() {
   const [bondPartner, setBondPartner] = useState('');
   const [bondType, setBondType] = useState<Bond['type']>('business');
 
-  // Guard in an effect (never during render — the store hydrates client-side).
+  // Live routing belongs to the contract (lib/hooks/useLiveStage.ts): it sends
+  // anyone below the dashboard stage back to /home — and /home, reading the SAME
+  // contract, will not bounce them here again. Mock keeps its local agent gate.
+  const stage = useRouteGuard('/profile');
   useEffect(() => {
-    if (!agentReady) router.replace('/home');
+    if (USE_MOCKS && !agentReady) router.replace('/home');
   }, [agentReady, router]);
 
-  if (!agentReady) return null;
+  if (USE_MOCKS ? !agentReady : stage !== 'dashboard') return null;
   if (showSelfie)
     return (
       <SelfieCheckOverlay
@@ -293,7 +298,7 @@ export default function ProfilePage() {
                   <div>
                     <p className="text-sm font-black text-gray-900">You &amp; {b.partner}</p>
                     <p className="text-[10px] font-mono font-bold text-gray-400 mt-0.5">
-                      {!USE_MOCKS && bondEnsLabel ? bondEnsLabel : `ben-${b.partner.toLowerCase().split(/\s+/)[0]}`}.humanbond.eth
+                      {!USE_MOCKS && bondEnsLabel ? bondEnsLabel : `ben-${b.partner.toLowerCase().split(/\s+/)[0]}`}.{ENS_PARENT}
                     </p>
                   </div>
                   <span
