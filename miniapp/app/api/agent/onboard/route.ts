@@ -3,17 +3,20 @@
  * model, not canned strings. The interview STRUCTURE stays deterministic
  * (fixed questions, chips); this route only generates the agent's phrasing:
  *
- *   mode 'react'   → one short message: react to the latest answer, ask the
- *                    next question in the agent's own words
+ *   mode 'react'   → ONE personal reaction sentence to the latest answer;
+ *                    the next question itself stays verbatim (chips must
+ *                    always match), the route composes reaction + question
  *   mode 'summary' → the profile-mirror card: 4 lines proving the agent
  *                    actually knows this human
  *
  * The router key stays server-side. Fast non-reasoning model by default —
- * onboarding needs chat latency, not chain-of-thought.
+ * onboarding needs chat latency, not chain-of-thought. ZG_ROUTER_FAST_* can
+ * point at a different (e.g. free testnet) router than the negotiations use.
  */
 import { NextResponse } from 'next/server';
 
-const BASE_URL = process.env.ZG_ROUTER_BASE_URL ?? 'https://router-api.0g.ai/v1';
+const BASE_URL =
+  process.env.ZG_ROUTER_FAST_BASE_URL ?? process.env.ZG_ROUTER_BASE_URL ?? 'https://router-api.0g.ai/v1';
 
 type HistoryItem = { question: string; answer: string };
 type OnboardBody = {
@@ -31,14 +34,8 @@ function reactMessages(body: OnboardBody) {
   return [
     {
       role: 'system',
-      content: `You are a personal financial agent being born, interviewing your future human. Warm, brief, first person. No emojis, no lists, no exclamation marks. ${importedNote}
-${
-  body.history.length === 0
-    ? 'No answers yet: open the interview with the first question in your own words — one short sentence.'
-    : 'First react to their LATEST answer in one short sentence that is specific to what they said (never generic praise), then ask the next question naturally.'
-}
-Your next question must gather exactly this: "${body.next?.intent}" (their quick-answer chips will be: ${body.next?.options.join(' / ')} — do not read the chips out loud).
-Output plain text only. Maximum 40 words.`,
+      content: `You are a personal financial agent being born, interviewing your future human. ${importedNote}
+Output ONLY one warm reaction sentence to their LATEST answer — specific to what they actually said, never generic praise. First person. Maximum 14 words. No emojis, no exclamation marks, no question, no quotes around your output.`,
     },
     { role: 'user', content: JSON.stringify({ interviewSoFar: body.history }) },
   ];
@@ -60,11 +57,16 @@ Each line: first person ("I will…" / "You …"), maximum 22 words, no emojis. 
 }
 
 export async function POST(req: Request) {
-  const apiKey = process.env.ZG_ROUTER_API_KEY;
+  const apiKey = process.env.ZG_ROUTER_FAST_API_KEY ?? process.env.ZG_ROUTER_API_KEY;
   if (!apiKey)
-    return NextResponse.json({ error: 'ZG_ROUTER_API_KEY is not set in miniapp/.env.local' }, { status: 500 });
+    return NextResponse.json({ error: 'ZG_ROUTER_(FAST_)API_KEY is not set in miniapp/.env.local' }, { status: 500 });
 
   const body = (await req.json()) as OnboardBody;
+
+  // First question: nothing to react to — the fixed question stands alone.
+  if (body.mode === 'react' && body.history.length === 0)
+    return NextResponse.json({ text: body.next?.intent ?? '' });
+
   const model = process.env.ZG_ROUTER_MODEL_FAST ?? 'deepseek-v4-flash';
   const res = await fetch(`${BASE_URL}/chat/completions`, {
     method: 'POST',
@@ -92,5 +94,6 @@ export async function POST(req: Request) {
     const lines = JSON.parse(content.slice(start, end + 1)) as string[];
     return NextResponse.json({ lines });
   }
-  return NextResponse.json({ text: content });
+  // Reaction is generated; the question is verbatim — chips always match.
+  return NextResponse.json({ text: `${content} ${body.next?.intent ?? ''}`.trim() });
 }
