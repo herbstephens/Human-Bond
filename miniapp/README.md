@@ -13,7 +13,7 @@ Frontend by [@franco](https://github.com/franco) · ETHGlobal Lisbon 2026
 - **Wallet:** MiniKit wallet integration
 - **Chain:** World Chain Mainnet (chainId: 480)
 - **Contracts:** HumanBond V2 (see `../contracts/README.md`)
-- **Storage:** Walrus (Sui ecosystem) for VowNFT metadata
+- **Storage:** 0G KV Layer for: agentic data, milestone NFTs, metadata, queriable registries
 - **Naming:** ENS subnames via `humanbond.eth`
 - **Indexing:** The Graph partnership registry subgraph
 
