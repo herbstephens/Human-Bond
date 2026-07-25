@@ -82,7 +82,7 @@ export default function BondProfilePage() {
           id: rid++,
           who: 'trustee',
           text: alreadyInvested
-            ? 'All quiet. The 8,000 your agents placed are earning at 4.1% — projection on track, buffer untouched. I’ll report at month’s end.'
+            ? 'All quiet. The 800 your agents placed are earning at 4.1% — projection on track, buffer untouched. I’ll report at month’s end.'
             : 'Your agents and I settled on one package this morning — matched to both profiles, market-checked. It’s on its way to both of you now.',
           typed: true,
         },
@@ -122,8 +122,8 @@ export default function BondProfilePage() {
     setYieldState('you-ok');
     setTimeout(() => {
       setYieldState('done');
-      invest(bond.id, 8000, 4.1);
-      pushTrustee('Alice confirmed too. 8,000 USDC are earning for the family now — you can see where the money lives right up on the vault card. I’ll report monthly.');
+      invest(bond.id, 800, 4.1);
+      pushTrustee('Alice confirmed too. 800 USDC are earning for the family now — you can see where the money lives right up on the vault card. I’ll report monthly.');
     }, 2600);
   };
 
@@ -334,8 +334,8 @@ export default function BondProfilePage() {
                   </div>
                   <p className="text-[13px] font-black text-gray-900 mt-1.5">USDC yield vault · 4.1% · audited · instant exit</p>
                   <p className="text-[11px] font-medium text-gray-500 mt-1 leading-relaxed">
-                    Your agent held the line on the emergency buffer → 2,000 stay liquid.
-                    Alice’s pushed for long-term → 8,000 go to work (+328/yr).
+                    Your agent held the line on the emergency buffer → 200 stay liquid.
+                    Alice’s pushed for long-term → 800 go to work (+33/yr).
                     <span className="font-bold text-gray-700"> They agreed — your confirmation is the last word.</span>
                   </p>
                 </div>

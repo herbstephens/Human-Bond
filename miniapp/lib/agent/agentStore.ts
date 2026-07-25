@@ -158,7 +158,7 @@ export const HEARTBEAT_CYCLE_DAYS = 90;
 export const HEARTBEAT_START_DAYS_LEFT = 4;
 
 /** Parked vault balances (mock) — fed by standing orders from both partners. */
-export const VAULT_BALANCES: Record<string, number> = { alice: 10000, mika: 0 };
+export const VAULT_BALANCES: Record<string, number> = { alice: 1000, mika: 0 };
 
 /** An heir inside a bond's charter — claims bind to the human, not a wallet.
  *  awaiting-partner: written by you, waiting for the partner's release.
