@@ -12,6 +12,7 @@ export function AliveCta({
   onClick,
   className = '',
   disabled = false,
+  glow = true,
 }: {
   children: React.ReactNode;
   onClick: () => void;
@@ -19,6 +20,8 @@ export function AliveCta({
   /** Held down while a transaction is in flight — the glow stops, so the button
    *  stops inviting a second tap that would open a second MiniKit popup. */
   disabled?: boolean;
+  /** The breathing amber glow. Off on calm surfaces like the landing hero. */
+  glow?: boolean;
 }) {
   return (
     <>
@@ -36,7 +39,7 @@ export function AliveCta({
         className={`bg-black text-white font-black uppercase transition-colors active:scale-95 ${
           disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-900'
         } ${className}`}
-        style={disabled ? undefined : { animation: 'hbCtaBreathe 2.6s ease-in-out infinite' }}
+        style={disabled || !glow ? undefined : { animation: 'hbCtaBreathe 2.6s ease-in-out infinite' }}
       >
         {children}
       </button>

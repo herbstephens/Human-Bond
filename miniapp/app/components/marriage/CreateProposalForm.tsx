@@ -230,10 +230,23 @@ export function CreateProposalForm() {
               Create Bond
             </h1>
             <p className="text-[13px] font-medium text-gray-500 leading-relaxed max-w-[300px] mx-auto">
-              You&apos;re creating <span className="font-bold text-gray-700">one shared address on Worldchain</span> that
-              belongs to you both. Your partner signs to bring it to life, your charter sets the
-              rules — and your personal agents handle the money inside them.
+              One shared address that belongs to you both. Yours to build together.
             </p>
+            <div className="mt-4 space-y-2 max-w-[300px] mx-auto text-left">
+              {([
+                ['One address, two names', 'It belongs to both of you, equally.'],
+                ['Your agents do the legwork', 'They handle the everyday, so you don\u2019t.'],
+                ['Both of you, or nothing moves', 'One yes isn\u2019t enough. It takes two.'],
+              ] as const).map(([note, sub]) => (
+                <div key={note} className="flex items-start gap-2.5">
+                  <span className="w-1 h-1 rounded-full bg-gray-300 mt-[7px] shrink-0" />
+                  <p className="text-[12px] leading-snug">
+                    <span className="font-bold text-gray-700">{note}</span>{' '}
+                    <span className="text-gray-400 font-medium">{sub}</span>
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 

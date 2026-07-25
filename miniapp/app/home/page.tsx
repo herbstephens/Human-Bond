@@ -404,21 +404,13 @@ export default function HomePage() {
               {!effectiveHasPendingProposal && !hasIncomingProposals && (
                 <div className="flex justify-center">
                   {/* THE logo — the two rings drift in from the sides as halves
-                      of the mark, meet, and get WELDED with the CTA's amber glow. */}
+                      of the mark and meet. Clean: no glow. */}
                   <div className="relative w-[104px] h-[104px]" aria-hidden>
                     <style>{`
                       @keyframes hbHalfL { 0% { transform: translateX(-30px); opacity: 0; } 55% { opacity: 1; } 100% { transform: translateX(0); } }
                       @keyframes hbHalfR { 0% { transform: translateX(30px); opacity: 0; } 55% { opacity: 1; } 100% { transform: translateX(0); } }
-                      @keyframes hbWeld { 0%, 82% { filter: none; } 100% { filter: drop-shadow(0 0 12px rgba(245,158,11,.55)); } }
-                      @keyframes hbWeldBreathe {
-                        0%, 100% { filter: drop-shadow(0 0 8px rgba(245,158,11,.4)); }
-                        50% { filter: drop-shadow(0 0 18px rgba(245,158,11,.65)); }
-                      }
                     `}</style>
-                    <div
-                      className="absolute inset-0"
-                      style={{ animation: 'hbWeld 4s ease-out both, hbWeldBreathe 3s ease-in-out 4s infinite' }}
-                    >
+                    <div className="absolute inset-0">
                       {/* left half of the mark slides in from the left */}
                       <div
                         className="absolute inset-0 overflow-hidden"
@@ -465,6 +457,7 @@ export default function HomePage() {
                   <AliveCta
                     onClick={() => router.push("/marriage/create")}
                     className="w-full px-8 py-5 rounded-2xl text-xs tracking-[0.2em]"
+                    glow={false}
                   >
                     Create your first bond
                   </AliveCta>
