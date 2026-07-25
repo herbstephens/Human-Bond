@@ -12,11 +12,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowUp, Check, Mic } from 'lucide-react';
-import {
-  createWorldBridgeStore,
-  VerificationLevel,
-  VerificationState,
-} from '@worldcoin/idkit-core';
+import { MiniKit, VerificationLevel } from '@worldcoin/minikit-js';
 import { solidityEncode } from '@worldcoin/idkit-core/hashing';
 import {
   IMPORT_SOURCES,
@@ -213,9 +209,8 @@ export default function AgentCreatePage() {
         throw new Error('Agent activation start returned incomplete registration data');
       }
 
-      const worldId = createWorldBridgeStore();
-      await worldId.getState().createClient({
-        app_id: start.appId,
+      setActivationState('waiting-for-world-id');
+      const { finalPayload } = await MiniKit.commandsAsync.verify({
         action: start.action,
         signal: solidityEncode(
           ['address', 'uint256'],
@@ -223,42 +218,28 @@ export default function AgentCreatePage() {
         ),
         verification_level: VerificationLevel.Orb,
       });
-      const connectorUri = worldId.getState().connectorURI;
-      if (!connectorUri) throw new Error('AgentKit returned no World ID verification link');
-      window.open(connectorUri, '_blank');
-      setActivationState('waiting-for-world-id');
-
-      const deadline = Date.now() + 5 * 60 * 1000;
-      while (Date.now() < deadline) {
-        await worldId.getState().pollForUpdates();
-        const current = worldId.getState();
-        if (current.verificationState === VerificationState.Failed) {
-          throw new Error(`World ID verification failed: ${current.errorCode ?? 'unknown error'}`);
-        }
-        if (current.result) {
-          setActivationState('registering');
-          const completeResponse = await fetch('/api/agent/activate/complete', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              agentAddress: start.agentAddress,
-              nonce: start.nonce,
-              merkleRoot: current.result.merkle_root,
-              nullifierHash: current.result.nullifier_hash,
-              proof: current.result.proof,
-            }),
-          });
-          const completed = (await completeResponse.json()) as { registered?: boolean; error?: string };
-          if (!completeResponse.ok || !completed.registered) {
-            throw new Error(completed.error ?? `AgentKit registration failed (${completeResponse.status})`);
-          }
-          setActivationState('complete');
-          completeInterview();
-          return;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 1_000));
+      if (finalPayload.status === 'error') {
+        throw new Error(`World ID verification failed: ${finalPayload.error_code}`);
       }
-      throw new Error('World ID verification timed out after five minutes');
+
+      setActivationState('registering');
+      const completeResponse = await fetch('/api/agent/activate/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agentAddress: start.agentAddress,
+          nonce: start.nonce,
+          merkleRoot: finalPayload.merkle_root,
+          nullifierHash: finalPayload.nullifier_hash,
+          proof: finalPayload.proof,
+        }),
+      });
+      const completed = (await completeResponse.json()) as { registered?: boolean; error?: string };
+      if (!completeResponse.ok || !completed.registered) {
+        throw new Error(completed.error ?? `AgentKit registration failed (${completeResponse.status})`);
+      }
+      setActivationState('complete');
+      completeInterview();
     } catch (error) {
       setActivationState('idle');
       setActivationError(error instanceof Error ? error.message : 'Agent activation failed');

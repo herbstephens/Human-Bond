@@ -8,6 +8,7 @@ import {
   AGENTKIT_ACTION,
   AGENTKIT_APP_ID,
 } from '@/lib/agents/agentkitRegistration';
+import { WORLD_APP_CONFIG } from '@/lib/contracts';
 
 export async function POST() {
   try {
@@ -37,6 +38,14 @@ async function start() {
   if (nonce !== BigInt(0)) {
     throw new Error(`Fresh agent ${provisional.address} unexpectedly has AgentBook nonce ${nonce}`);
   }
+
+  console.info('[agentkit] activation app ids', {
+    humanBondMiniKitAppId: WORLD_APP_CONFIG.APP_ID,
+    nextPublicWorldAppId: process.env.NEXT_PUBLIC_WORLD_APP_ID ?? null,
+    defaultHumanBondAppId: 'app_bfc3261816aeadc589f9c6f80a98f5df',
+    agentKitAppId: AGENTKIT_APP_ID,
+    action: AGENTKIT_ACTION,
+  });
 
   return NextResponse.json({
     agentAddress: provisional.address,
