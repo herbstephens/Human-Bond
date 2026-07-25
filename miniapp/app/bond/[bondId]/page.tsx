@@ -16,6 +16,11 @@ import { AliveCta } from '@/app/components/agent/AliveCta';
 import { useAgentStore, type Heir } from '@/lib/agent/agentStore';
 import { USE_MOCKS } from '@/lib/config';
 import { useLiveBondSync } from '@/lib/agent/useLiveBondSync';
+import { useMarriage } from '@/lib/marriage/context';
+import { useBondVault } from '@/lib/hooks/useBondVault';
+import { useVaultActions } from '@/lib/hooks/useVaultActions';
+import { VaultBalanceCard } from '@/app/components/vault/VaultBalanceCard';
+import { SendFundsForm } from '@/app/components/vault/SendFundsForm';
 
 // --- tiny self-contained chat for the trustee room ------------------------
 
@@ -45,14 +50,25 @@ export default function BondProfilePage() {
   const router = useRouter();
   // Live mode: mirror the real bond (partner, ENS, on-chain USDC balance) into
   // the store — this page then renders chain truth, starting at zero.
-  const { vault: liveVault } = useLiveBondSync();
-  const [copiedAddr, setCopiedAddr] = useState(false);
-  const copyVaultAddress = () => {
-    if (!liveVault?.address) return;
-    void navigator.clipboard.writeText(liveVault.address);
-    setCopiedAddr(true);
-    setTimeout(() => setCopiedAddr(false), 2000);
-  };
+  useLiveBondSync();
+  // Live money view: Franco's working vault card (balance · address · send),
+  // backed by the same react-query key the sync uses — one chain read.
+  const { dashboard: liveDash, marriageView } = useMarriage();
+  const livePartnerAddr = (liveDash?.partner ?? null) as `0x${string}` | null;
+  const lPartnerA = (marriageView?.partnerA ?? null) as `0x${string}` | null;
+  const lPartnerB = (marriageView?.partnerB ?? null) as `0x${string}` | null;
+  const lBondId = (marriageView?.bondId ?? null) as `0x${string}` | null;
+  const { vault: liveVault, refetch: refetchLiveVault } = useBondVault(lPartnerA, lPartnerB, lBondId);
+  const [sendOpen, setSendOpen] = useState(false);
+  const {
+    state: spendState, error: spendError, txError: spendTxError, proposeSpend, reset: resetSpend,
+  } = useVaultActions({
+    bondId: lBondId,
+    partnerA: lPartnerA,
+    partnerB: lPartnerB,
+    partner: livePartnerAddr,
+    onDone: () => void refetchLiveVault(),
+  });
   const params = useParams<{ bondId: string }>();
   const {
     agentReady, answers, payments, heirs, addHeir, requestRemoveHeir,
@@ -373,7 +389,25 @@ export default function BondProfilePage() {
       </header>
 
       <main className="flex-1 overflow-y-auto px-6 pb-16 space-y-8 max-w-lg w-full mx-auto">
-        {/* Balance — the bank card, in crypto terms */}
+        {/* Money view. LIVE: the real vault card — balance from chain, bond
+            address with copy, real send flow (partner approves above the free
+            limit). MOCK: the dark playground bank card below. */}
+        {!USE_MOCKS && liveVault?.isCreated ? (
+          <section className="space-y-3">
+            <VaultBalanceCard vault={liveVault} partnerName={bond.partner} onSend={() => setSendOpen(true)} />
+            <SendFundsForm
+              open={sendOpen}
+              onOpenChange={setSendOpen}
+              vault={liveVault}
+              partnerName={bond.partner}
+              txState={spendState}
+              error={spendError}
+              txError={spendTxError}
+              onSend={proposeSpend}
+              onReset={resetSpend}
+            />
+          </section>
+        ) : (
         <section className="bg-[#1A1A1A] rounded-[2rem] p-6 relative overflow-hidden">
           <div className="absolute -top-12 -right-12 w-32 h-32 bg-amber-500/10 blur-[50px]" />
           <p className="text-[9px] font-bold text-gray-500 uppercase tracking-[0.25em] relative z-10">Parked in the vault</p>
@@ -405,20 +439,8 @@ export default function BondProfilePage() {
               <p className="text-[12px] font-mono font-bold text-amber-100">
                 {bondEnsLabel ?? `ben-${bond.partner.toLowerCase()}`}.humanbond.eth
               </p>
-              {!USE_MOCKS && liveVault?.address && (
-                <p className="text-[9px] font-mono text-gray-500 mt-0.5 break-all">{liveVault.address}</p>
-              )}
             </div>
-            {USE_MOCKS ? (
-              <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">fed by standing orders</span>
-            ) : (
-              <button
-                onClick={copyVaultAddress}
-                className="shrink-0 px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] bg-white/10 text-white border border-white/15 hover:bg-white/20 transition-all active:scale-95"
-              >
-                {copiedAddr ? 'Copied ✓' : 'Copy address'}
-              </button>
-            )}
+            <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">fed by standing orders</span>
           </div>
           {/* Money in: the mock playground simulates transfers; live money
               arrives by sending USDC to the address above — no fake deposits. */}
@@ -470,6 +492,7 @@ export default function BondProfilePage() {
             </div>
           )}
         </section>
+        )}
 
         {/* Trustee room */}
         <section className="space-y-3">
