@@ -298,7 +298,7 @@ export default function HomePage() {
                 </div>
                 <div className="flex-1 text-left space-y-1.5">
                   <h3 className="text-base font-black text-gray-900 tracking-tight">
-                    {incomingProposals.length} Proposal{incomingProposals.length > 1 ? 's' : ''} Received
+                    {incomingProposals.length} open bond invite{incomingProposals.length > 1 ? 's' : ''}
                   </h3>
                   <p className="text-[10px] font-bold text-black-400 uppercase tracking-widest">Tap to review</p>
                 </div>
@@ -400,12 +400,6 @@ export default function HomePage() {
               <p className="text-sm text-gray-500 font-medium max-w-[280px] mx-auto leading-relaxed">
                 One shared address for you two. Your personal agents handle the money between you — every move released by you both.
               </p>
-              {activeBondCount > BigInt(0) && (
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white/60 border border-gray-200/70 rounded-full text-gray-500 animate-in fade-in duration-700">
-                  <Link2 size={11} className="text-gray-400" />
-                  <span className="text-[9px] font-bold uppercase tracking-[0.15em]">{activeBondCount.toString()} bonds on Worldchain</span>
-                </div>
-              )}
             </div>
 
             {/* Main Action Buttons */}
@@ -424,18 +418,6 @@ export default function HomePage() {
                   </AliveCta>
                 )}
 
-                {/* Secondary = text link, never a competing button */}
-                <Link
-                  href="/marriage/proposals"
-                  className="text-[11px] font-bold text-gray-400 hover:text-gray-700 uppercase tracking-widest transition-colors text-center"
-                >
-                  Accept a bond invite
-                  {hasIncomingProposals && (
-                    <span className="ml-2 inline-flex items-center justify-center bg-amber-400 text-black text-[10px] font-black rounded-full h-5 w-5">
-                      {incomingProposals.length}
-                    </span>
-                  )}
-                </Link>
 
                 {/* TIME balance from previous bond — subtle footer pill */}
                 {dashboard && Number(dashboard.timeBalance) > 0 && (
