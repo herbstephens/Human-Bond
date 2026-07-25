@@ -399,7 +399,7 @@ export default function HomePage() {
                 )}
               </h1>
               <p className="text-sm text-gray-500 font-medium max-w-[280px] mx-auto leading-relaxed">
-                Certify your commitment on-chain. <br />Verified, eternal, and shared.
+                One shared address for you two. Your personal agents handle the money between you — every move released by you both.
               </p>
               {activeBondCount > BigInt(0) && (
                 <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white/60 border border-gray-200/70 rounded-full text-gray-500 animate-in fade-in duration-700">
@@ -421,7 +421,7 @@ export default function HomePage() {
                     href="/marriage/create"
                     className="group w-full bg-black text-white px-8 py-5 rounded-2xl text-xs font-black uppercase tracking-[0.2em] hover:bg-gray-900 transition-all duration-300 shadow-xl shadow-gray-200 flex items-center justify-center gap-3 hover:-translate-y-1 active:translate-y-0"
                   >
-                    <span>Make a Proposal</span>
+                    <span>Create your first bond</span>
                     <Sparkles size={16} className="text-white group-hover:rotate-12 transition-transform" />
                   </Link>
                 )}
@@ -431,7 +431,7 @@ export default function HomePage() {
                   className="w-full bg-white text-black px-8 py-5 rounded-2xl text-xs font-black uppercase tracking-[0.2em] border border-gray-100 hover:bg-gray-50 transition-all duration-300 shadow-sm flex items-center justify-center gap-3 hover:-translate-y-1 active:translate-y-0 relative"
                 >
                   <Users size={16} className="text-gray-400" />
-                  <span>Accept a Proposal</span>  
+                  <span>Accept a bond invite</span>
                   {hasIncomingProposals && (
                     <span className="absolute -top-2 -right-2 bg-black-500 text-white text-[10px] font-black rounded-full h-6 w-6 flex items-center justify-center shadow-lg shadow-black-200">
                       {incomingProposals.length}

@@ -19,6 +19,8 @@ const MODEL = process.env.ZG_ROUTER_CHAT_MODEL ?? process.env.ZG_ROUTER_MODEL ??
 type ChatBody = {
   profile: { name: string; income: string; budget: string; threshold: string; stress: string; fear: string };
   facts: string[];
+  /** Custom rules the couple wrote into the charter — binding context. */
+  rules?: string[];
   vaultBalance: number;
   history: { role: 'user' | 'assistant'; text: string }[];
   userText: string;
@@ -36,6 +38,7 @@ THE WORLD YOU LIVE IN:
 - ${b.profile.name} holds an inheritance bond with Alice. Shared vault balance: ${b.vaultBalance.toFixed(2)} USDC.
 - Shared spends are negotiated by you with Alice's agent and split by income (Alice earns more; recent splits landed ~10/90). The neutral trustee only executes what both agents signed, and EVERY transaction is released by the humans on their hito wallets.
 - Personal spends stay ${b.profile.name}'s alone — Alice never hears about them.
+${b.rules?.length ? `\nRULES YOU TWO WROTE INTO THE CHARTER (binding — follow them over everything else):\n${b.rules.map((r) => `- ${r}`).join('\n')}` : ''}
 
 REPLY WITH EXACTLY ONE JSON OBJECT, nothing else:
 {"say": "<your reply to ${b.profile.name}, 1–3 short sentences>", "action": null}

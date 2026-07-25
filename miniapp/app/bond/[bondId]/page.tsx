@@ -43,7 +43,7 @@ export default function BondProfilePage() {
   const {
     agentReady, answers, payments, heirs, addHeir, requestRemoveHeir,
     vaultBalances, deposits, standingOrders, deposit, setStandingOrder,
-    investments, invest, bonds,
+    investments, invest, bonds, bondRules, addBondRule, removeBondRule,
   } = useAgentStore();
   const bond = bonds.find((b) => b.id === params.bondId) ?? bonds[0];
   const isInheritance = bond.type === 'inheritance';
@@ -142,11 +142,24 @@ export default function BondProfilePage() {
     }
   };
 
+  // The will can never allocate more than 100% of the estate.
+  const allocatedPct = heirs.reduce((sum, h) => sum + h.sharePct, 0);
+  const remainingPct = 100 - allocatedPct;
+  const effectiveShare = Math.min(heirShare, remainingPct);
+
   const submitHeir = () => {
     const name = heirName.trim();
-    if (!name) return;
-    addHeir(name, heirShare);
+    if (!name || remainingPct < 5) return;
+    addHeir(name, effectiveShare);
     setHeirName('');
+  };
+
+  const [ruleDraft, setRuleDraft] = useState('');
+  const submitRule = () => {
+    const text = ruleDraft.trim();
+    if (!text) return;
+    addBondRule(text);
+    setRuleDraft('');
   };
 
   const activity = [
@@ -419,6 +432,14 @@ export default function BondProfilePage() {
                 </div>
               </div>
             ))}
+            {remainingPct < 5 ? (
+              <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-5">
+                <p className="text-[12px] font-medium text-gray-500">
+                  <span className="font-black text-gray-700">100% of the estate is allocated.</span> Remove
+                  an heir first to redistribute — the will can never promise more than there is.
+                </p>
+              </div>
+            ) : (
             <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-5 space-y-4">
               <input
                 value={heirName}
@@ -428,15 +449,17 @@ export default function BondProfilePage() {
               />
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Share of the estate</p>
-                  <p className="text-sm font-black text-gray-900 font-mono">{heirShare}%</p>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                    Share of the estate · {remainingPct}% unallocated
+                  </p>
+                  <p className="text-sm font-black text-gray-900 font-mono">{effectiveShare}%</p>
                 </div>
                 <input
                   type="range"
                   min={5}
-                  max={100}
+                  max={remainingPct}
                   step={5}
-                  value={heirShare}
+                  value={effectiveShare}
                   onChange={(e) => setHeirShare(Number(e.target.value))}
                   className="w-full accent-amber-500"
                 />
@@ -450,6 +473,7 @@ export default function BondProfilePage() {
                 and only after both of you are gone.
               </p>
             </div>
+            )}
           </section>
         )}
 
@@ -481,9 +505,46 @@ export default function BondProfilePage() {
                 <p className="text-[12px] font-medium text-gray-800 text-right">{row.v}</p>
               </div>
             ))}
+            {/* Rules YOU TWO wrote — they feed both agents as binding context */}
+            {bondRules.map((r) => (
+              <div key={r.id} className="px-5 py-3.5 flex items-center gap-3">
+                <p className="text-[12px] font-medium text-gray-800 flex-1">{r.text}</p>
+                {r.status === 'awaiting-partner' ? (
+                  <span className="text-[8px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 shrink-0 flex items-center gap-1">
+                    <span className="w-1 h-1 rounded-full bg-amber-500 animate-pulse" />
+                    waiting for {bond.partner}
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => removeBondRule(r.id)}
+                    className="w-6 h-6 rounded-full flex items-center justify-center text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors shrink-0"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          {/* Write your own rule — context that makes the agents better */}
+          <div className="bg-white rounded-full border border-gray-100 pl-4 pr-1.5 py-1.5 flex items-center gap-2">
+            <input
+              value={ruleDraft}
+              onChange={(e) => setRuleDraft(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && submitRule()}
+              placeholder="Write a rule — e.g. never touch the holiday fund…"
+              className="flex-1 bg-transparent text-[13px] text-gray-800 font-medium placeholder:text-gray-300 outline-none"
+            />
+            <button
+              onClick={submitRule}
+              disabled={!ruleDraft.trim()}
+              className="w-8 h-8 bg-black rounded-full flex items-center justify-center text-white hover:bg-gray-900 transition-all active:scale-90 disabled:bg-gray-200 disabled:text-gray-400 shrink-0"
+            >
+              <ArrowUp size={13} />
+            </button>
           </div>
           <p className="text-[10px] text-gray-400 font-medium px-1">
-            Changing any rule = a new version — drafted by the trustee, released by both of you on your devices.
+            Your rules bind both agents in every negotiation. Adding one needs {bond.partner}&apos;s
+            co-sign — changing any rule = a new charter version on 0G.
           </p>
         </section>
       </main>

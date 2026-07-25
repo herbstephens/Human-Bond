@@ -240,6 +240,8 @@ type AgentState = {
   customFacts: BrainFact[];
   /** Heirs written into the inheritance bond's charter. */
   heirs: Heir[];
+  /** Rules/context you two wrote into the charter — they feed the agents. */
+  bondRules: { id: string; text: string; status: 'awaiting-partner' | 'active' }[];
   /** Live vault balances — deposits move them. */
   vaultBalances: Record<string, number>;
   /** One-time deposits you made, per bond (for the activity feed). */
@@ -287,6 +289,8 @@ type AgentState = {
   addFact: (text: string) => void;
   removeFact: (id: string) => void;
   addHeir: (name: string, sharePct: number) => void;
+  addBondRule: (text: string) => void;
+  removeBondRule: (id: string) => void;
   /** Removal from the will ALSO needs the partner — status walk, then gone. */
   requestRemoveHeir: (id: string) => void;
   deposit: (bondId: string, amount: number) => void;
@@ -360,6 +364,7 @@ export const useAgentStore = create<AgentState>()(
         agentBusy: false,
         customFacts: [],
         heirs: [],
+        bondRules: [],
         vaultBalances: { ...VAULT_BALANCES },
         deposits: [],
         standingOrders: { alice: 500, mika: 0 },
@@ -662,6 +667,7 @@ export const useAgentStore = create<AgentState>()(
                 stress: lab('stress'), fear: lab('fear'),
               },
               facts: s.customFacts.map((f) => f.text),
+              rules: s.bondRules.filter((r) => r.status === 'active').map((r) => r.text),
               vaultBalance: s.vaultBalances.alice ?? 0,
               history: s.messages
                 .filter((m): m is Extract<ChatMessage, { kind: 'text' }> => m.kind === 'text')
@@ -706,6 +712,9 @@ export const useAgentStore = create<AgentState>()(
           set((s) => ({ customFacts: s.customFacts.filter((f) => f.id !== id) })),
 
         addHeir: (name, sharePct) => {
+          const allocated = get().heirs.reduce((sum, h) => sum + h.sharePct, 0);
+          if (allocated + sharePct > 100)
+            throw new Error(`The will cannot allocate more than 100% — ${allocated}% already assigned.`);
           const id = mid();
           set((s) => ({
             heirs: [...s.heirs, { id, name, sharePct, status: 'awaiting-partner' as const }],
@@ -719,6 +728,22 @@ export const useAgentStore = create<AgentState>()(
             3200,
           );
         },
+
+        addBondRule: (text) => {
+          const id = mid();
+          set((s) => ({ bondRules: [...s.bondRules, { id, text, status: 'awaiting-partner' as const }] }));
+          // Rules bind both of you — Alice co-signs on her device.
+          setTimeout(
+            () =>
+              set((s) => ({
+                bondRules: s.bondRules.map((r) => (r.id === id ? { ...r, status: 'active' as const } : r)),
+              })),
+            3200,
+          );
+        },
+
+        removeBondRule: (id) =>
+          set((s) => ({ bondRules: s.bondRules.filter((r) => r.id !== id) })),
 
         requestRemoveHeir: (id) => {
           set((s) => ({
@@ -799,6 +824,7 @@ export const useAgentStore = create<AgentState>()(
             payments: {},
             customFacts: [],
             heirs: [],
+            bondRules: [],
             vaultBalances: { ...VAULT_BALANCES },
             deposits: [],
             standingOrders: { alice: 500, mika: 0 },
@@ -824,6 +850,7 @@ export const useAgentStore = create<AgentState>()(
         partnerAgentReady: s.partnerAgentReady,
         customFacts: s.customFacts,
         heirs: s.heirs,
+        bondRules: s.bondRules,
         vaultBalances: s.vaultBalances,
         deposits: s.deposits,
         standingOrders: s.standingOrders,
