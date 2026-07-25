@@ -100,7 +100,7 @@ async function main() {
     new NarratedDriver(
       new LlmDriver(
         { apiKey, model: process.env.ZG_ROUTER_MODEL, baseUrl: process.env.ZG_ROUTER_BASE_URL },
-        personalSystemPrompt(profile, partner),
+        personalSystemPrompt(profile, partner, charter),
         note,
       ),
       self.id,
