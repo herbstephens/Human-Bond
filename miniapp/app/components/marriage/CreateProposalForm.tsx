@@ -230,10 +230,12 @@ export function CreateProposalForm() {
               This is a beginning.
             </h1>
             <p className="text-[14px] font-medium text-gray-500 leading-relaxed max-w-[310px] mx-auto">
-              You&apos;re not opening an account. You&apos;re making a place that holds your
-              shared life, where money arrives to be built together, not split apart. While you
-              are both here, nothing moves unless you both say yes. And when one of you is gone,
-              it passes to the one who stays, and then to your children.
+              Most money is made to be divided. This is made to be shared. One address, held by
+              two, that no one can move alone, and that stays whole even when only one of you is
+              left. What you begin today, your heirs will one day hold.
+            </p>
+            <p className="text-[12px] font-medium text-gray-400 max-w-[310px] mx-auto pt-1">
+              Your agents look after the money, so you can look after each other.
             </p>
           </div>
         </div>
