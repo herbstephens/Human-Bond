@@ -6,6 +6,8 @@
  *   npm run agents:live              — LLM negotiation, in-memory storage
  *   npm run agents:live -- --kv      — persist brain/charter/history on 0G-KV
  *   npm run agents:live -- --uneasy  — after settling, Ben feels bad → renegotiation
+ *   npm run agents:live -- --invest  — trustee's yield package: agents vet it live,
+ *                                      hito gate blocks, humans release, executes
  *
  * Env (miniapp/.env.local): ZG_ROUTER_API_KEY required; for --kv also
  * ZG_KV_PRIVATE_KEY (funded Galileo key, faucet.0g.ai).
@@ -49,6 +51,7 @@ async function main() {
     throw new Error('ZG_ROUTER_API_KEY is not set — get one for router-api.0g.ai and put it in miniapp/.env.local.');
   const useKv = process.argv.includes('--kv');
   const uneasy = process.argv.includes('--uneasy');
+  const invest = process.argv.includes('--invest');
 
   const storage: HBStorage = useKv ? zeroGKvStorageFromEnv() : new MemoryStorage();
   console.log(`storage: ${useKv ? '0G-KV (Galileo)' : 'in-memory — run with --kv to persist on 0G'}`);
@@ -141,6 +144,39 @@ async function main() {
   for (const r of receipts) console.log(`  ${r.txRef}: ${r.amountUsdc.toFixed(2)} from ${r.fromHuman} → ${r.to}`);
   const history = await storage.readLog(`history/${charter.bondId}`);
   console.log(`  history on ${useKv ? '0G-KV' : 'memory'}: ${history.length} entr${history.length === 1 ? 'y' : 'ies'}`);
+
+  if (invest) {
+    h('LIVE invest case — the trustee found a package, the agents vet it');
+    const investReq = {
+      kind: 'investment' as const,
+      bondId: charter.bondId,
+      label: 'USDC yield vault · 4.1% APR · audited · instant exit',
+      recipient: 'vault',
+      amountUsdc: 8000,
+      requestedBy: 'trustee-scan',
+    };
+    const investNote =
+      'The trustee surfaced a market package: USDC yield vault, 4.1% APR, audited, instant exit — 8,000 USDC of the shared vault. Vet it against YOUR human’s profile (buffer rules, horizon, risk feel). If it fits, agree how the deployed amount is attributed between the two of you. If it does not fit, say why and refuse to offer.';
+    const { settlement: investSettlement } = await negotiate(
+      { identity: ben, driver: driverFor(ben, benProfile, 'Alice', investNote), profile: benProfile },
+      { identity: alice, driver: driverFor(alice, aliceProfile, 'Ben', investNote), profile: aliceProfile },
+      investReq,
+    );
+    console.log(`  agents agreed → ${JSON.stringify(investSettlement.shares)}`);
+
+    const investSigs = [await signSettlement(ben, investSettlement), await signSettlement(alice, investSettlement)];
+    let gate: Error | null = null;
+    try {
+      await trustee.execute({ settlement: investSettlement, signatures: investSigs });
+    } catch (e) {
+      gate = e as Error;
+    }
+    if (!gate) throw new Error('GUARDRAIL HOLE: 8,000 above joint threshold executed without human release');
+    console.log(`  \x1b[33mhito gate\x1b[0m: ${gate.message.split('.')[0]}`);
+    await trustee.execute({ settlement: investSettlement, signatures: investSigs }, { humansReleased: true });
+    console.log('  released on both hitos → executed');
+    for (const line of rail.log.slice(-1)) console.log(`  ${line}`);
+  }
 
   console.log('\nLive negotiation settled, signed by both agents, executed by the trustee.\n');
 }
