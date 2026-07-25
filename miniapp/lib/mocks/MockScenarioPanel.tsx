@@ -127,12 +127,12 @@ export function MockScenarioPanel() {
             ) : (
               <div className="p-2 flex flex-col gap-2">
                 <div className="px-1 py-1 space-y-0.5">
-                  <p className="text-[9px] uppercase tracking-widest text-white/40">Saldo</p>
+                  <p className="text-[9px] uppercase tracking-widest text-white/40">Balance</p>
                   <p className="text-sm font-black text-emerald-400 tabular-nums">
                     {formatUsdc(vault.balance)} USDC
                   </p>
                   <p className="text-[9px] text-white/40">
-                    gasto libre hoy: {formatUsdc(vault.freeWindowSpent)} / 25.00
+                    free spend today: {formatUsdc(vault.freeWindowSpent)} / 25.00
                   </p>
                 </div>
 
@@ -145,7 +145,7 @@ export function MockScenarioPanel() {
                         isSelf ? "bg-amber-500 text-black" : "bg-white/5 text-white/70 hover:bg-white/10"
                       }`}
                     >
-                      Vos
+                      You
                     </button>
                     <button
                       onClick={() => vault.setActingAs(MOCK_VAULT.PARTNER)}
@@ -153,18 +153,18 @@ export function MockScenarioPanel() {
                         !isSelf ? "bg-amber-500 text-black" : "bg-white/5 text-white/70 hover:bg-white/10"
                       }`}
                     >
-                      Pareja
+                      Partner
                     </button>
                   </div>
                   <p className="text-[9px] text-white/30 px-1 leading-relaxed">
-                    Cambiá a &quot;Pareja&quot; para ver Approve en /vault, o usá el deep link abajo.
+                    Switch to &quot;Partner&quot; to see Approve on /vault, or use the deep link below.
                   </p>
                 </div>
 
                 {pendingSpends.length > 0 ? (
                   <div className="space-y-1.5 pt-1 border-t border-white/10">
                     <p className="text-[9px] uppercase tracking-widest text-amber-400/80 px-1">
-                      Pendientes · simular notificación
+                      Pending · simulate notification
                     </p>
                     {pendingSpends.map((spend) => {
                       const proposedBySelf =
@@ -179,8 +179,8 @@ export function MockScenarioPanel() {
                             {formatUsdc(spend.amount)} USDC → {shortAddress(spend.to)}
                           </p>
                           <p className="text-[9px] text-white/40">
-                            Propuesto por {proposedBySelf ? "vos" : "pareja"} · abrir como{" "}
-                            {proposedBySelf ? "pareja" : "vos"}
+                            Proposed by {proposedBySelf ? "you" : "partner"} · open as{" "}
+                            {proposedBySelf ? "partner" : "you"}
                           </p>
                         </button>
                       );
@@ -188,7 +188,7 @@ export function MockScenarioPanel() {
                   </div>
                 ) : (
                   <p className="text-[9px] text-white/30 px-1 pt-1 border-t border-white/10 leading-relaxed">
-                    Mandá &gt;10 USDC (o más del allowance) para generar una solicitud pendiente.
+                    Send &gt;10 USDC (or over the allowance) to generate a pending request.
                   </p>
                 )}
 
@@ -207,7 +207,7 @@ export function MockScenarioPanel() {
                         : "bg-white/5 text-white/70 hover:bg-white/10"
                     }`}
                   >
-                    {vault.foreignAssets.length > 0 ? "Quitar 50 WLD" : "Meter 50 WLD"}
+                    {vault.foreignAssets.length > 0 ? "Remove 50 WLD" : "Add 50 WLD"}
                   </button>
                   <button
                     onClick={() =>
@@ -219,7 +219,7 @@ export function MockScenarioPanel() {
                     }
                     className="text-left text-[11px] font-bold px-3 py-2 rounded-lg bg-white/5 text-white/70 hover:bg-white/10 transition-colors"
                   >
-                    {vault.isCreated ? "Volver a onboarding" : "Marcar como creada"}
+                    {vault.isCreated ? "Back to onboarding" : "Mark as created"}
                   </button>
                   <button
                     onClick={vault.reset}

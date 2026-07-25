@@ -1,17 +1,22 @@
 // Contract Addresses on Worldchain Mainnet (Chain ID: 480) — V5
-// Deployed 2026-07-24. See contracts/DEPLOYMENT-v5.md for verification details.
+//
+// Defaults below are PRODUCTION (app_bfc…, humanbond.eth). Any NEXT_PUBLIC_* env var overrides
+// them, which is how the TEST environment is selected — see .env.local (app_925d0aaa…,
+// humandbond.eth). Keeping prod as the default means this file is safe to move to the official
+// repo: the test addresses live only in the gitignored .env.local and never travel with the code.
 export const CONTRACT_ADDRESSES = {
-  HUMAN_BOND: '0x7822e66B3597424424AA62d765E29eC89b9fD541' as const,        // Proxy (always use this)
-  BOND_NFT: '0x95deecB32F60B8b5BE45cd9F2c3D44ED8579Ad3e' as const,
-  MILESTONE_NFT: '0xe308AdC4bb0a39A6266D79f25Ac0BCbDA252cDBE' as const,
-  TIME_TOKEN: '0x8d292a670a41923CE99Ac9bc11EF8FFB87a04E84' as const,
+  HUMAN_BOND: (process.env.NEXT_PUBLIC_HUMAN_BOND ?? '0x7822e66B3597424424AA62d765E29eC89b9fD541') as `0x${string}`, // Proxy (always use this)
+  BOND_NFT: (process.env.NEXT_PUBLIC_BOND_NFT ?? '0x95deecB32F60B8b5BE45cd9F2c3D44ED8579Ad3e') as `0x${string}`,
+  MILESTONE_NFT: (process.env.NEXT_PUBLIC_MILESTONE_NFT ?? '0xe308AdC4bb0a39A6266D79f25Ac0BCbDA252cDBE') as `0x${string}`,
+  TIME_TOKEN: (process.env.NEXT_PUBLIC_TIME_TOKEN ?? '0x8d292a670a41923CE99Ac9bc11EF8FFB87a04E84') as `0x${string}`,
   // ENS subname registrar — the third call in the vault-creation batch.
-  BOND_REGISTRAR: '0xEea00940991d31b7a39c0A24BD8fcf259aAC839A' as const,
+  BOND_REGISTRAR: (process.env.NEXT_PUBLIC_BOND_REGISTRAR ?? '0xEea00940991d31b7a39c0A24BD8fcf259aAC839A') as `0x${string}`,
 } as const
 
-// World App Configuration — production app (V5 nullifiers derive from this app_id, immutable)
+// World App Configuration — nullifiers derive from this app_id (immutable per deploy). Default is
+// the production app; NEXT_PUBLIC_WORLD_APP_ID overrides it for the test app.
 export const WORLD_APP_CONFIG = {
-  APP_ID: 'app_bfc3261816aeadc589f9c6f80a98f5df' as `app_${string}`,
+  APP_ID: (process.env.NEXT_PUBLIC_WORLD_APP_ID ?? 'app_bfc3261816aeadc589f9c6f80a98f5df') as `app_${string}`,
   ACTIONS: {
     PROPOSE_BOND: 'propose-bond',
     ACCEPT_BOND: 'accept-bond',

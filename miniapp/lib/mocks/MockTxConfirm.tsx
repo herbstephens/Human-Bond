@@ -47,7 +47,7 @@ export function MockTxConfirm() {
             {pending?.label ?? "Confirm transaction"}
           </DialogTitle>
           <DialogDescription className="text-xs text-white/50 font-medium leading-relaxed">
-            Simula la confirmación de World App. Aceptá para continuar o rechazá para abortar.
+            Simulates the World App confirm sheet. Accept to continue, or reject to abort.
           </DialogDescription>
         </DialogHeader>
 
