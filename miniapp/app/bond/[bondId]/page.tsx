@@ -1,18 +1,17 @@
 /**
  * S-A5: Bond profile — a small bank dashboard in crypto terms.
  *
- * Balance & receive address, the TRUSTEE ROOM (you talk to the bond's
- * neutral manager HERE, not in your personal chat — your agent advocates,
- * the trustee administers), idle-money proposals (proactive when funds sit
- * parked), charter settings, heirs (add your kid — claims bind to the
- * human via World ID, active at 18 via NFC), and activity.
+ * The trustee is PROACTIVE: it consults both personal agents against their
+ * profiles, scans the market, and when the agents agree something fits, the
+ * humans get a push-style OPPORTUNITY card — never a survey. Rules live at
+ * the bottom (settings). Will entries need both partners' release.
  */
 'use client';
 
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowUp, Check, Landmark, X } from 'lucide-react';
+import { ArrowLeft, ArrowUp, Bell, Check, Landmark, X } from 'lucide-react';
 import { AliveCta } from '@/app/components/agent/AliveCta';
 import { BONDS, VAULT_BALANCES, useAgentStore } from '@/lib/agent/agentStore';
 
@@ -60,24 +59,29 @@ export default function BondProfilePage() {
     if (!agentReady) router.replace('/home');
   }, [agentReady, router]);
 
-  // The proactive loop: idle money makes the trustee speak first.
+  // PROACTIVE: the trustee consulted both agents overnight — the humans get
+  // an opportunity, not a question. Intro line, then the push-style card.
   useEffect(() => {
     if (!agentReady || greeted.current || !isInheritance) return;
     greeted.current = true;
     setBusy(true);
-    const t = setTimeout(() => {
+    const t1 = setTimeout(() => {
       setMsgs([
         {
           id: rid++,
           who: 'trustee',
-          text: `I manage this bond for both of you — neutrally. Right now ${balance.toLocaleString('en-US', { minimumFractionDigits: 2 })} USDC sits idle here. Want a proposal for what to do with it?`,
+          text: 'I spoke with both your agents this morning and scanned the market against your profiles. One thing fits — I sent it to both of you.',
           typed: true,
         },
       ]);
       setBusy(false);
     }, 900);
-    return () => clearTimeout(t);
-  }, [agentReady, isInheritance, balance]);
+    const t2 = setTimeout(() => setYieldState('proposed'), 5200);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [agentReady, isInheritance]);
 
   // Scroll only within reach of the chat — never yank the page to the bottom.
   useEffect(() => {
@@ -98,19 +102,11 @@ export default function BondProfilePage() {
     }, 800);
   };
 
-  const askProposal = () => {
-    setMsgs((m) => [...m, { id: rid++, who: 'you', text: 'Yes — what would you do with it?' }]);
-    pushTrustee(
-      'Your joint runway needs ~1,800 for six months of shared expenses. I would keep 2,000 liquid and move 8,000 into the USDC yield vault at 4.1% — projected +328 a year for the family. Nothing moves without both of you releasing it.',
-      () => setYieldState('proposed'),
-    );
-  };
-
   const releaseYield = () => {
     setYieldState('you-ok');
     setTimeout(() => {
       setYieldState('done');
-      pushTrustee('Done — Alice released on her device too. 8,000 USDC are earning for the family now. I’ll report monthly.');
+      pushTrustee('Alice released on her device too. 8,000 USDC are earning for the family now — I’ll report monthly, and your buffer stays untouched.');
     }, 2600);
   };
 
@@ -119,13 +115,14 @@ export default function BondProfilePage() {
     if (!text) return;
     setMsgs((m) => [...m, { id: rid++, who: 'you', text }]);
     setDraft('');
-    if (/propos|vorschlag|yield|10|money|geld|idle/i.test(text) && yieldState === 'none') {
+    if (/market|invest|opportun|zins|yield|rate/i.test(text)) {
       pushTrustee(
-        'On the idle funds: I would keep 2,000 liquid for shared expenses and move 8,000 into the USDC yield vault at 4.1% — projected +328 a year. Both of you release, or nothing moves.',
-        () => setYieldState('proposed'),
+        'Market read for you two: dollar yield vaults pay ~4.1% right now, ETH staking ~3.2% but it swings — and Ben’s agent holds a hard line on the emergency buffer. So I stay in the dollar vault and revisit monthly. If something better appears that matches both profiles, you’ll hear from me first.',
       );
     } else {
-      pushTrustee('Noted for the charter. If it needs a rule change, I’ll draft it and ask both of you to release it.');
+      pushTrustee(
+        'Let me take that to your agents… Ben’s agent weighs it against your buffer-first profile, Alice’s against her long-term plan — both are fine with it. I’ll fold it into how I manage this vault; if it ever needs to become a written rule, I’ll draft it and ask you both to release.',
+      );
     }
   };
 
@@ -212,21 +209,32 @@ export default function BondProfilePage() {
               </div>
             )}
 
-            {/* Yield proposal card */}
+            {/* The OPPORTUNITY — arrives like a push notification, not a survey */}
             {yieldState !== 'none' && (
-              <div className="border border-gray-100 rounded-2xl overflow-hidden">
+              <div className="border border-amber-200 rounded-2xl overflow-hidden shadow-[0_10px_30px_rgba(245,158,11,0.10)] animate-in fade-in slide-in-from-bottom-2 duration-500">
                 <div className={`px-4 py-3 ${yieldState === 'done' ? 'bg-emerald-50' : 'bg-amber-50'}`}>
-                  <p className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500">Trustee proposal · both must release</p>
-                  <p className="text-[13px] font-black text-gray-900 mt-0.5">8,000 → USDC yield vault · 4.1% · +328/yr</p>
+                  <div className="flex items-center gap-2">
+                    <Bell size={11} className={yieldState === 'done' ? 'text-emerald-500' : 'text-amber-500'} />
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 flex-1">
+                      Opportunity · matched to both your profiles
+                    </p>
+                    <span className="text-[8px] font-black uppercase tracking-widest text-gray-400">now</span>
+                  </div>
+                  <p className="text-[13px] font-black text-gray-900 mt-1.5">USDC yield vault · 4.1% · audited · instant exit</p>
+                  <p className="text-[11px] font-medium text-gray-500 mt-1 leading-relaxed">
+                    Why you two: Ben’s agent insists on the emergency buffer → 2,000 stay liquid.
+                    Alice’s agent optimizes long-term → 8,000 go to work (+328/yr).
+                    <span className="font-bold text-gray-700"> Both agents agree it fits.</span>
+                  </p>
                 </div>
-                <div className="px-4 py-3 space-y-2">
+                <div className="px-4 py-3 space-y-2 bg-white">
                   <div className="flex items-center gap-2 text-[12px] font-medium text-gray-700">
                     <Check size={12} className={yieldState !== 'proposed' ? 'text-emerald-500' : 'text-gray-300'} />
-                    You {yieldState !== 'proposed' ? '— released on your hito' : '— waiting'}
+                    You {yieldState !== 'proposed' ? '— released on your hito' : '— your release is the only thing missing'}
                   </div>
                   <div className="flex items-center gap-2 text-[12px] font-medium text-gray-700">
                     <Check size={12} className={yieldState === 'done' ? 'text-emerald-500' : 'text-gray-300'} />
-                    Alice {yieldState === 'done' ? '— released on hers' : '— waiting'}
+                    Alice {yieldState === 'done' ? '— released on hers' : '— gets the same card right now'}
                   </div>
                   {yieldState === 'proposed' && (
                     <AliveCta onClick={releaseYield} className="w-full px-4 py-3 rounded-xl text-[10px] tracking-[0.15em] mt-1">
@@ -242,21 +250,13 @@ export default function BondProfilePage() {
               </div>
             )}
 
-            {/* Quick ask + input */}
-            {msgs.length > 0 && yieldState === 'none' && !busy && (
-              <button
-                onClick={askProposal}
-                className="px-4 py-2 bg-white border border-gray-200 rounded-full text-[11px] font-bold text-gray-600 hover:bg-gray-50 transition-all"
-              >
-                Yes — make a proposal
-              </button>
-            )}
+            {/* Input */}
             <div className="flex items-center gap-2 pt-1">
               <input
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && submitDraft()}
-                placeholder="Tell the trustee something…"
+                placeholder="Ask the trustee anything…"
                 className="flex-1 bg-gray-50 rounded-full px-4 py-2.5 text-[13px] text-gray-800 font-medium placeholder:text-gray-300 outline-none border border-gray-100"
               />
               <button
@@ -272,39 +272,34 @@ export default function BondProfilePage() {
           </div>
         </section>
 
-        {/* Charter settings */}
-        <section className="space-y-3">
-          <h2 className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-400">Charter · rules both of you released</h2>
-          <div className="bg-white rounded-2xl border border-gray-100 divide-y divide-gray-100">
-            {[
-              { k: 'Split of shared expenses', v: 'By income — currently you 10% · Alice 90%' },
-              { k: 'Your hardware threshold', v: `hito above ${threshold}` },
-              { k: 'Proof of life', v: 'Selfie Check · every 90 days' },
-              { k: 'Charter document', v: 'v2 · encrypted on 0G storage' },
-            ].map((row) => (
-              <div key={row.k} className="px-5 py-3.5 flex items-center justify-between gap-4">
-                <p className="text-[12px] font-bold text-gray-500">{row.k}</p>
-                <p className="text-[12px] font-medium text-gray-800 text-right">{row.v}</p>
-              </div>
-            ))}
-          </div>
-          <p className="text-[10px] text-gray-400 font-medium px-1">
-            Changing a rule = a new charter version — drafted by the trustee, released by both of you.
-          </p>
-        </section>
-
-        {/* Heirs — the estate lives inside this bond */}
+        {/* Heirs — the will lives inside this bond */}
         {isInheritance && (
           <section className="space-y-3">
             <h2 className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-400">
-              Heirs · who claims when you’re both gone
+              Your will · who claims when you’re both gone
             </h2>
             {heirs.map((h) => (
-              <div key={h.id} className="bg-white rounded-2xl border border-gray-100 px-5 py-4 flex items-center justify-between">
+              <div
+                key={h.id}
+                className={`bg-white rounded-2xl border px-5 py-4 flex items-center justify-between ${
+                  h.status === 'awaiting-partner' ? 'border-amber-200' : 'border-gray-100'
+                }`}
+              >
                 <div>
                   <p className="text-sm font-black text-gray-900">{h.name}</p>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-0.5">
-                    {h.status === 'pending-nfc' ? 'No wallet yet · claimable at 18 via NFC' : 'Verified'}
+                  <p
+                    className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 ${
+                      h.status === 'awaiting-partner' ? 'text-amber-600' : 'text-gray-400'
+                    }`}
+                  >
+                    {h.status === 'awaiting-partner' ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        Waiting for {bond.partner} to co-sign
+                      </span>
+                    ) : (
+                      'In the will · claimable at 18 via NFC'
+                    )}
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
@@ -341,10 +336,11 @@ export default function BondProfilePage() {
                 />
               </div>
               <AliveCta onClick={submitHeir} className="w-full px-6 py-3.5 rounded-xl text-[11px] tracking-[0.15em]">
-                Add to the charter
+                Write into our will
               </AliveCta>
               <p className="text-[10px] text-gray-400 font-medium">
-                No wallet needed — the claim binds to the human. It unlocks with NFC age verification at 18,
+                A will entry needs both of you — {bond.partner} gets asked to co-sign on her device.
+                No wallet needed for the heir: the claim binds to the human, unlocks at 18 via NFC,
                 and only after both of you are gone.
               </p>
             </div>
@@ -364,6 +360,26 @@ export default function BondProfilePage() {
           </div>
         </section>
 
+        {/* Rules — settings, at the bottom where settings belong */}
+        <section className="space-y-3">
+          <h2 className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-400">Rules · what you two agreed</h2>
+          <div className="bg-white rounded-2xl border border-gray-100 divide-y divide-gray-100">
+            {[
+              { k: 'Split of shared expenses', v: 'By income — currently you 10% · Alice 90%' },
+              { k: 'Your hardware threshold', v: `hito above ${threshold}` },
+              { k: 'Proof of life', v: 'Selfie Check · every 90 days' },
+              { k: 'Will & rules document', v: 'v2 · encrypted on 0G storage' },
+            ].map((row) => (
+              <div key={row.k} className="px-5 py-3.5 flex items-center justify-between gap-4">
+                <p className="text-[12px] font-bold text-gray-500">{row.k}</p>
+                <p className="text-[12px] font-medium text-gray-800 text-right">{row.v}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-[10px] text-gray-400 font-medium px-1">
+            Changing any rule = a new version — drafted by the trustee, released by both of you on your devices.
+          </p>
+        </section>
       </main>
     </div>
   );

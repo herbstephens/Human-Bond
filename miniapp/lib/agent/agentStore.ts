@@ -147,8 +147,10 @@ export const BONDS = [
 /** Parked vault balances (mock) — fed by standing orders from both partners. */
 export const VAULT_BALANCES: Record<string, number> = { alice: 10000, mika: 0 };
 
-/** An heir inside a bond's charter — claims bind to the human, not a wallet. */
-export type Heir = { id: string; name: string; sharePct: number; status: 'pending-nfc' | 'active' };
+/** An heir inside a bond's charter — claims bind to the human, not a wallet.
+ *  awaiting-partner: written by you, waiting for the partner's release.
+ *  pending-nfc: in the will; claim unlocks via NFC age verification at 18. */
+export type Heir = { id: string; name: string; sharePct: number; status: 'awaiting-partner' | 'pending-nfc' | 'active' };
 
 /** Sources the agent can pull an existing self from. */
 export const IMPORT_SOURCES = [
@@ -593,10 +595,20 @@ export const useAgentStore = create<AgentState>()(
         removeFact: (id) =>
           set((s) => ({ customFacts: s.customFacts.filter((f) => f.id !== id) })),
 
-        addHeir: (name, sharePct) =>
+        addHeir: (name, sharePct) => {
+          const id = mid();
           set((s) => ({
-            heirs: [...s.heirs, { id: mid(), name, sharePct, status: 'pending-nfc' as const }],
-          })),
+            heirs: [...s.heirs, { id, name, sharePct, status: 'awaiting-partner' as const }],
+          }));
+          // A will entry needs both signatures — Alice releases on her device.
+          setTimeout(
+            () =>
+              set((s) => ({
+                heirs: s.heirs.map((h) => (h.id === id ? { ...h, status: 'pending-nfc' as const } : h)),
+              })),
+            3200,
+          );
+        },
 
         removeHeir: (id) => set((s) => ({ heirs: s.heirs.filter((h) => h.id !== id) })),
 
