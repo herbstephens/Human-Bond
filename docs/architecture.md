@@ -1,256 +1,208 @@
-# HumanBond Technical Architecture
+# HumanBond — Technical Architecture
+
+A compact reference to the on-chain and multi-chain design for World Build 3 judges who want to verify the work.
 
 ---
 
 ## System Overview
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     World App Store                         │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │              HumanBond Mini App (Franco)             │   │
-│  │   MiniKit SDK · Next.js · World Chain RPC            │   │
-│  └──────────────────────┬──────────────────────────────┘   │
-└─────────────────────────┼───────────────────────────────────┘
+                ┌──────────────────────────────┐
+                │         WORLD APP            │
+                │      (Mini App, MiniKit 2)   │
+                └───────────────┬──────────────┘
+                                │
+                                │ Orb ZK proof
+                                ▼
+                ┌──────────────────────────────┐
+                │   World ID Router (mainnet)  │
+                │   0x17B3...39A278            │
+                └───────────────┬──────────────┘
+                                │ verifyProof()
+                                ▼
+        ┌───────────────────────────────────────────────┐
+        │                  HumanBond                    │
+        │           (core engine, World Chain)          │
+        │  ┌─────────┬──────────┬──────────┬─────────┐  │
+        │  │ propose │  accept  │  claim   │ divorce │  │
+        │  └─────────┴──────────┴──────────┴─────────┘  │
+        └────┬────────────┬─────────────┬──────────┬────┘
+             │            │             │          │
+             ▼            ▼             ▼          ▼
+        ┌────────┐  ┌──────────┐  ┌────────┐  ┌────────┐
+        │ VowNFT │  │MilestoneN│  │TimeTok │  │Registry│
+        │ (SBT)  │  │FT (SBT)  │  │(ERC20) │  │(query) │
+        └────────┘  └──────────┘  └────────┘  └────────┘
+
+                (canonical registry = World Chain)
                           │
-         ┌────────────────┼────────────────┐
-         │                │                │
-         ▼                ▼                ▼
-  ┌─────────────┐  ┌────────────┐  ┌─────────────────┐
-  │  World ID   │  │   Walrus   │  │     The Graph   │
-  │  ZK Proofs  │  │  Storage   │  │    Subgraph     │
-  │ Selfie/NFC/ │  │  Sui eco   │  │  Partnership    │
-  │     Orb     │  │            │  │   Registry      │
-  └──────┬──────┘  └─────┬──────┘  └────────┬────────┘
-         │               │                   │
-         └───────────────┼───────────────────┘
-                         │
-         ┌───────────────▼───────────────────────────┐
-         │         World Chain Mainnet (chainId: 480) │
-         │                                            │
-         │  HumanBond.sol ←→ VowNFT.sol              │
-         │       ↓                ↓                   │
-         │  MilestoneNFT.sol   TIMEToken.sol          │
-         └────────────────────────────────────────────┘
-                         │
-         ┌───────────────▼────────────────┐
-         │         ENS (Ethereum)          │
-         │  name1-name2.humanbond.eth      │
-         │  → shared receiving address     │
-         └─────────────────────────────────┘
+            ┌─────────────┼─────────────┐
+            │             │             │
+            ▼             ▼             ▼
+        ┌─────────┐  ┌─────────┐  ┌─────────┐
+        │Ethereum │  │  NEAR   │  │  (more) │
+        │satellite│  │satellite│  │         │
+        └─────────┘  └─────────┘  └─────────┘
 ```
 
 ---
 
-## Bond Formation Flow
+## On-Chain State Model
 
+**Marriage ID (deterministic):**
+```solidity
+keccak256(a < b ? abi.encodePacked(a, b) : abi.encodePacked(b, a))
 ```
-Partner A                    Partner B
-    │                            │
-    │ 1. Verify identity         │
-    │    (Selfie/NFC/Orb)        │
-    │                            │
-    │ 2. proposeBond()           │
-    │    World ID proof          │
-    │    external nullifier:     │
-    │    "humanbond-propose"     │
-    │                            │
-    │ 3. Share partner code ──→  │
-    │                            │ 4. Verify identity
-    │                            │    (Selfie/NFC/Orb)
-    │                            │
-    │                            │ 5. acceptBond()
-    │                            │    World ID proof
-    │                            │    external nullifier:
-    │                            │    "humanbond-accept"
-    │                            │
-    │  ←──── VowNFT minted ──────│
-    │                            │
-    │ 6. Register ENS subname    │
-    │    name1-name2.humanbond.eth│
-    │                            │
-    │ 7. Store charter on Walrus │
-    │    → blobId saved in       │
-    │      VowNFT tokenURI       │
-    │                            │
-    │  BOND ACTIVE               │
+Address order doesn't matter. Given any two addresses, the marriage ID is derivable with zero lookups.
+
+**Core mappings (in `HumanBond.sol`):**
+```solidity
+mapping(address => Proposal)     public proposals;          // proposer => pending proposal
+mapping(address => address[])    public proposalsFor;       // proposed => list of proposers
+mapping(address => uint256)      public proposerIndex;      // proposer => index in proposalsFor
+mapping(bytes32 => Marriage)     public marriages;          // marriageId => active state
+mapping(address => bytes32)      public activeMarriageOf;   // user => active marriageId
+mapping(address => uint256)      public lastDivorceTimestamp; // cooldown tracking
 ```
+
+**Proposal indexing is O(1) add and remove** via the swap-and-pop pattern — critical for keeping gas predictable when a popular address has many incoming proposals.
 
 ---
 
-## Income Split Flow
+## World ID Integration
 
+Two separate **external nullifiers** are computed at deploy time:
+
+```solidity
+externalNullifierPropose = hash(appId || "propose-bond")
+externalNullifierAccept  = hash(appId || "accept-bond")
 ```
-Client/Payer
-    │
-    │ pays for work
-    ▼
-HumanBond.finalizeWorkAndDistribute(
-    workerNullifier,
-    workAmount,
-    payerAddress,
-    workVerificationHash
-)
-    │
-    ├── verify: worker is in active partnership
-    │
-    ├── calculate split:
-    │     workerShare = workAmount × 50%
-    │     partnerShare = workAmount × 50%
-    │
-    ├── TIMEToken.mint(workerWallet, workerShare)
-    ├── TIMEToken.mint(partnerWallet, partnerShare)
-    │
-    ├── emit IncomeSplit(vowNFTId, workerShare, partnerShare, payer)
-    │
-    └── record in incomeRecords[vowNFTId]
-            │
-            ▼
-    The Graph indexes the event
-    → available via subgraph query
-    → available in Mini App dashboard
-```
+
+This matters because:
+
+1. A proof generated for `propose-bond` **cannot** be replayed as an `accept-bond` proof — the external nullifier is part of what the circuit commits to.
+2. World ID internally tracks `(nullifierHash, externalNullifier)` pairs as spent, so a single user can propose to many people (different nullifiers each time) without collision against their accept action space.
+
+**Group ID 1 (Orb-only):** we explicitly do not accept Device-level verification. Marriage is a legal-adjacent act; we want the strongest available proof of personhood.
+
+**App ID:** `app_bfc3261816aeadc589f9c6f80a98f5df` (registered with World Foundation).
 
 ---
 
-## Identity Architecture
+## Yield Math
 
-HumanBond uses three World identity credentials, selected during bond formation:
-
-```
-Tier 3: World Orb (Proof of Humanity)
-  ├── Iris biometric scan
-  ├── ZK proof of unique humanity
-  ├── Full governance weight in TIME Protocol
-  └── Strongest sybil resistance
-
-Tier 2: NFC Credentials (World beta)
-  ├── Reads NFC chip from biometric passport
-  ├── Verifies: age >18, jurisdiction
-  ├── Document-backed identity
-  └── Enhanced sybil resistance
-
-Tier 1: Selfie Check (World beta)
-  ├── Selfie liveness detection
-  ├── Confirms real, live person
-  ├── Standard weight
-  └── No ID required — friction-free entry
-
-Tier 0: (future) Peer Vouching
-  ├── 3 verified HumanBond partners attest identity
-  └── Entry level — lowest friction
-```
-
-Identity tiers are recorded immutably in the VowNFT at bond formation. Can be upgraded (not downgraded) by re-verifying with higher tier credentials.
-
----
-
-## World ID External Nullifiers
-
-HumanBond uses two separate external nullifiers to prevent proof replay:
-
-```javascript
-// Propose action
-const PROPOSE_NULLIFIER = keccak256("humanbond-propose-v2")
-
-// Accept action
-const ACCEPT_NULLIFIER = keccak256("humanbond-accept-v2")
-```
-
-A proof generated for the propose action cannot be replayed as an accept. Both nullifiers are checked against World ID's used-proof registry to prevent double-spending.
-
----
-
-## Walrus Storage Schema
-
-```
-blobId = store({
-  name: "HumanBond Partnership Charter",
-  version: "2.0",
-  bondedAt: 1717200000,
-  partnerA: {
-    nullifierHash: "0x...",  // World ID nullifier, privacy-preserving
-    identityTier: 3,
-    verifiedAt: 1717200000,
-  },
-  partnerB: {
-    nullifierHash: "0x...",
-    identityTier: 2,
-    verifiedAt: 1717200000,
-  },
-  splitBps: 5000,             // 50/50
-  ensSubname: "herb-agatha.humanbond.eth",
-  jurisdiction: "PT",         // from NFC credentials (if available)
-  charter: "[optional text]", // partnership description / vows
-  incomeHistory: [],          // updated off-chain via The Graph
-})
-```
-
-VowNFT tokenURI: `walrus://[blobId]`
-
----
-
-## ENS Architecture
-
-```
-humanbond.eth (parent name, controlled by HumanBond protocol)
-    │
-    ├── herb-agatha.humanbond.eth
-    │       resolution: 0x[shared address]
-    │       text records:
-    │           vowNFT: "0xa1650cc5...:#42"
-    │           identityTierA: "3"
-    │           identityTierB: "2"
-    │           timeProtocol: "splitBps=5000"
-    │           walrusCharter: "walrus://[blobId]"
-    │
-    └── [every HumanBond partnership gets a subname]
-```
-
-The "shared address" is a multisig or shared wallet controlled by both partners. Or: the ENS name resolves to the HumanBond contract address, which routes payments to the split function.
-
----
-
-## The Graph Subgraph Schema
-
-```graphql
-type Partnership @entity {
-  id: ID!                          # vowNFT token ID
-  partnerANullifier: Bytes!
-  partnerBNullifier: Bytes!
-  vowNFTTokenId: BigInt!
-  bondedAt: BigInt!
-  identityTierA: Int!
-  identityTierB: Int!
-  active: Boolean!
-  splitBps: Int!
-  ensSubname: String
-  charterWalrus: String
-  milestones: [Milestone!]! @derivedFrom(field: "partnership")
-  incomeSplits: [IncomeSplit!]! @derivedFrom(field: "partnership")
-}
-
-type IncomeSplit @entity {
-  id: ID!                          # txHash-logIndex
-  partnership: Partnership!
-  amount: BigInt!
-  workerShare: BigInt!
-  partnerShare: BigInt!
-  payerAddress: Bytes!
-  timestamp: BigInt!
-  txHash: Bytes!
-}
-
-type Milestone @entity {
-  id: ID!
-  partnership: Partnership!
-  tokenId: BigInt!
-  description: String!
-  completedAt: BigInt!
-  metadataWalrus: String
+```solidity
+function _pendingYield(bytes32 marriageId) internal view returns (uint256) {
+    Marriage storage m = marriages[marriageId];
+    if (!m.active) return 0;
+    uint256 daysElapsed = (block.timestamp - m.lastClaim) / 1 days;
+    return daysElapsed * 1 ether;  // 1 TIME per day
 }
 ```
 
+Notes:
+- **No continuous accrual loop.** Yield is computed lazily at claim time, so the cost per day is zero — we only pay gas when claiming.
+- **Partial days round down.** Bonded for 3.7 days and claiming? You get 3 TIME. The 0.7 day remainder stays on the `lastClaim` timestamp for next time.
+- **Split:** `reward / 2` to partner A, `reward - split` to partner B (captures odd-wei remainders so no dust is lost).
+
 ---
 
-*democracy.earth · timeprotocol.earth · July 2026*
+## Soulbound NFT Enforcement
+
+Both `VowNFT` and `MilestoneNFT` override ERC-721 `_update` to revert on transfer:
+
+```solidity
+function _update(address to, uint256 tokenId, address auth) internal override returns (address) {
+    address from = _ownerOf(tokenId);
+    if (from != address(0) && to != from) {
+        revert TransfersDisabled();
+    }
+    return super._update(to, tokenId, auth);
+}
+```
+
+Mint is allowed (`from == address(0)`). Burn is blocked implicitly by having no burn function. Transfer is blocked explicitly. This makes marriage status and anniversaries **non-fungible biography** — provable, permanent, non-transferable.
+
+---
+
+## Divorce Semantics
+
+```solidity
+function divorce(address partner) external {
+    // 1. compute deterministic marriageId
+    // 2. auto-mint and split any pending yield
+    // 3. mark marriage inactive (DO NOT delete — preserve history)
+    // 4. record lastDivorceTimestamp for both partners (30-day cooldown)
+    // 5. clear activeMarriageOf[] for both
+    // 6. increment totalDivorceCount
+}
+```
+
+Three deliberate choices:
+
+1. **No data deletion.** The `Marriage` struct remains in storage with `active = false`. Anyone can still query the historical relationship. This is critical for the Registry API — "was this person ever bonded?" is a valid question.
+2. **Yield auto-mints on divorce.** If you're owed 47 TIME when your partner divorces you, those 47 TIME are minted and split as part of the `divorce()` transaction. Nothing is stranded.
+3. **30-day cooldown.** Prevents propose/accept/divorce spam loops and gives either party breathing room before re-entering the network.
+
+---
+
+## Multi-Chain Architecture
+
+**World Chain is canonical.** Every Marriage, Vow NFT, and TIME mint originates here.
+
+**Ethereum and NEAR are satellites.** They mirror the canonical registry and hold their own TIME liquidity pools for DEX integration. The satellite model uses:
+
+1. **One-way event replay** — satellites listen to World Chain `ProposalAccepted` and `MarriageDissolved` events and update their local mirror
+2. **Day-scoped chain-agnostic nullifiers** for any future cross-chain TIME minting — ensures no human mints more than 24 TIME/day across all chains combined
+3. **Fallback reads** — dApps can query any satellite for registry state with eventual consistency (typically < 60s)
+
+The Ethereum satellite is live; NEAR is live with the bridge operator running. Future satellites (L2s, Solana) follow the same pattern.
+
+---
+
+## Gas & Efficiency
+
+Representative World Chain mainnet gas costs (pre-optimization):
+
+| Call | Approx. gas | Notes |
+|---|---|---|
+| `propose()` | ~180k | Includes World ID verification |
+| `accept()` | ~420k | World ID verify + 2 NFT mints + 2 TIME mints |
+| `claimYield()` | ~95k | Two ERC-20 mints |
+| `manualCheckAndMint()` | ~140k + 50k/year | Catch-up milestone minting |
+| `divorce()` | ~120k | State update + auto-claim |
+
+The expensive path is `accept()` — this is the moment with two NFT mints, two ERC-20 mints, a World ID proof, and multiple storage writes. Everything else is sub-200k.
+
+---
+
+## Testing
+
+Foundry-based test suite in [`contracts/test/`](../contracts/test/):
+
+- `HumanBond.t.sol` — full lifecycle tests with mocked World ID
+- `VowNFTtest.t.sol` — soulbound enforcement, metadata, authorization
+- `MilestoneNFTtest.t.sol` — upgradeable URI registry, catch-up minting, freeze
+- `integrations/Deploytest.t.sol` — end-to-end deploy-script integration test
+- `utils/MarriageHelper.sol` — fixture factory for bonded pairs
+- `utils/MockWorldId.sol` — protocol-faithful mock of the World ID router for unit tests
+
+Run:
+```bash
+cd contracts
+forge test -vvv
+```
+
+---
+
+## Deployed Addresses (World Chain Mainnet)
+
+| Contract | Address |
+|---|---|
+| HumanBond | `0xB3cbCB0294995FE1aCD7187B94aEDBD4555c5A63` |
+| VowNFT | `0x8c64c304854F9284ddb976918dF37Bd4f5949F22` |
+| MilestoneNFT | `0x566c4a366625F08A714dd092f8bD2F0E86f906f5` |
+| TimeToken | `0x39e629681a9db65D9352961d8dCD4C96C4A1169a` |
+| World ID Router (ref.) | `0x17B354dD2595411ff79041f930e491A4Df39A278` |
+
+All verified on [worldscan.org](https://worldscan.org). Source of truth: Leticia's canonical repo at <https://github.com/leticarolina/worldid-marriage-protocol>.
