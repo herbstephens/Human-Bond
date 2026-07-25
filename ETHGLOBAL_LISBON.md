@@ -17,7 +17,7 @@ HumanBond is a two-person partnership protocol deployed and live on World Chain 
 - `finalizeWorkAndDistribute()` — 50/50 Work TIME split on payment receipt. When a payment is received for verified work, the contract mints TIME and distributes 50% to the worker and 50% to their bonded partner automatically. No manual split required. No trust required.
 - **World 'Selfie Check' and 'NFC Credentials' ** — this adds two layers to the ID stack, eliminating use friction by introducing Tier 2 and Tier 3 sign-up [to the existing Tier 0 and Tier 4, iris orb scan].
 - **ENS subname registration** — During bond formation, partners register `name1-name2.humanbond.eth` as their shared economic address
-- **Walrus storage** — VowNFT metadata, partnership charter, and milestone records stored permanently on Walrus (Sui ecosystem)
+- **0G storage** — VowNFT metadata, partnership charter, and milestone records stored permanently on Walrus (Sui ecosystem)
 - **The Graph subgraph** — Partnership Registry indexed and queryable via standard subgraph API
 
 ---
