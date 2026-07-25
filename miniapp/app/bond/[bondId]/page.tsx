@@ -36,6 +36,8 @@ function TypeOnce({ text }: { text: string }) {
 }
 
 type YieldState = 'none' | 'proposed' | 'you-ok' | 'done';
+/** A vault action the LIVE trustee flagged — walks the same dual-hito release as the scripted card. */
+type LiveAction = { kind: 'divest' | 'invest'; amount: number; apr: number; stage: 'proposed' | 'you-ok' | 'done' };
 
 export default function BondProfilePage() {
   const router = useRouter();
@@ -55,6 +57,7 @@ export default function BondProfilePage() {
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState('');
   const [yieldState, setYieldState] = useState<YieldState>(() => (invested ? 'done' : 'none'));
+  const [liveAction, setLiveAction] = useState<LiveAction | null>(null);
   const [heirName, setHeirName] = useState('');
   const [heirShare, setHeirShare] = useState(100);
   const [confirmRemove, setConfirmRemove] = useState<Heir | null>(null);
@@ -82,7 +85,7 @@ export default function BondProfilePage() {
           id: rid++,
           who: 'trustee',
           text: alreadyInvested
-            ? 'All quiet. The 800 your agents placed are earning at 4.1% — projection on track, buffer untouched. I’ll report at month’s end.'
+            ? `All quiet. The ${invested!.amount.toFixed(0)} your agents placed are earning at ${invested!.apr}% — projection on track, buffer untouched. I’ll report at month’s end.`
             : 'Your agents and I settled on one package this morning — matched to both profiles, market-checked. It’s on its way to both of you now.',
           typed: true,
         },
@@ -103,7 +106,7 @@ export default function BondProfilePage() {
   useEffect(() => {
     if (msgs.length === 0) return;
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, [msgs, yieldState, busy]);
+  }, [msgs, yieldState, liveAction, busy]);
 
   if (!agentReady) return null;
 
@@ -127,20 +130,90 @@ export default function BondProfilePage() {
     }, 2600);
   };
 
+  /** The model flagged a vault action → put it on the release track. Amounts are
+   *  clamped against live store state; the mutation itself only runs after BOTH
+   *  hito releases in releaseLiveAction — chat is model, money is protocol. */
+  const runTrusteeAction = (a: unknown) => {
+    const act = a as { type?: string; amountUsdc?: number; aprPct?: number } | null;
+    if (!act || (act.type !== 'divest' && act.type !== 'invest')) return;
+    if (typeof act.amountUsdc !== 'number' || act.amountUsdc <= 0) return;
+    const st = useAgentStore.getState();
+    const inv = st.investments[bond.id];
+    const liq = (st.vaultBalances[bond.id] ?? 0) - (inv?.amount ?? 0);
+    if (act.type === 'divest') {
+      if (!inv) {
+        pushTrustee('Nothing is invested right now — the whole vault already sits liquid.');
+        return;
+      }
+      setLiveAction({ kind: 'divest', amount: Math.min(act.amountUsdc, inv.amount), apr: inv.apr, stage: 'proposed' });
+    } else {
+      if (liq <= 0) {
+        pushTrustee('There is nothing liquid to invest right now — the vault is fully deployed.');
+        return;
+      }
+      setLiveAction({ kind: 'invest', amount: Math.min(act.amountUsdc, liq), apr: act.aprPct ?? 4.1, stage: 'proposed' });
+    }
+  };
+
+  /** Dual-hito walk for a live action: you → partner → executed → store mutation. */
+  const releaseLiveAction = () => {
+    const la = liveAction;
+    if (!la || la.stage !== 'proposed') return;
+    setLiveAction({ ...la, stage: 'you-ok' });
+    setTimeout(() => {
+      setLiveAction({ ...la, stage: 'done' });
+      const st = useAgentStore.getState();
+      const inv = st.investments[bond.id];
+      if (la.kind === 'divest') {
+        st.divest(bond.id, la.amount);
+        if (inv && la.amount >= inv.amount) setYieldState('none');
+        pushTrustee(
+          `Executed. ${la.amount.toFixed(0)} USDC are out of the yield package and sit liquid in the vault again — the vault card is current. Settlement logged; you both hold the receipt.`,
+        );
+      } else {
+        st.invest(bond.id, (inv?.amount ?? 0) + la.amount, la.apr);
+        setYieldState('done');
+        pushTrustee(
+          `Executed. ${la.amount.toFixed(0)} USDC moved into the yield vault at ${la.apr}% — projection updates on the vault card. Settlement logged for both of you.`,
+        );
+      }
+    }, 1500);
+  };
+
   const submitDraft = () => {
     const text = draft.trim();
     if (!text) return;
+    const history = msgs.slice(-10).map((m) => ({ role: m.who === 'you' ? ('user' as const) : ('assistant' as const), text: m.text }));
     setMsgs((m) => [...m, { id: rid++, who: 'you', text }]);
     setDraft('');
-    if (/market|invest|opportun|zins|yield|rate/i.test(text)) {
-      pushTrustee(
-        'Market read for you two: dollar yield vaults pay ~4.1% right now, ETH staking ~3.2% but it swings — and Ben’s agent holds a hard line on the emergency buffer. So I stay in the dollar vault and revisit monthly. If something better appears that matches both profiles, you’ll hear from me first.',
-      );
-    } else {
-      pushTrustee(
-        'Let me take that to your agents… Ben’s agent weighs it against your buffer-first profile, Alice’s against her long-term plan — both are fine with it. I’ll fold it into how I manage this vault; if it ever needs to become a written rule, I’ll draft it and ask you both to release.',
-      );
-    }
+    setBusy(true);
+    const st = useAgentStore.getState();
+    fetch('/api/agent/trustee', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        humanName: answers.name?.text?.replace(/^just call me /i, '') || 'Ben',
+        partner: bond.partner,
+        bondType: bond.type,
+        vaultBalanceUsdc: st.vaultBalances[bond.id] ?? 0,
+        investedUsdc: st.investments[bond.id]?.amount ?? 0,
+        investedAprPct: st.investments[bond.id]?.apr ?? null,
+        rules: st.bondRules.filter((r) => r.status === 'active').map((r) => r.text),
+        heirs: st.heirs.map((h) => ({ name: h.name, sharePct: h.sharePct })),
+        history,
+        userText: text,
+      }),
+    })
+      .then(async (res) => {
+        const j = await res.json();
+        if (!res.ok) throw new Error(j.error ?? `trustee API ${res.status}`);
+        setBusy(false);
+        pushTrustee(j.say, () => runTrusteeAction(j.action));
+      })
+      .catch((e: Error) => {
+        setBusy(false);
+        pushTrustee(`Something broke on my side: ${e.message}`);
+      });
   };
 
   // The will can never allocate more than 100% of the estate.
@@ -335,7 +408,8 @@ export default function BondProfilePage() {
                   <p className="text-[13px] font-black text-gray-900 mt-1.5">USDC yield vault · 4.1% · audited · instant exit</p>
                   <p className="text-[11px] font-medium text-gray-500 mt-1 leading-relaxed">
                     Your agent held the line on the emergency buffer → 200 stay liquid.
-                    Alice’s pushed for long-term → 800 go to work (+33/yr).
+                    {bond.partner}’s pushed for long-term → {(invested?.amount ?? 800).toFixed(0)} go to work
+                    (+{Math.round((invested?.amount ?? 800) * (invested?.apr ?? 4.1) / 100)}/yr).
                     <span className="font-bold text-gray-700"> They agreed — your confirmation is the last word.</span>
                   </p>
                 </div>
@@ -346,7 +420,7 @@ export default function BondProfilePage() {
                   </div>
                   <div className="flex items-center gap-2 text-[12px] font-medium text-gray-700">
                     <Check size={12} className={yieldState === 'done' ? 'text-emerald-500' : 'text-gray-300'} />
-                    Alice {yieldState === 'done' ? '— released on hers' : '— gets the same card right now'}
+                    {bond.partner} {yieldState === 'done' ? '— released on theirs' : '— gets the same card right now'}
                   </div>
                   {yieldState === 'proposed' && (
                     <AliveCta onClick={releaseYield} className="w-full px-4 py-3 rounded-xl text-[10px] tracking-[0.15em] mt-1">
@@ -356,6 +430,51 @@ export default function BondProfilePage() {
                   {yieldState === 'done' && (
                     <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 text-center pt-1">
                       Executed · earning for the family
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* LIVE action — the model flagged it, the humans release it. Same
+                dual-hito walk as the scripted card; store mutates only on 'done'. */}
+            {liveAction && (
+              <div className="border border-amber-200 rounded-2xl overflow-hidden shadow-[0_10px_30px_rgba(245,158,11,0.10)] animate-in fade-in slide-in-from-bottom-2 duration-500">
+                <div className={`px-4 py-3 ${liveAction.stage === 'done' ? 'bg-emerald-50' : 'bg-amber-50'}`}>
+                  <div className="flex items-center gap-2">
+                    <Bell size={11} className={liveAction.stage === 'done' ? 'text-emerald-500' : 'text-amber-500'} />
+                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 flex-1">
+                      Both agents signed this
+                    </p>
+                    <span className="text-[8px] font-black uppercase tracking-widest text-gray-400">now</span>
+                  </div>
+                  <p className="text-[13px] font-black text-gray-900 mt-1.5">
+                    {liveAction.kind === 'divest'
+                      ? `Divest ${liveAction.amount.toFixed(0)} USDC — back to liquid`
+                      : `Invest ${liveAction.amount.toFixed(0)} USDC · ${liveAction.apr}% yield vault`}
+                  </p>
+                  <p className="text-[11px] font-medium text-gray-500 mt-1 leading-relaxed">
+                    Your agent and {bond.partner}’s checked it against both profiles and signed.
+                    <span className="font-bold text-gray-700"> Your two releases are the last word.</span>
+                  </p>
+                </div>
+                <div className="px-4 py-3 space-y-2 bg-white">
+                  <div className="flex items-center gap-2 text-[12px] font-medium text-gray-700">
+                    <Check size={12} className={liveAction.stage !== 'proposed' ? 'text-emerald-500' : 'text-gray-300'} />
+                    You {liveAction.stage !== 'proposed' ? '— released on your hito' : '— your release is the only thing missing'}
+                  </div>
+                  <div className="flex items-center gap-2 text-[12px] font-medium text-gray-700">
+                    <Check size={12} className={liveAction.stage === 'done' ? 'text-emerald-500' : 'text-gray-300'} />
+                    {bond.partner} {liveAction.stage === 'done' ? '— released on theirs' : '— gets the same card right now'}
+                  </div>
+                  {liveAction.stage === 'proposed' && (
+                    <AliveCta onClick={releaseLiveAction} className="w-full px-4 py-3 rounded-xl text-[10px] tracking-[0.15em] mt-1">
+                      Confirm on your hito
+                    </AliveCta>
+                  )}
+                  {liveAction.stage === 'done' && (
+                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 text-center pt-1">
+                      {liveAction.kind === 'divest' ? 'Executed · liquid again in the vault' : 'Executed · earning for the family'}
                     </p>
                   )}
                 </div>

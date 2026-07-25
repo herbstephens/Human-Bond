@@ -301,6 +301,8 @@ type AgentState = {
   deposit: (bondId: string, amount: number) => void;
   setStandingOrder: (bondId: string, amount: number) => void;
   invest: (bondId: string, amount: number, apr: number) => void;
+  /** Take money OUT of the invested package, back to liquid. Fails hard beyond the invested amount. */
+  divest: (bondId: string, amount: number) => void;
   /** The agent writes YOU first: proof-of-life reminder + trustee heads-up. */
   lifePing: () => void;
   heartbeatChecked: () => void;
@@ -789,6 +791,16 @@ export const useAgentStore = create<AgentState>()(
 
         invest: (bondId, amount, apr) =>
           set((s) => ({ investments: { ...s.investments, [bondId]: { amount, apr } } })),
+
+        divest: (bondId, amount) =>
+          set((s) => {
+            const inv = s.investments[bondId];
+            if (!inv || amount > inv.amount) throw new Error(`divest ${amount} exceeds invested ${inv?.amount ?? 0} on ${bondId}`);
+            const investments = { ...s.investments };
+            if (amount === inv.amount) delete investments[bondId];
+            else investments[bondId] = { ...inv, amount: inv.amount - amount };
+            return { investments };
+          }),
 
         lifePing: () => {
           if (get().lifePingDone) return;
