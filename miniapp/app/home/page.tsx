@@ -387,25 +387,35 @@ export default function HomePage() {
             <div className="space-y-5">
               {!effectiveHasPendingProposal && !hasIncomingProposals && (
                 <div className="flex justify-center">
-                  <svg width="128" height="68" viewBox="0 0 120 64" fill="none" aria-hidden>
+                  {/* Like the logo top-left: both rings black, drifting together
+                      slowly, then WELDED with the CTA's amber glow — one ring. */}
+                  <svg
+                    width="128" height="68" viewBox="0 0 120 64" fill="none" aria-hidden
+                    style={{ animation: 'hbWeld 4s ease-out both, hbWeldBreathe 3s ease-in-out 4s infinite' }}
+                  >
                     <style>{`
-                      @keyframes hbLinkA { 0% { transform: translateX(-26px); opacity: .35; } 70% { opacity: 1; } 100% { transform: translateX(0); } }
-                      @keyframes hbLinkB { 0% { transform: translateX(26px); opacity: .35; } 70% { opacity: 1; } 100% { transform: translateX(0); } }
-                      @keyframes hbLinkLock { 0%, 80% { opacity: 0; } 100% { opacity: 1; } }
+                      @keyframes hbLinkA { 0% { transform: translateX(-26px); opacity: .3; } 70% { opacity: 1; } 100% { transform: translateX(0); } }
+                      @keyframes hbLinkB { 0% { transform: translateX(26px); opacity: .3; } 70% { opacity: 1; } 100% { transform: translateX(0); } }
+                      @keyframes hbLinkLock { 0%, 85% { opacity: 0; } 100% { opacity: 1; } }
+                      @keyframes hbWeld { 0%, 80% { filter: none; } 100% { filter: drop-shadow(0 0 10px rgba(245,158,11,.55)); } }
+                      @keyframes hbWeldBreathe {
+                        0%, 100% { filter: drop-shadow(0 0 8px rgba(245,158,11,.4)); }
+                        50% { filter: drop-shadow(0 0 16px rgba(245,158,11,.6)); }
+                      }
                     `}</style>
                     <circle
                       cx="46" cy="32" r="21" stroke="#111111" strokeWidth="7"
-                      style={{ animation: 'hbLinkA 1.5s cubic-bezier(.2,.8,.2,1) both', transformBox: 'fill-box', transformOrigin: 'center' }}
+                      style={{ animation: 'hbLinkA 3.2s cubic-bezier(.3,.7,.2,1) both', transformBox: 'fill-box', transformOrigin: 'center' }}
                     />
                     <circle
-                      cx="74" cy="32" r="21" stroke="#9ca3af" strokeWidth="7"
-                      style={{ animation: 'hbLinkB 1.5s cubic-bezier(.2,.8,.2,1) both', transformBox: 'fill-box', transformOrigin: 'center' }}
+                      cx="74" cy="32" r="21" stroke="#111111" strokeWidth="7"
+                      style={{ animation: 'hbLinkB 3.2s cubic-bezier(.3,.7,.2,1) both', transformBox: 'fill-box', transformOrigin: 'center' }}
                     />
-                    {/* A threads back over B at the bottom crossing — the lock. */}
+                    {/* The left ring threads back over the right at the bottom crossing — the weld. */}
                     <path
                       d="M 64.5 42.5 A 21 21 0 0 1 54 52.2"
                       stroke="#111111" strokeWidth="7" strokeLinecap="round"
-                      style={{ animation: 'hbLinkLock 1.9s ease-out both' }}
+                      style={{ animation: 'hbLinkLock 3.8s ease-out both' }}
                     />
                   </svg>
                 </div>

@@ -17,6 +17,7 @@ import { CONTRACT_ADDRESSES, HUMAN_BOND_ABI, WORLD_APP_CONFIG } from "@/lib/cont
 import { useAuthStore } from "@/state/authStore";
 import { isInWorldApp } from "@/lib/worldcoin/initMiniKit";
 import { Sparkles, ScanFace, MessageCircle } from "lucide-react";
+import Image from "next/image";
 import { decodeProof } from "@/lib/utils/decodeProof";
 import { useWorldProfile, resolveToAddress, triggerDirectChat } from "@/lib/worldcoin/useWorldProfile";
 import { sendNotification } from "@/lib/hooks/useNotify";
@@ -217,15 +218,17 @@ export function CreateProposalForm() {
 
         {/* Header Section */}
         <div className="flex flex-col items-center space-y-4">
-          <div className="w-16 h-16 bg-black rounded-3xl flex items-center justify-center shadow-lg transform -rotate-3">
-            <Sparkles size={32} className="text-white" />
+          <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center shadow-lg border border-gray-100 p-2.5">
+            <Image src="/Isotype.png" alt="HumanBond" width={44} height={44} className="w-full h-full object-contain" />
           </div>
           <div className="text-center space-y-2">
             <h1 className="text-4xl font-black text-black tracking-tighter">
               Create Bond
             </h1>
-            <p className="text-sm font-medium text-gray-400">
-              Propose a digital union on Worldchain
+            <p className="text-[13px] font-medium text-gray-500 leading-relaxed max-w-[300px] mx-auto">
+              You&apos;re creating <span className="font-bold text-gray-700">one shared address on Worldchain</span> that
+              belongs to you both. Your partner signs to bring it to life, your charter sets the
+              rules — and your personal agents handle the money inside them.
             </p>
           </div>
         </div>
