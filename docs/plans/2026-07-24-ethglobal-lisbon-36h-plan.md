@@ -137,6 +137,7 @@ W1+W2 = Scene 3 (P0-adjacent). W3+W4 = Scene 4 (Saturday).
 4. **The proposal moment is a first-class screen:** after the two agents have negotiated, the user SEES the proposal (amount, split, recipient) and releases it **via hito wallet**. Money never moves on agent agreement alone.
 5. **The feelings loop — core principle:** the user can always tell their own agent *"I don't feel good about this"* → the agents renegotiate (e.g. Alice covers this one, you get the next) → new proposal. People must know their agent hears feelings and turns them into negotiated interests. This IS the product's emotional promise.
 6. **Demo examples (USDC-believable):** shared = two Kalorama festival tickets (~120 USDC) paid to the seller's ENS; personal contrast = running shoes €90, own wallet, "Alice never hears about it"; receipt pays to `ramiro.eth`. TVs etc. = roadmap line: trustee wallet later links to Apple Pay/card rails.
+7. **Second brain (Sat night):** the agent's knowledge is a visible, editable profile screen — every fact with provenance (Interview / LinkedIn / AI history / Learned / You), user can add and delete facts. Stored **encrypted in the user's own 0G profile** — portable, platform-unreadable. The same screen lists **all bonds** (one human can hold several); shared requests route to the **default bond = the inheritance bond** (or a default is created), switchable per tap. Personal payments: under your threshold = phone authority, above = your own hito alone.
 
 ## Prerequisites — verify in the FIRST HOUR (Sat 09:00–10:00)
 

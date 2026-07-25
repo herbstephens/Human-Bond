@@ -135,6 +135,15 @@ export function profileSummary(answers: Record<string, InterviewAnswer>): string
   return lines;
 }
 
+/** A fact in your second brain — what the agent knows, with provenance. */
+export type BrainFact = { id: string; text: string; source: string };
+
+/** Your bonds. One human can hold several; the inheritance bond is the default. */
+export const BONDS = [
+  { id: 'alice', partner: 'Alice', type: 'inheritance' as const },
+  { id: 'mika', partner: 'Mika', type: 'business' as const },
+];
+
 /** Sources the agent can pull an existing self from. */
 export const IMPORT_SOURCES = [
   { id: 'linkedin', label: 'LinkedIn' },
@@ -200,6 +209,12 @@ type AgentState = {
   typingIndicator: boolean;
   agentBusy: boolean;
 
+  // second brain
+  /** Facts the human added themselves — interview/import facts are derived. */
+  customFacts: BrainFact[];
+  /** Which bond requests route to by default — the inheritance bond, if one exists. */
+  defaultBondId: string;
+
   // payment rails
   pullGranted: boolean;
   pendingReceipt: { vendor: string; amountUsdc: number; recipientEns: string } | null;
@@ -224,6 +239,9 @@ type AgentState = {
   renegotiate: (paymentId: string) => void;
   confirmOnHito: (paymentId: string) => void;
   say: (text: string) => void;
+  addFact: (text: string) => void;
+  removeFact: (id: string) => void;
+  setDefaultBond: (bondId: string) => void;
   resetAgent: () => void;
 
   /** Internal: enqueue agent output and run the production line. */
@@ -284,6 +302,8 @@ export const useAgentStore = create<AgentState>()(
         partnerAgentReady: true,
         typingIndicator: false,
         agentBusy: false,
+        customFacts: [],
+        defaultBondId: 'alice',
         pullGranted: false,
         pendingReceipt: null,
         messages: [],
@@ -429,7 +449,7 @@ export const useAgentStore = create<AgentState>()(
             {
               type: 'text',
               thinking: true,
-              text: 'Tickets for two → that’s for both of you, not your personal budget. I’ll work this out with Alice’s agent.',
+              text: 'Tickets for two → that’s for both of you, not your personal budget. Routing to your default bond — the one with Alice, your inheritance bond. I’ll work this out with her agent.',
             },
             {
               type: 'text',
@@ -556,6 +576,14 @@ export const useAgentStore = create<AgentState>()(
         say: (text) =>
           set((s) => ({ messages: [...s.messages, { id: mid(), role: 'user', kind: 'text', text }] })),
 
+        addFact: (text) =>
+          set((s) => ({ customFacts: [...s.customFacts, { id: mid(), text, source: 'You' }] })),
+
+        removeFact: (id) =>
+          set((s) => ({ customFacts: s.customFacts.filter((f) => f.id !== id) })),
+
+        setDefaultBond: (bondId) => set(() => ({ defaultBondId: bondId })),
+
         resetAgent: () => {
           queue = [];
           processing = false;
@@ -587,6 +615,8 @@ export const useAgentStore = create<AgentState>()(
         agentReady: s.agentReady,
         bornPending: s.bornPending,
         partnerAgentReady: s.partnerAgentReady,
+        customFacts: s.customFacts,
+        defaultBondId: s.defaultBondId,
         pullGranted: s.pullGranted,
         pendingReceipt: s.pendingReceipt,
         // Strip typed flags: after a reload, history renders instantly — only NEW messages type.

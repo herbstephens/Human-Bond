@@ -335,6 +335,12 @@ export default function AgentChatPage() {
             <span className="text-gray-400">{partnerAgentReady ? 'Trustee active' : 'Waiting for Alice’s agent'}</span>
           </p>
         </div>
+        <Link
+          href="/agent/brain"
+          className="text-[9px] font-black text-amber-600 hover:text-amber-700 uppercase tracking-widest transition-colors"
+        >
+          Brain
+        </Link>
         <button
           onClick={resetAgent}
           className="text-[9px] font-black text-gray-300 hover:text-gray-500 uppercase tracking-widest transition-colors"
