@@ -11,22 +11,27 @@
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, ArrowLeft, ArrowUp, Bell, Check, Landmark, MessageCircle, X } from 'lucide-react';
+import { AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowUp, Bell, Check, Copy, MessageCircle, Send, X } from 'lucide-react';
 import { AliveCta } from '@/app/components/agent/AliveCta';
+import { shortAddress } from '@/lib/vault/usdc';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAgentStore, type Heir } from '@/lib/agent/agentStore';
 import { USE_MOCKS } from '@/lib/config';
+import { META } from '@/lib/design';
 import { useRouteGuard } from '@/lib/hooks/useLiveStage';
 import { ENS_PARENT } from '@/lib/contracts/registrar';
 import { useLiveBondSync } from '@/lib/agent/useLiveBondSync';
 import { useMarriage } from '@/lib/marriage/context';
 import { useBondVault } from '@/lib/hooks/useBondVault';
 import { useVaultActions } from '@/lib/hooks/useVaultActions';
-import { VaultBalanceCard } from '@/app/components/vault/VaultBalanceCard';
+import { useVaultTransfers } from '@/lib/hooks/useVaultTransfers';
 import { SendFundsForm } from '@/app/components/vault/SendFundsForm';
 
 // --- tiny self-contained chat for the trustee room ------------------------
 
-type RoomMsg = { id: number; who: 'trustee' | 'you'; text: string; typed?: boolean };
+/** `card` markers anchor the opportunity/release cards INSIDE the history —
+ *  they scroll up with the conversation instead of sticking below it. */
+type RoomMsg = { id: number; who: 'trustee' | 'you'; text: string; typed?: boolean; card?: 'yield' | 'live' };
 let rid = 1;
 
 function TypeOnce({ text }: { text: string }) {
@@ -43,6 +48,10 @@ function TypeOnce({ text }: { text: string }) {
     </>
   );
 }
+
+/** "25 Jul, 23:05" — the explorer's ISO timestamp, human-sized. */
+const formatTransferTime = (iso: string) =>
+  new Date(iso).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 type YieldState = 'none' | 'proposed' | 'you-ok' | 'done';
 /** A vault action the LIVE trustee flagged — walks the same dual-hito release as the scripted card. */
@@ -74,7 +83,7 @@ export default function BondProfilePage() {
   const params = useParams<{ bondId: string }>();
   const {
     agentReady, answers, payments, heirs, addHeir, requestRemoveHeir,
-    vaultBalances, deposits, standingOrders, deposit, setStandingOrder, bondEnsLabel,
+    vaultBalances, deposits, bondEnsLabel,
     investments, invest, bonds, bondRules, addBondRule, removeBondRule,
   } = useAgentStore();
   // The live store starts EMPTY until useLiveBondSync mirrors the chain — a
@@ -88,6 +97,18 @@ export default function BondProfilePage() {
   const balance = vaultBalances[bond.id] ?? 0;
   const invested = investments[bond.id];
   const liquid = balance - (invested?.amount ?? 0);
+  // The bond's name — the ENS label the couple chose on chain.
+  const bondName = bondEnsLabel ?? liveVault?.ensLabel ?? `ben-${bond.partner.toLowerCase()}`;
+  const [copiedField, setCopiedField] = useState<'ens' | 'addr' | null>(null);
+  const [receiveOpen, setReceiveOpen] = useState(false);
+  // Real USDC transfer history of the Safe (live only) + how many rows show.
+  const { transfers } = useVaultTransfers(liveVault?.address ?? null);
+  const [shownTransfers, setShownTransfers] = useState(5);
+  const copyToClipboard = async (text: string, field: 'ens' | 'addr') => {
+    await navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 1600);
+  };
 
   const [msgs, setMsgs] = useState<RoomMsg[]>([]);
   const [busy, setBusy] = useState(false);
@@ -97,10 +118,7 @@ export default function BondProfilePage() {
   const [heirName, setHeirName] = useState('');
   const [heirShare, setHeirShare] = useState(100);
   const [confirmRemove, setConfirmRemove] = useState<Heir | null>(null);
-  const [panel, setPanel] = useState<'none' | 'deposit' | 'order'>('none');
   const [ruleDraft, setRuleDraft] = useState('');
-  const [depositAmount, setDepositAmount] = useState('250');
-  const [orderAmount, setOrderAmount] = useState(String(standingOrders[bond.id] ?? 0));
   const endRef = useRef<HTMLDivElement>(null);
   const greeted = useRef(false);
   const rogueShown = useRef(false);
@@ -139,7 +157,12 @@ export default function BondProfilePage() {
       ]);
       setBusy(false);
     }, 700);
-    const t2 = USE_MOCKS && !alreadyInvested ? setTimeout(() => setYieldState('proposed'), 2600) : undefined;
+    const t2 = USE_MOCKS && !alreadyInvested
+      ? setTimeout(() => {
+          setYieldState('proposed');
+          setMsgs((m) => [...m, { id: rid++, who: 'trustee', text: '', card: 'yield' }]);
+        }, 2600)
+      : undefined;
     return () => {
       // StrictMode runs effects twice — release the guard so the re-run reschedules.
       greeted.current = false;
@@ -166,6 +189,11 @@ export default function BondProfilePage() {
   if (!agentReady) return null;
 
   const threshold = answers.threshold?.id === 't50' ? '€50' : answers.threshold?.id === 'unusual' ? 'unusual only' : '€200';
+
+  // A new live action re-uses the single liveAction slot — only the NEWEST
+  // marker renders the card, older markers stay empty.
+  const lastLiveMarkerId = [...msgs].reverse().find((m) => m.card === 'live')?.id;
+
 
   const pushTrustee = (text: string, after?: () => void) => {
     setBusy(true);
@@ -250,6 +278,7 @@ export default function BondProfilePage() {
             } else {
               setLiveAction({ kind: 'invest', amount: Math.min(act.amountUsdc!, liq), apr: act.aprPct ?? 4.1, stage: 'proposed' });
             }
+            setMsgs((m) => [...m, { id: rid++, who: 'trustee', text: '', card: 'live' }]);
           },
         );
       })
@@ -366,163 +395,251 @@ export default function BondProfilePage() {
     setRuleDraft('');
   };
 
-  const activity = [
+  // Mock activity: action on the left (black), amount + counterparty on the
+  // right. Built from real mock-store events (deposits, agent payments); no
+  // standing orders (not supported yet). Falls back to a representative example
+  // so the pattern is visible before any mock action. Live mode ignores this.
+  const activityFromStore = [
     ...deposits
       .filter((d) => d.bondId === bond.id)
-      .map((d) => ({ id: d.id, text: `Deposit — ${d.amount.toFixed(2)} from you`, tag: 'Deposit' })),
+      .map((d) => ({ id: d.id, label: 'Deposit', detail: `${d.amount.toFixed(0)} · from you` })),
     ...Object.values(payments)
       .filter((p) => p.stage === 'paid' && !p.personal)
-      .map((p) => ({ id: p.id, text: `${p.label} — ${p.amountUsdc.toFixed(2)} to ${p.recipientEns}`, tag: 'Agent payment' })),
-    ...((standingOrders[bond.id] ?? 0) > 0
-      ? [{ id: 'so-1', text: `Standing order — ${(standingOrders[bond.id] ?? 0).toFixed(2)} from you, monthly`, tag: 'Standing order' }]
-      : []),
-    { id: 'so-2', text: 'Standing order — 500.00 from Alice, monthly', tag: 'Standing order' },
+      .map((p) => ({ id: p.id, label: 'Agent payment', detail: `${p.amountUsdc.toFixed(2)} · to ${p.recipientEns}` })),
   ];
+  const activity = activityFromStore.length
+    ? activityFromStore
+    : [
+        { id: 'ex-dep', label: 'Deposit', detail: '250 · from you' },
+        { id: 'ex-pay1', label: 'Agent payment', detail: '84.50 · to kalorama.eth' },
+        { id: 'ex-pay2', label: 'Agent payment', detail: '12.00 · to sevilla.eth' },
+      ];
 
-  const submitDeposit = () => {
-    const amount = Number(depositAmount);
-    if (!amount || amount <= 0) return;
-    deposit(bond.id, amount);
-    setPanel('none');
-  };
+  // The OPPORTUNITY — arrives like a push notification, not a survey.
+  // Rendered inside the history at its marker so it scrolls up like a message.
+  const yieldCard = (
+    <div className="border border-amber-200 rounded-2xl overflow-hidden shadow-[0_10px_30px_rgba(245,158,11,0.10)] animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <div className={`px-4 py-3 ${yieldState === 'done' ? 'bg-emerald-50' : 'bg-amber-50'}`}>
+        <div className="flex items-center gap-2">
+          <Bell size={11} className={yieldState === 'done' ? 'text-emerald-500' : 'text-amber-500'} />
+          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 flex-1">
+            Your agents decided on this package
+          </p>
+          <span className="text-[8px] font-black uppercase tracking-widest text-gray-400">now</span>
+        </div>
+        <p className="text-[13px] font-black text-gray-900 mt-1.5">USDC yield vault · 4.1% · audited · instant exit</p>
+        <p className="text-[11px] font-medium text-gray-500 mt-1 leading-relaxed">
+          Your agent held the line on the emergency buffer → 200 stay liquid.
+          {bond.partner}’s pushed for long-term → {(invested?.amount ?? 800).toFixed(0)} go to work
+          (+{Math.round((invested?.amount ?? 800) * (invested?.apr ?? 4.1) / 100)}/yr).
+          <span className="font-bold text-gray-700"> They agreed — your confirmation is the last word.</span>
+        </p>
+      </div>
+      <div className="px-4 py-3 space-y-2 bg-white">
+        <div className="flex items-center gap-2 text-[12px] font-medium text-gray-700">
+          <Check size={12} className={yieldState !== 'proposed' ? 'text-emerald-500' : 'text-gray-300'} />
+          You {yieldState !== 'proposed' ? '— released on your hito' : '— your release is the only thing missing'}
+        </div>
+        <div className="flex items-center gap-2 text-[12px] font-medium text-gray-700">
+          <Check size={12} className={yieldState === 'done' ? 'text-emerald-500' : 'text-gray-300'} />
+          {bond.partner} {yieldState === 'done' ? '— released on theirs' : '— gets the same card right now'}
+        </div>
+        {yieldState === 'proposed' && (
+          <AliveCta onClick={releaseYield} className="w-full px-4 py-3 rounded-xl text-[10px] tracking-[0.15em] mt-1">
+            Confirm on your hito
+          </AliveCta>
+        )}
+        {yieldState === 'done' && (
+          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 text-center pt-1">
+            Executed · earning for the family
+          </p>
+        )}
+      </div>
+    </div>
+  );
 
-  const submitOrder = () => {
-    const amount = Number(orderAmount);
-    if (Number.isNaN(amount) || amount < 0) return;
-    setStandingOrder(bond.id, amount);
-    setPanel('none');
-  };
+  // LIVE action — the model flagged it, the humans release it. Same dual-hito
+  // walk as the scripted card; store mutates only on 'done'.
+  const liveCard = liveAction && (
+    <div className="border border-amber-200 rounded-2xl overflow-hidden shadow-[0_10px_30px_rgba(245,158,11,0.10)] animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <div className={`px-4 py-3 ${liveAction.stage === 'done' ? 'bg-emerald-50' : 'bg-amber-50'}`}>
+        <div className="flex items-center gap-2">
+          <Bell size={11} className={liveAction.stage === 'done' ? 'text-emerald-500' : 'text-amber-500'} />
+          <p className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 flex-1">
+            Both agents signed this
+          </p>
+          <span className="text-[8px] font-black uppercase tracking-widest text-gray-400">now</span>
+        </div>
+        <p className="text-[13px] font-black text-gray-900 mt-1.5">
+          {liveAction.kind === 'divest'
+            ? `Divest ${liveAction.amount.toFixed(0)} USDC — back to liquid`
+            : `Invest ${liveAction.amount.toFixed(0)} USDC · ${liveAction.apr}% yield vault`}
+        </p>
+        <p className="text-[11px] font-medium text-gray-500 mt-1 leading-relaxed">
+          Your agent and {bond.partner}’s checked it against both profiles and signed.
+          <span className="font-bold text-gray-700"> Your two releases are the last word.</span>
+        </p>
+      </div>
+      <div className="px-4 py-3 space-y-2 bg-white">
+        <div className="flex items-center gap-2 text-[12px] font-medium text-gray-700">
+          <Check size={12} className={liveAction.stage !== 'proposed' ? 'text-emerald-500' : 'text-gray-300'} />
+          You {liveAction.stage !== 'proposed' ? '— released on your hito' : '— your release is the only thing missing'}
+        </div>
+        <div className="flex items-center gap-2 text-[12px] font-medium text-gray-700">
+          <Check size={12} className={liveAction.stage === 'done' ? 'text-emerald-500' : 'text-gray-300'} />
+          {bond.partner} {liveAction.stage === 'done' ? '— released on theirs' : '— gets the same card right now'}
+        </div>
+        {liveAction.stage === 'proposed' && (
+          <AliveCta onClick={releaseLiveAction} className="w-full px-4 py-3 rounded-xl text-[10px] tracking-[0.15em] mt-1">
+            Confirm on your hito
+          </AliveCta>
+        )}
+        {liveAction.stage === 'done' && (
+          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 text-center pt-1">
+            {liveAction.kind === 'divest' ? 'Executed · liquid again in the vault' : 'Executed · earning for the family'}
+          </p>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-[#E8E8E8] flex flex-col">
       {/* Header */}
       <header className="px-6 pt-4 pb-4 flex items-center gap-4">
         <div className="flex-1">
-          <h1 className="text-lg font-black text-gray-900 tracking-tight">You &amp; {bond.partner}</h1>
-          <p className="text-[9px] font-bold uppercase tracking-[0.25em]">
-            <span className={isInheritance ? 'text-amber-600' : 'text-gray-400'}>
-              {isInheritance ? 'Inheritance bond · your estate flows here' : 'Business bond'}
-            </span>
-          </p>
+          <h1 className="text-4xl font-anton text-black tracking-wide truncate">
+            {bondName.toUpperCase()}
+            <span className="text-base text-gray-400">.{ENS_PARENT.toUpperCase()}</span>
+          </h1>
         </div>
       </header>
 
       <main className="flex-1 overflow-y-auto px-6 pb-16 space-y-8 max-w-lg w-full mx-auto">
-        {/* Money view. LIVE: the real vault card — balance from chain, bond
-            address with copy, real send flow (partner approves above the free
-            limit). MOCK: the dark playground bank card below. */}
-        {!USE_MOCKS && liveVault?.isCreated ? (
-          <section className="space-y-3">
-            <VaultBalanceCard vault={liveVault} partnerName={bond.partner} onSend={() => setSendOpen(true)} />
-            <SendFundsForm
-              open={sendOpen}
-              onOpenChange={setSendOpen}
-              vault={liveVault}
-              partnerName={bond.partner}
-              txState={spendState}
-              error={spendError}
-              txError={spendTxError}
-              onSend={proposeSpend}
-              onReset={resetSpend}
-            />
-          </section>
-        ) : (
+        {/* Money view — ONE card, chain truth: balance from the Safe, the
+            bond's ENS name + address with copy, real send flow (partner
+            approves above the free limit). */}
         <section className="bg-[#1A1A1A] rounded-[2rem] p-6 relative overflow-hidden">
-          <div className="absolute -top-12 -right-12 w-32 h-32 bg-amber-500/10 blur-[50px]" />
-          <p className="text-[9px] font-bold text-gray-500 uppercase tracking-[0.25em] relative z-10">Parked in the vault</p>
-          <p className="text-4xl font-black text-white font-mono tracking-tight mt-1 relative z-10">
-            {balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-            <span className="text-sm text-gray-500 ml-2">USDC</span>
+          <p className={`${META} relative z-10`}>Parked in the vault</p>
+          <p className="text-4xl font-anton text-white tracking-wide mt-1 relative z-10">
+            {Math.round(balance).toLocaleString('en-US')}
+            <span className="text-gray-500 ml-2">USDC</span>
           </p>
           {/* Where the money lives — simple and unmissable */}
-          {invested && (
-            <div className="mt-3 flex gap-2 relative z-10">
-              <div className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5">
-                <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Liquid · ready to spend</p>
-                <p className="text-sm font-black text-white font-mono">{liquid.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
-              </div>
-              <div className="flex-1 bg-emerald-500/10 border border-emerald-500/25 rounded-xl px-4 py-2.5">
-                <p className="text-[8px] font-black text-emerald-400/80 uppercase tracking-widest flex items-center gap-1">
-                  <span className="w-1 h-1 rounded-full bg-emerald-400" />
-                  Earning · {invested.apr}%
-                </p>
-                <p className="text-sm font-black text-emerald-300 font-mono">
-                  {invested.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                </p>
-              </div>
+          <div className="mt-3 flex gap-2 relative z-10">
+            <div className="flex-1 bg-white/5 rounded-xl px-4 py-2.5">
+              <p className={META}>Ready to spend</p>
+              <p className="text-lg font-anton text-white tracking-wide">{Math.round(liquid).toLocaleString('en-US')}</p>
             </div>
-          )}
-          <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between relative z-10">
-            <div>
-              <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Receive · give this to anyone</p>
-              <p className="text-[12px] font-mono font-bold text-amber-100">
-                {bondEnsLabel ?? `ben-${bond.partner.toLowerCase()}`}.{ENS_PARENT}
+            <div className="flex-1 bg-emerald-500/10 rounded-xl px-4 py-2.5">
+              <p className="font-anton text-[11px] text-emerald-400/80 uppercase tracking-wide flex items-center gap-1">
+                <span className="w-1 h-1 rounded-full bg-emerald-400" />
+                Earning
+              </p>
+              <p className="text-lg font-anton text-emerald-300 tracking-wide">
+                {Math.round(invested?.amount ?? 0).toLocaleString('en-US')}
               </p>
             </div>
-            <span className="text-[9px] font-black uppercase tracking-widest text-gray-500">fed by standing orders</span>
           </div>
-          {/* Money in: the mock playground simulates transfers; live money
-              arrives by sending USDC to the address above — no fake deposits. */}
-          {USE_MOCKS && (
           <div className="mt-4 flex gap-2 relative z-10">
+            {liveVault?.isCreated && (
+              <button
+                onClick={() => setSendOpen(true)}
+                className="flex-1 py-3.5 rounded-xl bg-white text-black text-[11px] font-black uppercase tracking-[0.15em] flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
+              >
+                <Send size={14} />
+                Send USDC
+              </button>
+            )}
             <button
-              onClick={() => setPanel(panel === 'deposit' ? 'none' : 'deposit')}
-              className={`flex-1 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] border transition-all ${
-                panel === 'deposit' ? 'bg-white text-black border-white' : 'bg-white/10 text-white border-white/15 hover:bg-white/20'
-              }`}
+              onClick={() => setReceiveOpen(true)}
+              className="flex-1 py-3.5 rounded-xl bg-white/10 text-white text-[11px] font-black uppercase tracking-[0.15em] flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
             >
-              Add money
-            </button>
-            <button
-              onClick={() => setPanel(panel === 'order' ? 'none' : 'order')}
-              className={`flex-1 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] border transition-all ${
-                panel === 'order' ? 'bg-white text-black border-white' : 'bg-white/10 text-white border-white/15 hover:bg-white/20'
-              }`}
-            >
-              Standing order{(standingOrders[bond.id] ?? 0) > 0 ? ` · ${standingOrders[bond.id]}/mo` : ''}
+              <ArrowDownToLine size={14} />
+              Receive USDC
             </button>
           </div>
-          )}
-          {panel !== 'none' && (
-            <div className="mt-3 bg-white/5 border border-white/10 rounded-xl p-4 space-y-3 relative z-10 animate-in fade-in duration-300">
-              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">
-                {panel === 'deposit' ? 'One-time transfer from your wallet' : 'Monthly, from your wallet — cancel anytime'}
-              </p>
-              <div className="flex items-center gap-2">
-                <input
-                  value={panel === 'deposit' ? depositAmount : orderAmount}
-                  onChange={(e) =>
-                    panel === 'deposit' ? setDepositAmount(e.target.value.replace(/[^0-9.]/g, '')) : setOrderAmount(e.target.value.replace(/[^0-9.]/g, ''))
-                  }
-                  inputMode="decimal"
-                  className="flex-1 bg-white/10 rounded-xl px-4 py-3 text-lg font-black font-mono text-white outline-none border border-white/10"
-                />
-                <span className="text-[10px] font-black text-gray-400 uppercase">USDC</span>
-              </div>
-              <AliveCta
-                onClick={panel === 'deposit' ? submitDeposit : submitOrder}
-                className="w-full px-4 py-3 rounded-xl text-[10px] tracking-[0.15em]"
-              >
-                {panel === 'deposit' ? 'Send to the vault' : 'Set standing order'}
-              </AliveCta>
-              <p className="text-[9px] text-gray-500 font-medium">
-                Your money into the shared vault needs only you — spending it out again follows the bond’s rules.
-              </p>
-            </div>
-          )}
         </section>
+
+        {/* Receive popup — the bond's ENS name and raw address, both one tap to copy. */}
+        <Dialog open={receiveOpen} onOpenChange={setReceiveOpen}>
+          <DialogContent className="max-w-sm rounded-3xl">
+            <DialogHeader>
+              <DialogTitle>Receive USDC</DialogTitle>
+              <DialogDescription>
+                Anyone can send USDC on World Chain to your bond. Use the name or the address.
+                Only USDC is accepted at the moment.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              <button
+                onClick={() => copyToClipboard(`${bondName}.${ENS_PARENT}`, 'ens')}
+                className="w-full flex items-center justify-between gap-3 rounded-2xl bg-gray-50 px-4 py-3.5 text-left hover:bg-gray-100 transition-colors"
+              >
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-0.5">
+                    {copiedField === 'ens' ? 'Copied!' : 'ENS name'}
+                  </p>
+                  <p className="text-sm font-mono font-semibold text-gray-800 truncate">
+                    {bondName}.{ENS_PARENT}
+                  </p>
+                </div>
+                <span className="shrink-0 w-9 h-9 rounded-xl bg-white flex items-center justify-center text-gray-500">
+                  {copiedField === 'ens' ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
+                </span>
+              </button>
+              {liveVault?.address && (
+                <button
+                  onClick={() => copyToClipboard(liveVault.address, 'addr')}
+                  className="w-full flex items-center justify-between gap-3 rounded-2xl bg-gray-50 px-4 py-3.5 text-left hover:bg-gray-100 transition-colors"
+                >
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-0.5">
+                      {copiedField === 'addr' ? 'Copied!' : 'Wallet address'}
+                    </p>
+                    <p className="text-sm font-mono font-semibold text-gray-800 truncate">
+                      {shortAddress(liveVault.address)}
+                    </p>
+                  </div>
+                  <span className="shrink-0 w-9 h-9 rounded-xl bg-white flex items-center justify-center text-gray-500">
+                    {copiedField === 'addr' ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
+                  </span>
+                </button>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+        {liveVault?.isCreated && (
+          <SendFundsForm
+            open={sendOpen}
+            onOpenChange={setSendOpen}
+            vault={liveVault}
+            partnerName={bond.partner}
+            txState={spendState}
+            error={spendError}
+            txError={spendTxError}
+            onSend={proposeSpend}
+            onReset={resetSpend}
+          />
         )}
 
         {/* Trustee room */}
         <section className="space-y-3">
-          <h2 className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-400 flex items-center gap-1.5">
-            <Landmark size={10} className="text-amber-500" />
-            The trustee room · it serves the bond, not either of you
-          </h2>
-          <div className="bg-white rounded-[1.75rem] border border-gray-100 p-4 space-y-3">
-            {msgs.map((m) =>
-              m.who === 'trustee' ? (
-                <div key={m.id} className="bg-amber-50 border border-amber-100 rounded-2xl rounded-bl-md px-4 py-3 max-w-[90%]">
+          <div>
+            <h2 className="text-2xl font-anton text-black tracking-wide">YOUR BOND AGENT</h2>
+            <p className={`${META} mt-0.5`}>
+              It serves the bond, not either of you — and only executes what both of you confirm
+            </p>
+          </div>
+          <div className="bg-white rounded-[1.75rem] p-4 space-y-3">
+            {/* Constant-height history — the room never grows or shifts the
+                page; new messages (and cards) scroll inside. */}
+            <div className="h-96 overflow-y-auto space-y-3 pr-1">
+            {msgs.map((m) => {
+              if (m.card === 'yield') return yieldState !== 'none' ? <div key={m.id}>{yieldCard}</div> : null;
+              if (m.card === 'live') return liveAction && m.id === lastLiveMarkerId ? <div key={m.id}>{liveCard}</div> : null;
+              return m.who === 'trustee' ? (
+                <div key={m.id} className="bg-amber-50 rounded-2xl rounded-bl-md px-4 py-3 max-w-[90%]">
                   <p className="text-[13px] text-gray-800 font-medium leading-relaxed">
                     {m.typed ? <TypeOnce text={m.text} /> : m.text}
                   </p>
@@ -533,102 +650,18 @@ export default function BondProfilePage() {
                     <p className="text-[13px] font-bold">{m.text}</p>
                   </div>
                 </div>
-              ),
-            )}
+              );
+            })}
             {busy && (
-              <div className="bg-amber-50 border border-amber-100 rounded-2xl rounded-bl-md px-4 py-3 inline-flex items-center gap-1.5">
+              <div className="bg-amber-50 rounded-2xl rounded-bl-md px-4 py-3 inline-flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-300 animate-bounce" style={{ animationDelay: '0ms' }} />
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-300 animate-bounce" style={{ animationDelay: '150ms' }} />
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-300 animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
             )}
-
-            {/* The OPPORTUNITY — arrives like a push notification, not a survey */}
-            {yieldState !== 'none' && (
-              <div className="border border-amber-200 rounded-2xl overflow-hidden shadow-[0_10px_30px_rgba(245,158,11,0.10)] animate-in fade-in slide-in-from-bottom-2 duration-500">
-                <div className={`px-4 py-3 ${yieldState === 'done' ? 'bg-emerald-50' : 'bg-amber-50'}`}>
-                  <div className="flex items-center gap-2">
-                    <Bell size={11} className={yieldState === 'done' ? 'text-emerald-500' : 'text-amber-500'} />
-                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 flex-1">
-                      Your agents decided on this package
-                    </p>
-                    <span className="text-[8px] font-black uppercase tracking-widest text-gray-400">now</span>
-                  </div>
-                  <p className="text-[13px] font-black text-gray-900 mt-1.5">USDC yield vault · 4.1% · audited · instant exit</p>
-                  <p className="text-[11px] font-medium text-gray-500 mt-1 leading-relaxed">
-                    Your agent held the line on the emergency buffer → 200 stay liquid.
-                    {bond.partner}’s pushed for long-term → {(invested?.amount ?? 800).toFixed(0)} go to work
-                    (+{Math.round((invested?.amount ?? 800) * (invested?.apr ?? 4.1) / 100)}/yr).
-                    <span className="font-bold text-gray-700"> They agreed — your confirmation is the last word.</span>
-                  </p>
-                </div>
-                <div className="px-4 py-3 space-y-2 bg-white">
-                  <div className="flex items-center gap-2 text-[12px] font-medium text-gray-700">
-                    <Check size={12} className={yieldState !== 'proposed' ? 'text-emerald-500' : 'text-gray-300'} />
-                    You {yieldState !== 'proposed' ? '— released on your hito' : '— your release is the only thing missing'}
-                  </div>
-                  <div className="flex items-center gap-2 text-[12px] font-medium text-gray-700">
-                    <Check size={12} className={yieldState === 'done' ? 'text-emerald-500' : 'text-gray-300'} />
-                    {bond.partner} {yieldState === 'done' ? '— released on theirs' : '— gets the same card right now'}
-                  </div>
-                  {yieldState === 'proposed' && (
-                    <AliveCta onClick={releaseYield} className="w-full px-4 py-3 rounded-xl text-[10px] tracking-[0.15em] mt-1">
-                      Confirm on your hito
-                    </AliveCta>
-                  )}
-                  {yieldState === 'done' && (
-                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 text-center pt-1">
-                      Executed · earning for the family
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* LIVE action — the model flagged it, the humans release it. Same
-                dual-hito walk as the scripted card; store mutates only on 'done'. */}
-            {liveAction && (
-              <div className="border border-amber-200 rounded-2xl overflow-hidden shadow-[0_10px_30px_rgba(245,158,11,0.10)] animate-in fade-in slide-in-from-bottom-2 duration-500">
-                <div className={`px-4 py-3 ${liveAction.stage === 'done' ? 'bg-emerald-50' : 'bg-amber-50'}`}>
-                  <div className="flex items-center gap-2">
-                    <Bell size={11} className={liveAction.stage === 'done' ? 'text-emerald-500' : 'text-amber-500'} />
-                    <p className="text-[9px] font-black uppercase tracking-[0.2em] text-gray-500 flex-1">
-                      Both agents signed this
-                    </p>
-                    <span className="text-[8px] font-black uppercase tracking-widest text-gray-400">now</span>
-                  </div>
-                  <p className="text-[13px] font-black text-gray-900 mt-1.5">
-                    {liveAction.kind === 'divest'
-                      ? `Divest ${liveAction.amount.toFixed(0)} USDC — back to liquid`
-                      : `Invest ${liveAction.amount.toFixed(0)} USDC · ${liveAction.apr}% yield vault`}
-                  </p>
-                  <p className="text-[11px] font-medium text-gray-500 mt-1 leading-relaxed">
-                    Your agent and {bond.partner}’s checked it against both profiles and signed.
-                    <span className="font-bold text-gray-700"> Your two releases are the last word.</span>
-                  </p>
-                </div>
-                <div className="px-4 py-3 space-y-2 bg-white">
-                  <div className="flex items-center gap-2 text-[12px] font-medium text-gray-700">
-                    <Check size={12} className={liveAction.stage !== 'proposed' ? 'text-emerald-500' : 'text-gray-300'} />
-                    You {liveAction.stage !== 'proposed' ? '— released on your hito' : '— your release is the only thing missing'}
-                  </div>
-                  <div className="flex items-center gap-2 text-[12px] font-medium text-gray-700">
-                    <Check size={12} className={liveAction.stage === 'done' ? 'text-emerald-500' : 'text-gray-300'} />
-                    {bond.partner} {liveAction.stage === 'done' ? '— released on theirs' : '— gets the same card right now'}
-                  </div>
-                  {liveAction.stage === 'proposed' && (
-                    <AliveCta onClick={releaseLiveAction} className="w-full px-4 py-3 rounded-xl text-[10px] tracking-[0.15em] mt-1">
-                      Confirm on your hito
-                    </AliveCta>
-                  )}
-                  {liveAction.stage === 'done' && (
-                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 text-center pt-1">
-                      {liveAction.kind === 'divest' ? 'Executed · liquid again in the vault' : 'Executed · earning for the family'}
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
+            {/* chat scroll anchor — lives INSIDE the scroll container */}
+            <div ref={endRef} />
+            </div>
 
             {/* Input */}
             <div ref={chatBarRef} className="flex items-center gap-2 pt-1">
@@ -638,7 +671,7 @@ export default function BondProfilePage() {
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && submitDraft()}
                 placeholder="Ask the trustee anything…"
-                className="flex-1 bg-gray-50 rounded-full px-4 py-2.5 text-[13px] text-gray-800 font-medium placeholder:text-gray-300 outline-none border border-gray-100"
+                className="flex-1 bg-gray-50 rounded-full px-4 py-2.5 text-[13px] text-gray-800 font-medium placeholder:text-gray-300 outline-none"
               />
               <button
                 onClick={submitDraft}
@@ -648,139 +681,88 @@ export default function BondProfilePage() {
                 <ArrowUp size={14} />
               </button>
             </div>
-            {/* chat scroll anchor — lives INSIDE the room */}
-            <div ref={endRef} />
           </div>
         </section>
 
-        {/* Heirs — the will lives inside this bond */}
-        {isInheritance && (
-          <section className="space-y-3">
-            <h2 className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-400">
-              Your will · who claims when you’re both gone
-            </h2>
-            {heirs.map((h) => (
-              <div
-                key={h.id}
-                className={`bg-white rounded-2xl border px-5 py-4 flex items-center justify-between ${
-                  h.status === 'awaiting-partner' ? 'border-amber-200' : 'border-gray-100'
-                }`}
-              >
-                <div>
-                  <p className="text-sm font-black text-gray-900">{h.name}</p>
-                  <p
-                    className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 ${
-                      h.status === 'awaiting-partner' || h.status === 'awaiting-removal' ? 'text-amber-600' : 'text-gray-400'
-                    }`}
-                  >
-                    {h.status === 'awaiting-partner' ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                        Waiting for {bond.partner} to co-sign
-                      </span>
-                    ) : h.status === 'awaiting-removal' ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                        Removal requested — waiting for {bond.partner}
-                      </span>
-                    ) : (
-                      'In the will · claimable at 18 via NFC'
-                    )}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <p className="text-sm font-black text-gray-900 font-mono">{h.sharePct}%</p>
-                  {h.status !== 'awaiting-removal' && (
-                    <button
-                      onClick={() => setConfirmRemove(h)}
-                      className="w-6 h-6 rounded-full flex items-center justify-center text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors"
+        {/* Activity — LIVE: the Safe's real USDC transfers (time shown, tap
+            opens the transaction on Worldscan). MOCK: the playground list. */}
+        <section className="space-y-3">
+          <h2 className="text-2xl font-anton text-black tracking-wide">ACTIVITY</h2>
+          <div className="bg-white rounded-2xl divide-y divide-gray-100">
+            {!USE_MOCKS ? (
+              transfers && transfers.length > 0 ? (
+                <>
+                  {transfers.slice(0, shownTransfers).map((t, i) => (
+                    <a
+                      key={`${t.hash}-${i}`}
+                      href={`https://worldscan.org/tx/${t.hash}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-gray-50 transition-colors"
                     >
-                      <X size={12} />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-anton text-[11px] text-gray-700 uppercase tracking-wide truncate">
+                          {t.incoming
+                            ? `Received from ${shortAddress(t.from)}`
+                            : `Sent to ${shortAddress(t.to)}`}
+                        </p>
+                        <p className={`${META} mt-0.5`}>{formatTransferTime(t.timestamp)}</p>
+                      </div>
+                      <span className={`font-anton text-[11px] uppercase tracking-wide shrink-0 ${t.incoming ? 'text-emerald-600' : 'text-gray-700'}`}>
+                        {t.incoming ? '+' : '−'}{t.amountUsdc.toFixed(2)}
+                      </span>
+                    </a>
+                  ))}
+                  {transfers.length > shownTransfers && (
+                    <button
+                      onClick={() => setShownTransfers((n) => n + 5)}
+                      className={`w-full px-5 py-3 ${META} hover:text-gray-700 transition-colors`}
+                    >
+                      Show more
                     </button>
                   )}
-                </div>
-              </div>
-            ))}
-            {remainingPct < 5 ? (
-              <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-5">
-                <p className="text-[12px] font-medium text-gray-500">
-                  <span className="font-black text-gray-700">100% of the estate is allocated.</span> Remove
-                  an heir first to redistribute — the will can never promise more than there is.
+                </>
+              ) : (
+                <p className={`px-5 py-3.5 ${META}`}>
+                  No transfers yet — send USDC to your bond address and it shows up here
                 </p>
-              </div>
+              )
             ) : (
-            <div className="bg-white rounded-2xl border border-dashed border-gray-300 p-5 space-y-4">
-              <input
-                value={heirName}
-                onChange={(e) => setHeirName(e.target.value)}
-                placeholder="Name — e.g. your son Paul"
-                className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm text-gray-800 font-medium placeholder:text-gray-300 outline-none border border-gray-100"
-              />
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                    Share of the estate · {remainingPct}% unallocated
-                  </p>
-                  <p className="text-sm font-black text-gray-900 font-mono">{effectiveShare}%</p>
+              activity.map((a) => (
+                <div key={a.id} className="px-5 py-3.5 flex items-center justify-between gap-3">
+                  <p className="font-anton text-[11px] text-gray-700 uppercase tracking-wide">{a.label}</p>
+                  <p className={`${META} shrink-0 text-right`}>{a.detail}</p>
                 </div>
-                <input
-                  type="range"
-                  min={5}
-                  max={remainingPct}
-                  step={5}
-                  value={effectiveShare}
-                  onChange={(e) => setHeirShare(Number(e.target.value))}
-                  className="w-full accent-amber-500"
-                />
-              </div>
-              <AliveCta onClick={submitHeir} className="w-full px-6 py-3.5 rounded-xl text-[11px] tracking-[0.15em]">
-                Write into our will
-              </AliveCta>
-              <p className="text-[10px] text-gray-400 font-medium">
-                A will entry needs both of you — {bond.partner} gets asked to co-sign on her device.
-                No wallet needed for the heir: the claim binds to the human, unlocks at 18 via NFC,
-                and only after both of you are gone.
-              </p>
-            </div>
+              ))
             )}
-          </section>
-        )}
-
-        {/* Activity */}
-        <section className="space-y-3">
-          <h2 className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-400">Activity</h2>
-          <div className="bg-white rounded-2xl border border-gray-100 divide-y divide-gray-100">
-            {activity.map((a) => (
-              <div key={a.id} className="px-5 py-3.5 flex items-center justify-between gap-3">
-                <p className="text-[12px] font-medium text-gray-800 flex-1">{a.text}</p>
-                <span className="text-[8px] font-black uppercase tracking-widest text-gray-300 shrink-0">{a.tag}</span>
-              </div>
-            ))}
           </div>
         </section>
 
         {/* Rules — settings, at the bottom where settings belong */}
         <section className="space-y-3">
-          <h2 className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-400">Rules · what you two agreed</h2>
-          <div className="bg-white rounded-2xl border border-gray-100 divide-y divide-gray-100">
+          <div>
+            <h2 className="text-2xl font-anton text-black tracking-wide">RULES</h2>
+            <p className={`${META} mt-0.5`}>What you two agreed</p>
+          </div>
+          <div className="bg-white rounded-2xl divide-y divide-gray-100">
             {[
-              { k: 'Split of shared expenses', v: 'By income — currently you 10% · Alice 90%' },
+              { k: 'Split of shared expenses', v: 'By income' },
               { k: 'Your hardware threshold', v: `hito above ${threshold}` },
-              { k: 'Proof of life', v: 'Profile-level Selfie Check — one check covers all your bonds' },
-              { k: 'Will & rules document', v: 'v2 · encrypted on 0G storage' },
+              { k: 'Proof of life', v: 'Selfie Check' },
+              { k: 'Will & rules document', v: 'encrypted on 0G storage' },
             ].map((row) => (
               <div key={row.k} className="px-5 py-3.5 flex items-center justify-between gap-4">
-                <p className="text-[12px] font-bold text-gray-500">{row.k}</p>
-                <p className="text-[12px] font-medium text-gray-800 text-right">{row.v}</p>
+                <p className="font-anton text-[11px] text-gray-700 uppercase tracking-wide">{row.v}</p>
+                <p className={`${META} shrink-0 text-right`}>{row.k}</p>
               </div>
             ))}
             {/* Rules YOU TWO wrote — they feed both agents as binding context */}
             {bondRules.map((r) => (
               <div key={r.id} className="px-5 py-3.5 flex items-center gap-3">
-                <p className="text-[12px] font-medium text-gray-800 flex-1">{r.text}</p>
+                <p className="font-anton text-[11px] text-gray-700 uppercase tracking-wide flex-1">{r.text}</p>
                 {r.status === 'awaiting-partner' ? (
-                  <span className="text-[8px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 shrink-0 flex items-center gap-1">
-                    <span className="w-1 h-1 rounded-full bg-amber-500 animate-pulse" />
+                  <span className={`${META} bg-gray-100 rounded-full px-2 py-0.5 shrink-0 flex items-center gap-1`}>
+                    <span className="w-1 h-1 rounded-full bg-gray-400 animate-pulse" />
                     waiting for {bond.partner}
                   </span>
                 ) : (
@@ -795,7 +777,7 @@ export default function BondProfilePage() {
             ))}
           </div>
           {/* Write your own rule — context that makes the agents better */}
-          <div className="bg-white rounded-full border border-gray-100 pl-4 pr-1.5 py-1.5 flex items-center gap-2">
+          <div className="bg-white rounded-full pl-4 pr-1.5 py-1.5 flex items-center gap-2">
             <input
               value={ruleDraft}
               onChange={(e) => setRuleDraft(e.target.value)}
@@ -816,6 +798,106 @@ export default function BondProfilePage() {
             co-sign — changing any rule = a new charter version on 0G.
           </p>
         </section>
+
+        {/* Heirs — the will lives inside this bond, at the very bottom */}
+        {isInheritance && (
+          <section className="space-y-3">
+            <div>
+              <h2 className="text-2xl font-anton text-black tracking-wide">YOUR WILL</h2>
+              <p className={`${META} mt-0.5`}>
+                Who claims when you’re both gone. Adding or removing an heir takes both of you
+              </p>
+            </div>
+            {/* Teaser: recognizable but not live yet — blurred cover + "SOON" */}
+            <div className="relative">
+              <div className="blur-[1px] opacity-90 pointer-events-none select-none space-y-3">
+            {heirs.map((h) => (
+              <div
+                key={h.id}
+                className="bg-white rounded-2xl px-5 py-4 flex items-center justify-between"
+              >
+                <div>
+                  <p className="font-anton text-lg text-black tracking-wide">{h.name.toUpperCase()}</p>
+                  <p className={`${META} mt-0.5 ${h.status === 'awaiting-partner' || h.status === 'awaiting-removal' ? 'text-gray-700' : ''}`}>
+                    {h.status === 'awaiting-partner' ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-pulse" />
+                        Waiting for {bond.partner} to co-sign
+                      </span>
+                    ) : h.status === 'awaiting-removal' ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-pulse" />
+                        Removal requested — waiting for {bond.partner}
+                      </span>
+                    ) : (
+                      'In the will · claimable at 18 via NFC'
+                    )}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <p className="font-anton text-lg text-black tracking-wide">{h.sharePct}%</p>
+                  {h.status !== 'awaiting-removal' && (
+                    <button
+                      onClick={() => setConfirmRemove(h)}
+                      className="w-6 h-6 rounded-full flex items-center justify-center text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+            {remainingPct < 5 ? (
+              <div className="bg-white rounded-2xl p-5">
+                <p className="text-[12px] font-medium text-gray-500">
+                  <span className="font-black text-gray-700">100% of the estate is allocated.</span> Remove
+                  an heir first to redistribute — the will can never promise more than there is.
+                </p>
+              </div>
+            ) : (
+            <div className="bg-white rounded-2xl p-5 space-y-4">
+              <input
+                value={heirName}
+                onChange={(e) => setHeirName(e.target.value)}
+                placeholder="Name — e.g. your son Paul"
+                className="w-full bg-gray-50 rounded-xl px-4 py-3 text-sm text-gray-800 font-medium placeholder:text-gray-300 outline-none"
+              />
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <p className={META}>
+                    Share of the estate · {remainingPct}% unallocated
+                  </p>
+                  <p className="font-anton text-lg text-black tracking-wide">{effectiveShare}%</p>
+                </div>
+                <input
+                  type="range"
+                  min={5}
+                  max={remainingPct}
+                  step={5}
+                  value={effectiveShare}
+                  onChange={(e) => setHeirShare(Number(e.target.value))}
+                  className="w-full accent-black"
+                />
+              </div>
+              <AliveCta glow={false} onClick={submitHeir} className="w-full px-6 py-3.5 rounded-xl text-[11px] tracking-[0.15em]">
+                Write into our will
+              </AliveCta>
+              <p className="text-[10px] text-gray-400 font-medium">
+                A will entry needs both of you — {bond.partner} gets asked to co-sign on her device.
+                No wallet needed for the heir: the claim binds to the human, unlocks at 18 via NFC,
+                and only after both of you are gone.
+              </p>
+            </div>
+            )}
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="font-anton text-3xl text-black tracking-[0.2em] bg-white/50 backdrop-blur-sm rounded-full px-6 py-2">
+                  SOON
+                </span>
+              </div>
+            </div>
+          </section>
+        )}
       </main>
 
       {/* Floating hand-off to YOUR OWN agent — Claude-app-style pill, only while
@@ -827,7 +909,7 @@ export default function BondProfilePage() {
           className={`fixed bottom-5 ${USE_MOCKS ? 'right-20' : 'right-5'} z-40 flex items-center gap-2 bg-[#1A1A1A] text-white pl-3.5 pr-4 py-2.5 rounded-full shadow-[0_10px_30px_rgba(0,0,0,0.25)] active:scale-95 transition-all animate-in fade-in slide-in-from-bottom-2 duration-300`}
         >
           <MessageCircle size={14} />
-          <span className="text-[11px] font-bold">Message your agent</span>
+          <span className="text-[11px] font-bold">Your agent</span>
         </button>
       )}
 

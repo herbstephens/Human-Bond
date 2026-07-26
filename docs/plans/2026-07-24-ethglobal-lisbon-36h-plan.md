@@ -14,6 +14,39 @@ deadline: SUBMISSION SUNDAY 09:00 — video + texts must be DONE SATURDAY NIGHT
 
 ---
 
+## STATUS — Sat Jul 25, evening (living to-do list)
+
+### Done ✅
+- [x] T1 Vault: `BondVaultModule` V5 live on mainnet, one-batch creation (Safe + registerVault + ENS)
+- [x] T2 ENS at bond creation — mandatory, auto-label, live availability
+- [x] T4 Verification tiers decided + Orb gate on-chain (production app_id)
+- [x] T6 Heir UI: will editor, shares, 100% cap, co-sign choreography
+- [x] T8+T9 beyond plan: personal agents AND trustee LIVE on 0G (mainnet GLM), bond-aware routing, tool calls, settlement verification chain documented + attacked by runners
+- [x] World AgentKit door policy (not in original matrix): live AgentBook lookups, distinct-humans check, rogue-agent refusal
+- [x] Uniswap Trade API: real quotes inside the trustee conversation, swap terms in the settlement schema
+- [x] Live mode end-to-end: chain-truth dashboard (/profile), real vault balance from zero, copy-address funding, real send flow, ceremony-plays-once
+- [x] World beta testing documentation drafted (ETHGLOBAL_LISBON_planVSbuild.md) — honest, rubric-aligned
+
+### Open — tonight, in priority order 🔴
+- [ ] **Agent → wallet real execution test** (Leon's #1): wire chat `propose_spend` → real MiniKit `proposeSpend`; move real USDC agent-initiated, human-signed
+- [ ] **AgentKit registration** (2 min, blocks the $8k track): `npx @worldcoin/agentkit-cli register` for ben (Leon's World ID) + alice (a DIFFERENT teammate's) — rogue stays unregistered
+- [ ] **Real Selfie Check**: replace the mock overlay with a MiniKit verify (selfie credential) for the heartbeat reset — needs Dev-Portal action (Franco?)
+- [ ] **Scene 5 death-flow verify**: T15 is marked ✅ but unverified on this branch — Franco to confirm lapse → challenge → cancel → heir claim runs, or scene ships as UI + narration
+- [ ] **hito decision** (T7): real device tonight vs. mock release walk in the video — Mischa
+- [ ] **T12 full dry-run** on the demo devices, captured on backup video per Definition of Done
+- [ ] **T13 video (<3 min) + per-track submission texts + ETHGlobal page** — Leon + Herb, tonight
+- [ ] Feedback-doc TODOs: venue quotes ("World docs hard to find"), registration experience, 1–2 outside testers
+- [ ] T3 charter-on-0G: verify with Francesca what actually exists (no charter-upload code found in this repo)
+
+### Cut / deferred (deliberate) ✂️
+- Graph subgraph (T11) — roadmap
+- Walrus — pivoted to 0G
+- Real swap EXECUTION from the Safe (quotes are live; execution needs module wiring — honest in demo)
+- 0G KV multi-browser agent bus — written, blocked on testnet faucet
+- `finalizeWorkAndDistribute` / Work-TIME platform — out of weekend scope per brainstorm
+
+---
+
 ## The Demo — Five Scenes (~3 min)
 
 | # | Scene | What the audience sees | Sponsor visible |
