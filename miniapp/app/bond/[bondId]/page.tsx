@@ -23,6 +23,7 @@ import { useBondVault } from '@/lib/hooks/useBondVault';
 import { useVaultActions } from '@/lib/hooks/useVaultActions';
 import { VaultBalanceCard } from '@/app/components/vault/VaultBalanceCard';
 import { SendFundsForm } from '@/app/components/vault/SendFundsForm';
+import { VAULT_ADDRESSES } from '@/lib/contracts/vault';
 
 // --- tiny self-contained chat for the trustee room ------------------------
 
@@ -71,6 +72,25 @@ export default function BondProfilePage() {
     partner: livePartnerAddr,
     onDone: () => void refetchLiveVault(),
   });
+  const handleBondSend = (
+    to: `0x${string}`,
+    amount: bigint,
+    willExecuteImmediately: boolean,
+  ) => {
+    console.info('[bond-send] proposeSpend parameters', {
+      bondId: lBondId,
+      partnerA: lPartnerA,
+      partnerB: lPartnerB,
+      vaultAddress: liveVault?.address ?? null,
+      moduleAddress: VAULT_ADDRESSES.BOND_VAULT_MODULE,
+      usdcAddress: VAULT_ADDRESSES.USDC,
+      recipient: to,
+      amountBaseUnits: amount.toString(),
+      amountUsdc: Number(amount) / 1_000_000,
+      willExecuteImmediately,
+    });
+    return proposeSpend(to, amount, willExecuteImmediately);
+  };
   const params = useParams<{ bondId: string }>();
   const {
     agentReady, answers, payments, heirs, addHeir, requestRemoveHeir,
@@ -422,7 +442,7 @@ export default function BondProfilePage() {
               txState={spendState}
               error={spendError}
               txError={spendTxError}
-              onSend={proposeSpend}
+              onSend={handleBondSend}
               onReset={resetSpend}
             />
           </section>

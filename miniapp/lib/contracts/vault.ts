@@ -13,7 +13,7 @@
 // them for the TEST environment (see .env.local). Safe canonical + USDC are the same across envs.
 export const VAULT_ADDRESSES = {
   /** Our Safe module. The only vault contract the mini app calls directly. */
-  BOND_VAULT_MODULE: (process.env.NEXT_PUBLIC_BOND_VAULT_MODULE ?? '0xb94d2178c6530899a9b275A2b1F9663d4B4F2d65') as `0x${string}`,
+  BOND_VAULT_MODULE: (process.env.NEXT_PUBLIC_BOND_VAULT_MODULE ?? '0x59443F69cfa8553DAF1C488033B8707f87966B0c') as `0x${string}`,
   /** Delegatecall helper that enables the module during the Safe's setup(). Never called from the app. */
   MODULE_SETUP: (process.env.NEXT_PUBLIC_MODULE_SETUP ?? '0x0786ab6d36308d1E2f456ee9fb3Cf42b4cc27349') as `0x${string}`,
   /** Canonical Safe v1.4.1 deployments (deployed by Safe, not by us). */

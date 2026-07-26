@@ -228,6 +228,14 @@ export type Payment = {
   partnerName?: string;
 };
 
+export type AgentSpendProposal = {
+  label: string;
+  recipient: string;
+  amountUsdc: number;
+  detail?: string;
+  bond: { id: string; partner: string };
+};
+
 let nextId = 1;
 const mid = () => `m${nextId++}-${Date.now()}`;
 
@@ -287,6 +295,7 @@ type AgentState = {
   // payment rails
   pullGranted: boolean;
   pendingReceipt: { vendor: string; amountUsdc: number; recipientEns: string; bond?: { id: string; partner: string } } | null;
+  pendingAgentSpend: AgentSpendProposal | null;
 
   // chat
   messages: ChatMessage[];
@@ -305,6 +314,7 @@ type AgentState = {
   buyShared: () => void;
   buyPersonal: () => void;
   proposeShared: (label: string, recipientEns: string, amountUsdc: number, detail?: string, bond?: { id: string; partner: string }) => void;
+  clearPendingAgentSpend: () => void;
   renegotiate: (paymentId: string) => void;
   confirmOnHito: (paymentId: string) => void;
   say: (text: string) => void;
@@ -404,6 +414,7 @@ export const useAgentStore = create<AgentState>()(
         defaultBondId: DEFAULT_BOND_ID,
         pullGranted: false,
         pendingReceipt: null,
+        pendingAgentSpend: null,
         messages: [],
         payments: {},
 
@@ -623,6 +634,8 @@ export const useAgentStore = create<AgentState>()(
           ]);
         },
 
+        clearPendingAgentSpend: () => set({ pendingAgentSpend: null }),
+
         renegotiate: (paymentId) => {
           const g = get();
           const partner = g.payments[paymentId]?.partnerName ?? 'Alice';
@@ -748,32 +761,21 @@ export const useAgentStore = create<AgentState>()(
                   active[0];
                 if (!target) throw new Error('propose_shared without any active bond');
                 const bond = { id: target.id, partner: target.partner };
-                const balance = st.vaultBalances[target.id] ?? 0;
-                if (balance < a.amountUsdc && !st.pullGranted) {
-                  // The vault can't cover it — THIS is the moment pull access exists for.
-                  set(() => ({
-                    pendingReceipt: {
-                      vendor: a.label ?? 'Shared purchase',
-                      amountUsdc: a.amountUsdc,
-                      recipientEns: a.recipient ?? 'merchant.eth',
-                      bond,
-                    },
-                  }));
-                  st._enqueue([
-                    {
-                      type: 'text',
-                      text: `Before I can settle this: the ${target.partner} bond vault holds ${balance.toFixed(2)} USDC — this needs ${a.amountUsdc.toFixed(2)}. Grant the bond pull access to your wallet — like a card on file — and I’ll settle it.`,
-                    },
-                  ]);
-                } else {
-                  st.proposeShared(
-                    a.label ?? 'Shared purchase',
-                    a.recipient ?? 'merchant.eth',
-                    a.amountUsdc,
-                    a.detail ?? undefined,
+                set(() => ({
+                  pendingAgentSpend: {
+                    label: a.label ?? 'Shared purchase',
+                    recipient: a.recipient ?? 'merchant.eth',
+                    amountUsdc: a.amountUsdc,
+                    detail: a.detail ?? undefined,
                     bond,
-                  );
-                }
+                  },
+                }));
+                st._enqueue([
+                  {
+                    type: 'text',
+                    text: `I prepared ${a.label ?? 'this shared spend'} for your review. Approve it with your hito to propose ${a.amountUsdc.toFixed(2)} USDC from the ${target.partner} bond vault.`,
+                  },
+                ]);
               } else if (a?.type === 'cancel_spend' && typeof a.spendId === 'string') {
                 if (process.env.NODE_ENV !== 'production') {
                   console.info('[agent-tools] cancel_spend handler called', {
@@ -921,6 +923,7 @@ export const useAgentStore = create<AgentState>()(
             agentBusy: false,
             pullGranted: false,
             pendingReceipt: null,
+            pendingAgentSpend: null,
             messages: [],
             payments: {},
             customFacts: [],
@@ -967,6 +970,7 @@ export const useAgentStore = create<AgentState>()(
         defaultBondId: s.defaultBondId,
         pullGranted: s.pullGranted,
         pendingReceipt: s.pendingReceipt,
+        pendingAgentSpend: s.pendingAgentSpend,
         // Strip typed flags: after a reload, history renders instantly — only NEW messages type.
         messages: s.messages.map((m) => (m.kind === 'text' && m.typed ? { ...m, typed: false } : m)),
         payments: s.payments,

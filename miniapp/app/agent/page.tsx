@@ -18,6 +18,10 @@ import { useAgentStore, type ChoreoStage, type Payment } from '@/lib/agent/agent
 import { USE_MOCKS } from '@/lib/config';
 import { AliveCta } from '@/app/components/agent/AliveCta';
 import { SelfieCheckOverlay } from '@/app/components/agent/SelfieCheck';
+import { useMarriage } from '@/lib/marriage/context';
+import { useVaultActions } from '@/lib/hooks/useVaultActions';
+import { parseUsdc } from '@/lib/vault/usdc';
+import { useLiveBondSync } from '@/lib/agent/useLiveBondSync';
 
 // ---------------------------------------------------------------------------
 
@@ -236,6 +240,7 @@ export default function AgentChatPage() {
     partnerAgentReady,
     pullGranted,
     pendingReceipt,
+    pendingAgentSpend,
     messages,
     payments,
     celebrateBorn,
@@ -257,7 +262,22 @@ export default function AgentChatPage() {
     heartbeatOk,
     lifePing,
     heartbeatChecked,
+    clearPendingAgentSpend,
   } = useAgentStore();
+  const { dashboard, marriageView } = useMarriage();
+  useLiveBondSync();
+  const {
+    state: spendTxState,
+    error: spendError,
+    txError: spendTxError,
+    proposeSpend,
+    reset: resetSpend,
+  } = useVaultActions({
+    bondId: marriageView?.bondId ?? null,
+    partnerA: marriageView?.partnerA ?? null,
+    partnerB: marriageView?.partnerB ?? null,
+    partner: (dashboard?.partner ?? null) as `0x${string}` | null,
+  });
   const bonds = useAgentStore((s) => s.bonds);
   const defaultBondId = useAgentStore((s) => s.defaultBondId);
   const defaultPartner = bonds.find((b) => b.id === defaultBondId)?.partner ?? 'Alice';
@@ -266,6 +286,7 @@ export default function AgentChatPage() {
   // flow left artifacts (receipts/proposals/grants), or an opener was tapped.
   const [openersUsed, setOpenersUsed] = useState(false);
   const [showSelfie, setShowSelfie] = useState(false);
+  const [agentSpendValidationError, setAgentSpendValidationError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
   // The agent writes YOU first — proof-of-life ping, unprompted.
@@ -346,6 +367,36 @@ export default function AgentChatPage() {
     }
     // Everything else goes to the REAL agent — live model reply + routing.
     chatLive(text);
+  };
+
+  const approveAgentSpend = async () => {
+    const proposal = pendingAgentSpend;
+    if (!proposal) return;
+
+    setAgentSpendValidationError(null);
+    const recipient = proposal.recipient.trim();
+    if (!/^0x[a-fA-F0-9]{40}$/.test(recipient)) {
+      setAgentSpendValidationError(`Recipient is not an EVM address: ${recipient}`);
+      return;
+    }
+    const amount = parseUsdc(String(proposal.amountUsdc));
+    if (amount === null) {
+      setAgentSpendValidationError(`Invalid USDC amount from agent: ${proposal.amountUsdc}`);
+      return;
+    }
+
+    resetSpend();
+    const sent = await proposeSpend(recipient as `0x${string}`, amount, false);
+    if (!sent) return;
+
+    clearPendingAgentSpend();
+    useAgentStore.getState().proposeShared(
+      proposal.label,
+      proposal.recipient,
+      proposal.amountUsdc,
+      proposal.detail,
+      proposal.bond,
+    );
   };
 
   return (
@@ -442,7 +493,30 @@ export default function AgentChatPage() {
       <div className="fixed bottom-0 inset-x-0 bg-gradient-to-t from-[#E8E8E8] via-[#E8E8E8] to-transparent pt-10 pb-8 px-6">
         <div className="max-w-lg mx-auto space-y-3">
           {/* Contextual answers to the agent's open question — priority: proposal > grant > settle */}
-          {openProposal && !agentBusy ? (
+          {pendingAgentSpend && !agentBusy ? (
+            <div className="space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-400">
+              <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-600">Agent spend ready</p>
+                <p className="mt-1 text-xs font-medium leading-5 text-gray-700">
+                  Approve {pendingAgentSpend.amountUsdc.toFixed(2)} USDC to {pendingAgentSpend.recipient} from the{' '}
+                  {pendingAgentSpend.bond.partner} bond vault.
+                </p>
+              </div>
+              <AliveCta
+                onClick={() => void approveAgentSpend()}
+                disabled={spendTxState === 'sending'}
+                className="w-full px-5 py-3.5 rounded-2xl text-[11px] tracking-[0.15em]"
+              >
+                {spendTxState === 'sending' ? 'Confirming in wallet' : 'Approve with hito'}
+              </AliveCta>
+              {(agentSpendValidationError || spendError || spendTxError) && (
+                <p className="text-right text-[11px] text-red-500">
+                  {spendTxError?.title ? `${spendTxError.title}: ` : ''}
+                  {agentSpendValidationError || spendError}
+                </p>
+              )}
+            </div>
+          ) : openProposal && !agentBusy ? (
             <div className="flex gap-2 justify-end items-center animate-in fade-in slide-in-from-bottom-2 duration-400">
               {!openProposal.renegotiated && !openProposal.personal && (
                 <button

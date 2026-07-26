@@ -26,6 +26,12 @@ function debugAgentTool(message: string, data?: unknown): void {
   console.info(`[agent-tools] ${message}`, data);
 }
 
+function isConcreteSharedSpendRequest(userText: string): boolean {
+  const text = userText.toLowerCase();
+  return /\b(pay|send|transfer|buy|purchase|spend)\b/.test(text) &&
+    /\b(for us|together|shared|our|partner|dinner|tickets)\b/.test(text);
+}
+
 type ChatBody = {
   profile: { name: string; income: string; budget: string; threshold: string; stress: string; fear: string };
   facts: string[];
@@ -65,7 +71,7 @@ const AGENT_TOOLS = [
     function: {
       name: 'propose_spend',
       description:
-        'Draft a shared-vault USDC spend for human review. This proposes only; it never executes a payment.',
+        'Create a shared-vault USDC spend proposal for human review. Always use this for a concrete shared payment, including amounts at or below 10 USDC. After the human approves, the vault contract may execute a spend immediately when it is within the small-spend and daily-free limits; the agent itself never signs or executes.',
       strict: true,
       parameters: {
         type: 'object',
@@ -136,14 +142,16 @@ THE WORLD YOU LIVE IN:
 ${b.bonds.map((bd) => `  - bondId "${bd.id}": ${bd.type} bond with ${bd.partner} — vault ${bd.vaultBalanceUsdc.toFixed(2)} USDC${bd.isDefault ? ' (DEFAULT)' : ''}`).join('\n')}
 - Personal or shared is decided in THIS conversation with ${b.profile.name}. When shared, pick the bond that fits the situation (household/family → the partner bond it belongs to; work → a business bond). Only one bond, or unclear → the DEFAULT bond.
 - A shared spend is paid straight FROM that bond's vault balance. Money is NEVER pulled from anyone's personal wallet for it, and a payment is never split across personal accounts. Income splits are pure bookkeeping attribution between the two humans — never separate transfers.
-- You never execute anything. You settle with THAT bond's partner agent — you both sign — and that bond's manager (the neutral trustee) executes from that bond's vault. EVERY execution is additionally released by both humans on their hito wallets.
+- You never sign or execute anything yourself. For every concrete shared payment request, you MUST call propose_spend, including requests at or below 10 USDC. The human approval in the chat is the authority boundary; after approval, the vault contract may execute a small spend immediately when its configured per-spend and daily-free limits allow it.
+- For amounts above the small-spend threshold, the proposal continues through partner-agent agreement, trustee execution, and the required human release flow. Small spends are the explicit contract-level exception: one partner proposal can execute immediately when the daily-free allowance also permits it.
+- For a small shared payment, do not reply with a generic refusal such as "I can't execute payments" and do not merely promise to register it. Call propose_spend now, then explain that it is ready for the human's approval.
 - Never propose more than that bond's vault balance.
 - Personal spends stay ${b.profile.name}'s alone — no partner ever hears about them.
 ${b.rules?.length ? `\nRULES YOU TWO WROTE INTO THE CHARTER (binding — follow them over everything else):\n${b.rules.map((r) => `- ${r}`).join('\n')}` : ''}
 
 Answer ${b.profile.name} in 1–3 short sentences. When they ask to buy or pay for something SHARED ("for us", dinner together, tickets for two, or anything for a bond's household or business), call propose_spend with the exact bondId from the list above. If no amount is given, estimate a realistic one. If your previous message said you would settle something with a partner agent and the human now confirms (yes / do it / go), call propose_spend for exactly that request. When they explicitly ask to cancel a known pending spend and provide its spend ID, call cancel_spend.
 
-Never call a tool for personal purchases, questions, feelings, or vague cancellation requests. A tool call creates a draft for human review; it never executes. Never state a vault balance other than the ones above.`;
+Never call a tool for personal purchases, questions, feelings, or vague cancellation requests. A propose_spend tool call creates the approval step; it never authorizes the payment by itself. Never state a vault balance other than the ones above.`;
 }
 
 function actionFromToolCall(call: ToolCall): AgentAction | null {
@@ -195,10 +203,12 @@ export async function POST(req: Request) {
   if (!apiKey)
     return NextResponse.json({ error: 'ZG_ROUTER_(CHAT_)API_KEY is not set in miniapp/.env.local' }, { status: 500 });
   const body = (await req.json()) as ChatBody;
+  const sharedSpendRequest = isConcreteSharedSpendRequest(body.userText);
   debugAgentTool('sending chat request to 0G', {
     model: MODEL,
     historyMessages: body.history.length,
     availableTools: AGENT_TOOLS.map((tool) => tool.function.name),
+    sharedSpendRequest,
   });
 
   const res = await fetch(`${BASE_URL}/chat/completions`, {
@@ -213,7 +223,9 @@ export async function POST(req: Request) {
         { role: 'user', content: body.userText },
       ],
       tools: AGENT_TOOLS,
-      tool_choice: 'auto',
+      tool_choice: sharedSpendRequest
+        ? { type: 'function', function: { name: 'propose_spend' } }
+        : 'auto',
     }),
   });
   if (!res.ok) return NextResponse.json({ error: `0G router ${res.status}: ${await res.text()}` }, { status: 502 });
