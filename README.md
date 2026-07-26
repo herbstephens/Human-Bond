@@ -3,7 +3,6 @@
 **The first proof-of-humanity partnership protocol — live on World Chain — giving economic standing to the partner the market has always ignored.**
 
 [![World Chain](https://img.shields.io/badge/World%20Chain-Mainnet-6B4FBB?style=flat-square)](https://worldscan.org)
-[![World App]([(https://world.org/mini-app?app_id=app_925d0aaa3d9464e5d61690d94a68b401&path=&draft_id=meta_9766b963d93880d7399fa02da9c59ea9)]
 [![ETHGlobal Lisbon](https://img.shields.io/badge/ETHGlobal-Lisbon%202026-FF4500?style=flat-square)](https://ethglobal.com/events/lisbon2026)
 [![MIT](https://img.shields.io/badge/License-MIT-gray?style=flat-square)](./LICENSE)
 
