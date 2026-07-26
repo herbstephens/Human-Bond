@@ -26,6 +26,7 @@ import { useBondVault } from '@/lib/hooks/useBondVault';
 import { useVaultActions } from '@/lib/hooks/useVaultActions';
 import { useVaultTransfers } from '@/lib/hooks/useVaultTransfers';
 import { SendFundsForm } from '@/app/components/vault/SendFundsForm';
+import { NegotiationRoom } from '@/app/components/bond/NegotiationRoom';
 
 // --- tiny self-contained chat for the trustee room ------------------------
 
@@ -660,6 +661,13 @@ export default function BondProfilePage() {
             onReset={resetSpend}
           />
         )}
+
+        {/* Live negotiation room — the two agents actually settle shared money. */}
+        <NegotiationRoom
+          bondId={bond.id}
+          myName={answers.name?.text?.replace(/^just call me /i, '') || 'Ben'}
+          partnerName={bond.partner}
+        />
 
         {/* Trustee room */}
         <section className="space-y-3">
