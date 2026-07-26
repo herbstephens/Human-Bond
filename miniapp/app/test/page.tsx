@@ -24,6 +24,20 @@ export default function TestIndexPage() {
             Test 0G key storage, World ID verification, and AgentBook registration.
           </p>
         </Link>
+
+        <Link
+          href="/test/agent_bridge"
+          className="mt-4 block rounded-3xl border border-white/10 bg-black/20 p-5 transition-colors hover:border-amber-400/50 hover:bg-black/30"
+        >
+          <p className="font-mono text-[10px] uppercase tracking-widest text-amber-300">
+            AgentKit · bridge
+          </p>
+          <p className="mt-2 text-lg font-semibold">Register in the global AgentBook</p>
+          <p className="mt-1 text-sm text-[#b9ad9b]">
+            Mints the proof under AgentKit&apos;s app via the World ID bridge and hands off through
+            the world.org universal link — the path MiniKit cannot take.
+          </p>
+        </Link>
       </section>
     </main>
   );
