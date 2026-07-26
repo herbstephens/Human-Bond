@@ -1,0 +1,1100 @@
+/**
+ * HumanBond landing page — Francesca's "Variant C" mockup
+ * (humanbond-landing-full.html), transplanted 1:1 into the mini app.
+ *
+ * Every selector is scoped under `.hb-landing` so the mockup's design tokens
+ * (--bg, --accent, --border …) can keep their original names without
+ * colliding with the shadcn tokens the rest of the app defines on `:root`.
+ * The mockup's reset is dropped — Tailwind's preflight already does it.
+ */
+
+/* ===== Mandatory reset ===== */
+/* `clip` instead of `hidden`: on a wrapper div, overflow-x:hidden turns the
+   element into a scroll container and the sticky nav stops sticking. */
+.hb-landing { overflow-x: clip; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+}
+.hb-landing img, .hb-landing video, .hb-landing svg { max-width: 100%; height: auto; display: block;
+}
+.hb-landing input, .hb-landing button, .hb-landing textarea, .hb-landing select { font: inherit;
+}
+
+/* ===== Design tokens (identical to approved hero mockup, extended) ===== */
+.hb-landing {
+    color-scheme: light;
+
+    /* base surfaces */
+    --bg: #faf9f7;
+    --bg-elevated: #ffffff;
+    --surface: #f2f1ed;
+    --surface-2: #ebe9e4;
+    --border: rgba(10, 10, 12, 0.09);
+    --border-strong: rgba(10, 10, 12, 0.14);
+
+    /* text */
+    --text-primary: #0d0d0f;
+    --text-secondary: #55545c;
+    --text-tertiary: #85838d;
+    --wordmark-muted: #9491a8;
+    --indigo-night: #0F0F23;
+    --slate: #6C6F93;
+    --slate-muted: color-mix(in srgb, var(--slate) 60%, var(--indigo-night) 40%);
+    --claret: #B02A37;
+    --claret-muted: color-mix(in srgb, var(--claret) 60%, var(--indigo-night) 40%);
+    --time-gold: #F1B24A;
+    --gold-muted: color-mix(in srgb, var(--time-gold) 45%, var(--indigo-night) 55%);
+    --coral: #E63946;
+    --coral-muted: color-mix(in srgb, var(--coral) 55%, var(--indigo-night) 45%);
+
+    /* brand accent — warm amber, echoes the original World App gold */
+    --accent: #F1B24A;
+    --accent-strong: #F1B24A;
+    --accent-soft: rgba(241, 178, 74, 0.10);
+    --accent-glow: rgba(241, 178, 74, 0.26);
+
+    /* primary CTA — inverted pill (dark text on light) */
+    --cta-bg: #0d0d0f;
+    --cta-bg-hover: #1c1c1f;
+    --cta-text: #faf9f7;
+
+    --ring-color: #0d0d0f;
+    --shadow-soft: 0 1px 2px rgba(20,15,5,0.06), 0 12px 28px -10px rgba(20,15,5,0.14);
+    --shadow-tile: 0 1px 2px rgba(20,15,5,0.05), 0 20px 48px -18px rgba(20,15,5,0.22), 0 0 0 1px rgba(20,15,5,0.05) inset;
+
+    --font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+
+    /* ===== Variant C tokens — outline icon badges + hairline connectors ===== */
+    --icon-outline-width: 1.5px;
+    --icon-size-lg: 68px;   /* how-it-works badges */
+    --icon-size-md: 56px;   /* value-prop badges (4-col) */
+    --icon-size-sm: 30px;   /* trust-band badges */
+}
+.hb-landing {
+    background: var(--bg);
+    font-family: var(--font-display);
+    color: var(--text-primary);
+}
+
+/* ===== Section wrapper — explicit background, never inherited ===== */
+.hb-landing .page {
+    position: relative;
+    width: 100%;
+    background-color: var(--bg);
+    isolation: isolate;
+}
+
+/* ===== Atmosphere: flat surface + faint straight-line grid (no glow, no grain) ===== */
+.hb-landing .atmosphere {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+    background-color: var(--bg);
+}
+.hb-landing .atmosphere::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(to right, var(--border) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+    background-size: 64px 64px;
+    -webkit-mask-image: radial-gradient(60% 55% at 50% 30%, black 0%, transparent 78%);
+            mask-image: radial-gradient(60% 55% at 50% 30%, black 0%, transparent 78%);
+    opacity: 0.4;
+}
+
+/* ===== Shared section rhythm ===== */
+.hb-landing section { position: relative; background-color: var(--bg);
+}
+.hb-landing .container {
+    position: relative;
+    z-index: 2;
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 32px 24px;
+}
+.hb-landing .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--accent-strong);
+    margin-bottom: 14px;
+}
+.hb-landing .section-head {
+    max-width: 620px;
+    margin: 0 auto 56px;
+    text-align: center;
+}
+.hb-landing .section-title {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+    font-size: clamp(1.75rem, 4vw, 2.4rem);
+    color: var(--text-primary);
+    margin-bottom: 14px;
+}
+.hb-landing .section-sub {
+    color: var(--text-primary);
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    font-weight: 500;
+}
+
+/* ===== Nav ===== */
+.hb-landing .nav {
+    position: relative;
+    z-index: 2;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg) 72%, transparent);
+    backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+}
+.hb-landing .nav-inner {
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.hb-landing .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.hb-landing .brand img { width: 64px; height: auto; display: block;
+}
+.hb-landing .brand-name {
+    font-weight: 600;
+    font-size: 15px;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+}
+.hb-landing .nav-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 18px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+    color: var(--accent-strong);
+    font-weight: 600;
+    font-size: 15px;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+    min-height: 40px;
+}
+.hb-landing .nav-cta:hover {
+    background: color-mix(in srgb, var(--accent) 22%, transparent);
+    border-color: var(--accent);
+    transform: translateY(-1px);
+    filter: saturate(1.3);
+}
+.hb-landing .nav-cta:active { transform: translateY(0);
+}
+.hb-landing .nav-cta svg { width: 15px; height: 15px;
+}
+
+/* ===== Hero ===== */
+.hb-landing .hero-wrap {
+    position: relative;
+    background-color: var(--bg);
+}
+.hb-landing .hero {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 32px 24px 61px;
+    max-width: 720px;
+    margin: 0 auto;
+}
+.hb-landing .icon-tile-wrap {
+    position: relative;
+    margin-bottom: 12px;
+    animation: hb-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.hb-landing .icon-tile-wrap::before {
+    content: "";
+    position: absolute;
+    inset: -34px;
+    background: radial-gradient(circle, var(--accent-glow) 0%, transparent 68%);
+    filter: blur(6px);
+    z-index: -1;
+    animation: hb-glow-pulse 3.2s ease-in-out infinite;
+}
+@keyframes hb-glow-pulse {
+    0%, 100% { opacity: 0.75; transform: scale(1); }
+    50% { opacity: 1; transform: scale(1.08); }
+  }
+.hb-landing .icon-tile {
+    width: clamp(104px, 22vw, 132px);
+    height: clamp(104px, 22vw, 132px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.hb-landing .icon-tile img { width: 90%; height: auto; display: block;
+}
+.hb-landing .wordmark-img {
+    margin-bottom: 18px;
+    animation: hb-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.08s both;
+}
+.hb-landing .wordmark-img svg {
+    display: block;
+    width: clamp(315px, calc(315px + (100vw - 375px) * 0.542857), 600px);
+    height: auto;
+}
+.hb-landing .subhead {
+    color: var(--text-primary);
+    font-size: clamp(15px, calc(15px + (100vw - 375px) * 0.0110476), 20.8px);
+    line-height: 1.5;
+    max-width: 480px;
+    font-weight: 600;
+    margin-bottom: 14px;
+    animation: hb-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.16s both;
+}
+.hb-landing .subhead strong { color: var(--text-primary); font-weight: 600;
+}
+.hb-landing .process-line {
+    display: inline-flex;
+    align-items: center;
+    color: var(--accent-strong);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    background: var(--accent-soft);
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+    padding: 7px 18px;
+    border-radius: 999px;
+    margin: 0 0 64px;
+    animation: hb-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
+}
+.hb-landing .cta-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 14px;
+    animation: hb-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.24s both;
+}
+.hb-landing .btn-verify {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 15px 26px;
+    border-radius: 999px;
+    border: none;
+    background: var(--cta-bg);
+    color: var(--cta-text);
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 15px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+    box-shadow: var(--shadow-soft);
+    transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s ease, background 0.18s ease;
+    min-height: 48px;
+}
+.hb-landing .btn-verify:hover {
+    background: var(--cta-bg-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.35), 0 18px 40px -12px rgba(0,0,0,0.5);
+}
+.hb-landing .btn-verify:active { transform: translateY(0);
+}
+.hb-landing .btn-verify svg { width: 17px; height: 17px; flex-shrink: 0;
+}
+.hb-landing .btn-info {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--text-secondary);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+.hb-landing .btn-info:hover {
+    background: var(--surface-2);
+    color: var(--text-primary);
+    border-color: var(--border-strong);
+    transform: translateY(-2px);
+}
+.hb-landing .btn-info svg { width: 18px; height: 18px;
+}
+.hb-landing .trust-line-group {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 10px 22px;
+    margin-top: 3px;
+    animation: hb-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) 0.32s both;
+}
+.hb-landing .trust-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+}
+.hb-landing .trust-line:not(:first-child)::before {
+    content: "";
+    width: 1px;
+    height: 12px;
+    background: var(--border-strong);
+    display: inline-block;
+}
+.hb-landing .trust-line svg { width: 14px; height: 14px; opacity: 0.85;
+}
+@keyframes hb-rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+@media (prefers-reduced-motion: reduce) {
+  .hb-landing .icon-tile-wrap, .hb-landing .wordmark-img, .hb-landing .subhead, .hb-landing .process-line, .hb-landing .cta-row, .hb-landing .trust-line-group {
+      animation: none;
+  }
+  .hb-landing .icon-tile-wrap::before {
+      animation: none;
+  }
+  .hb-landing .step-card:last-of-type .step-icon {
+      animation: none;
+  }
+}
+
+/* ===== How it works — Variant C: hairline connector + outline circle icons, no card box ===== */
+.hb-landing .steps-section { background-color: var(--bg-elevated); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+}
+.hb-landing .steps-grid {
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+}
+.hb-landing .steps-grid::before {
+    content: "";
+    position: absolute;
+    top: calc(var(--icon-size-lg) / 2);
+    left: 60px;
+    right: 60px;
+    height: 1px;
+    background: linear-gradient(to right, var(--border-strong) 0%, var(--border-strong) 72%, transparent 72%, transparent 100%);
+    z-index: 0;
+}
+.hb-landing .time-connector {
+    position: absolute;
+    top: calc(var(--icon-size-lg) / 2);
+    left: calc(74% + 14px);
+    right: 16%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 14px;
+    transform: translateY(-50%);
+    z-index: 2;
+}
+.hb-landing .time-dot {
+    display: block;
+    border-radius: 50%;
+    border: var(--icon-outline-width) solid var(--accent);
+    background: var(--bg-elevated);
+    transition: filter 0.2s ease;
+}
+.hb-landing .time-dot:hover {
+    filter: brightness(1.15) saturate(1.35);
+}
+.hb-landing .time-dot--1 { width: 6px; height: 6px;
+}
+.hb-landing .time-dot--2 { width: 10px; height: 10px;
+}
+.hb-landing .time-dot--3 { width: 14px; height: 14px;
+}
+.hb-landing .time-dot--4 { width: 18px; height: 18px;
+}
+.hb-landing .step-card {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    padding: 0 12px;
+}
+.hb-landing .step-icon {
+    width: var(--icon-size-lg);
+    height: var(--icon-size-lg);
+    border-radius: 50%;
+    background: var(--bg-elevated);
+    border: var(--icon-outline-width) solid var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 22px;
+    color: var(--accent-strong);
+    transition: filter 0.2s ease;
+}
+.hb-landing .step-icon:hover {
+    filter: brightness(1.15) saturate(1.35);
+}
+.hb-landing .step-card:last-of-type .step-icon {
+    animation: hb-step-icon-pulse 2.4s ease-in-out infinite;
+}
+@keyframes hb-step-icon-pulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 var(--accent-glow); }
+    50% { transform: scale(1.06); box-shadow: 0 0 22px 10px var(--accent-glow); }
+  }
+.hb-landing .step-icon svg {
+    width: 30px;
+    height: 30px;
+    color: currentColor;
+    stroke-width: 2.1;
+}
+.hb-landing .step-icon svg circle, .hb-landing .step-icon svg path {
+    stroke-width: inherit;
+}
+.hb-landing .step-title {
+    font-weight: 700;
+    font-size: 1.05rem;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+.hb-landing .step-desc {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.55;
+    font-weight: 500;
+    max-width: 270px;
+    margin: 0 auto;
+    text-wrap: pretty;
+}
+
+/* ===== Value props — same Variant C language: outline circle icons, hairline
+vertical dividers instead of boxed tiles (connector line rotated 90°) ===== */
+.hb-landing .values-section { background-color: var(--surface);
+}
+.hb-landing .values-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+}
+.hb-landing .value-item {
+    position: relative;
+    text-align: center;
+    padding: 0 28px;
+}
+.hb-landing .value-item:not(:first-child) {
+    border-left: 1px solid var(--border-strong);
+}
+.hb-landing .value-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 18px;
+    color: var(--accent-strong);
+    transition: filter 0.2s ease;
+}
+.hb-landing .value-icon:hover {
+    filter: brightness(1.15) saturate(1.35);
+}
+.hb-landing .value-icon svg {
+    width: var(--icon-size-md);
+    height: var(--icon-size-md);
+    color: var(--accent-strong);
+    stroke-width: 1.6;
+}
+.hb-landing .value-title {
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+}
+.hb-landing .value-desc {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    line-height: 1.55;
+    font-weight: 500;
+    max-width: 260px;
+    margin: 0 auto;
+}
+
+/* ===== Trust / security band — small outline circle icon badges next to labels ===== */
+.hb-landing .trust-band { background-color: var(--bg-elevated); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+}
+.hb-landing .trust-band .container {
+    padding-top: 61px;
+    padding-bottom: 61px;
+}
+.hb-landing .trust-band-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 40px;
+}
+.hb-landing .partner-caption {
+    text-align: center;
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    margin-top: 24px;
+}
+.hb-landing .partner-caption a {
+    color: inherit;
+    text-decoration: none;
+    transition: color 0.18s ease;
+}
+.hb-landing .partner-caption a:hover {
+    color: var(--accent-strong);
+}
+
+/* Aligned by HEIGHT, not a shared box. Worldcoin/0G/ENS are genuinely
+different aspect ratios (~1:1, ~2:1, ~0.87:1), forcing them into an
+identical square box makes the wide 0G mark look shorter, that's a
+geometry problem, not a padding problem. Every mark below is cropped
+tight to its real content bounds and rendered at the exact same
+56px height, width follows each mark's true aspect ratio. */
+.hb-landing .partner-logo-box {
+    height: 112px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.hb-landing .partner-logo-box--worldcoin { aspect-ratio: 177 / 180;
+}
+.hb-landing .partner-logo-box--zerog { aspect-ratio: 551 / 267;
+}
+.hb-landing .partner-logo-box--ens { aspect-ratio: 26 / 30;
+}
+/* The Worldcoin mark is a bitmap, so it is painted as a mask (the fill colour
+   then follows --text-tertiary / --accent-strong like the two SVG marks do). */
+.hb-landing .partner-logo-box--worldcoin .partner-logo-mask {
+    -webkit-mask-image: url('/landing/worldcoin-mark.png');
+            mask-image: url('/landing/worldcoin-mark.png');
+}
+.hb-landing .partner-logo-mask {
+    display: block;
+    width: 100%;
+    height: 100%;
+    background-color: var(--text-tertiary);
+    -webkit-mask-size: 100% 100%;
+            mask-size: 100% 100%;
+    -webkit-mask-repeat: no-repeat;
+            mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+            mask-position: center;
+    transition: background-color 0.2s ease;
+}
+.hb-landing .partner-logo-box svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    color: var(--text-tertiary);
+    transition: color 0.2s ease;
+}
+.hb-landing .partner-logo-box:hover .partner-logo-mask {
+    background-color: var(--accent-strong);
+}
+.hb-landing .partner-logo-box:hover svg {
+    color: var(--accent-strong);
+}
+
+/* Option: Partner Cards — bordered card wrapper with caption, lift + tint on hover
+(mirrors .btn-verify:hover's translateY + shadow convention) */
+.hb-landing .partner-card {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 28px 36px 22px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-strong);
+    border-radius: 16px;
+    text-decoration: none;
+    transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+}
+.hb-landing .partner-card:hover {
+    transform: translateY(-3px);
+    background: var(--surface);
+    border-color: var(--accent);
+    box-shadow: var(--shadow-tile);
+}
+.hb-landing .partner-card:active { transform: translateY(-1px);
+}
+.hb-landing .partner-card-label {
+    text-align: center;
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    transition: color 0.18s ease;
+}
+.hb-landing .partner-card:hover .partner-card-label {
+    color: var(--accent-strong);
+}
+.hb-landing .trust-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+}
+.hb-landing .trust-badge-icon {
+    width: var(--icon-size-sm);
+    height: var(--icon-size-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+    opacity: 0.85;
+    flex-shrink: 0;
+}
+.hb-landing .trust-badge-icon svg {
+    width: 15px;
+    height: 15px;
+}
+
+/* ===== Closing CTA — warm gradient band that flows straight into the footer,
+replacing the old blurred radial glow with a deliberate, full-width tone shift ===== */
+.hb-landing .closing-wrap {
+    position: relative;
+    overflow: hidden;
+    border-top: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border));
+    background-color: var(--bg-elevated);
+}
+.hb-landing .closing-wrap::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 480px;
+    height: 480px;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+    filter: blur(6px);
+    z-index: 0;
+    pointer-events: none;
+}
+.hb-landing .closing {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 61px 24px;
+    max-width: 560px;
+    margin: 0 auto;
+}
+.hb-landing .closing-title {
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.15;
+    font-size: clamp(1.75rem, 4.5vw, 2.5rem);
+    color: var(--accent-strong);
+    margin-bottom: 14px;
+}
+.hb-landing .closing-sub {
+    color: var(--text-secondary);
+    font-size: 1.0625rem;
+    line-height: 1.55;
+    font-weight: 500;
+    margin-bottom: 32px;
+}
+
+/* ===== Footer ===== */
+.hb-landing .footer { background-color: var(--bg); border-top: 1px solid var(--border);
+}
+.hb-landing .footer .container {
+    max-width: none;
+    margin: 0;
+    padding-top: 40px;
+    padding-bottom: 40px;
+}
+.hb-landing .footer-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+.hb-landing .footer-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.hb-landing .footer-brand img { width: 54px; height: auto; display: block;
+}
+.hb-landing .footer-brand-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+.hb-landing .footer-links {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    flex-wrap: wrap;
+}
+.hb-landing .footer-links a {
+    color: var(--text-secondary);
+    font-size: 15px;
+    font-weight: 600;
+    text-decoration: none;
+}
+.hb-landing .footer-links a:hover { color: var(--text-primary);
+}
+.hb-landing .footer-copy {
+    color: var(--text-tertiary);
+    font-size: 13px;
+    font-weight: 500;
+    width: 100%;
+    padding-top: 16px;
+    margin-top: 16px;
+    border-top: 1px solid var(--border);
+}
+
+/* ===== World App modal — triggered by nav-cta, styled with existing tokens/hover conventions only ===== */
+.hb-landing .app-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: color-mix(in srgb, var(--ring-color) 55%, transparent);
+    backdrop-filter: blur(6px) saturate(140%);
+    -webkit-backdrop-filter: blur(6px) saturate(140%);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0s linear 0.2s;
+}
+.hb-landing .app-modal-overlay.is-open {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.2s ease, visibility 0s linear 0s;
+}
+.hb-landing .app-modal {
+    position: relative;
+    width: 100%;
+    max-width: 400px;
+    max-height: 90vh;
+    overflow-y: auto;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-strong);
+    border-radius: 24px;
+    box-shadow: var(--shadow-tile);
+    padding: 36px 28px 28px;
+    text-align: center;
+    transform: translateY(10px) scale(0.98);
+    transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.hb-landing .app-modal-overlay.is-open .app-modal {
+    transform: translateY(0) scale(1);
+}
+.hb-landing .app-modal-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+.hb-landing .app-modal-close:hover {
+    background: var(--surface-2);
+    color: var(--text-primary);
+    transform: translateY(-1px);
+}
+.hb-landing .app-modal-close svg { width: 18px; height: 18px;
+}
+.hb-landing .app-modal-title {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    font-size: 1.4rem;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+.hb-landing .app-modal-sub {
+    color: var(--text-secondary);
+    font-size: 0.9375rem;
+    line-height: 1.5;
+    font-weight: 500;
+    margin-bottom: 24px;
+}
+.hb-landing .app-modal-qr {
+    width: 168px;
+    height: 168px;
+    margin: 0 auto 24px;
+    padding: 12px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-strong);
+    border-radius: 20px;
+    box-shadow: var(--shadow-soft);
+}
+.hb-landing .app-modal-qr svg, .hb-landing .app-modal-qr img { width: 100%; height: 100%; display: block;
+}
+.hb-landing .app-store-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+}
+.hb-landing .app-store-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    flex: 1 1 auto;
+    padding: 12px 20px;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 1px solid var(--border-strong);
+    color: var(--text-primary);
+    font-weight: 600;
+    font-size: 15px;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+.hb-landing .app-store-btn:hover {
+    background: var(--surface-2);
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-soft);
+}
+.hb-landing .app-store-btn:active { transform: translateY(0);
+}
+.hb-landing .app-store-btn svg { width: 20px; height: 20px; flex-shrink: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hb-landing .app-modal-overlay, .hb-landing .app-modal { transition: none;
+  }
+}
+
+/* ===== 375px mobile check ===== */
+@media (max-width: 900px) {
+  .hb-landing .values-grid {
+      grid-template-columns: repeat(2, 1fr);
+      row-gap: 36px;
+  }
+  .hb-landing .value-item { border-left: none; padding: 0 20px;
+  }
+  .hb-landing .value-item:nth-child(2), .hb-landing .value-item:nth-child(4) { border-left: 1px solid var(--border-strong);
+  }
+  .hb-landing .value-item:nth-child(3), .hb-landing .value-item:nth-child(4) { border-top: 1px solid var(--border-strong); padding-top: 32px;
+  }
+}
+@media (max-width: 900px) {
+  .hb-landing .steps-grid { grid-template-columns: repeat(2, 1fr); row-gap: 40px;
+  }
+  .hb-landing .steps-grid::before { display: none;
+  }
+  .hb-landing .time-connector { display: none;
+  }
+}
+@media (max-width: 720px) {
+  .hb-landing .steps-grid { grid-template-columns: 1fr; gap: 40px;
+  }
+  .hb-landing .steps-grid::before { display: none;
+  }
+  .hb-landing .time-connector { display: none;
+  }
+  .hb-landing .section-head { margin-bottom: 40px;
+  }
+}
+@media (max-width: 400px) {
+  .hb-landing .nav { padding: 14px 0;
+  }
+  .hb-landing .nav-inner { padding: 0 16px;
+  }
+  .hb-landing .brand img { width: 40px;
+  }
+  .hb-landing .brand-name { display: none;
+  }
+  .hb-landing .nav-cta { padding: 8px 14px; font-size: 16px;
+  }
+  .hb-landing .hero { padding: 48px 18px 32px;
+  }
+  .hb-landing .icon-tile { width: clamp(87px, 24.2vw, 111px); height: clamp(87px, 24.2vw, 111px);
+  }
+  .hb-landing .cta-row { flex-wrap: wrap;
+  }
+  .hb-landing .btn-verify { font-size: 16px; padding: 14px 20px;
+  }
+  .hb-landing .trust-line { font-size: 13px; letter-spacing: 0.05em; gap: 6px;
+  }
+  .hb-landing .trust-line-group { gap: 8px 14px;
+  }
+  .hb-landing .container { padding: 32px 18px;
+  }
+  .hb-landing .app-modal { padding: 28px 20px 20px;
+  }
+  .hb-landing .app-modal-qr { width: 140px; height: 140px;
+  }
+  .hb-landing .app-store-btn { font-size: 16px;
+  }
+  .hb-landing .values-grid { grid-template-columns: 1fr; row-gap: 32px;
+  }
+  .hb-landing .value-item { border-left: none !important; border-top: none; padding: 0;
+  }
+  .hb-landing .value-item:not(:first-child) { border-top: 1px solid var(--border-strong); padding-top: 28px;
+  }
+  .hb-landing .section-title { font-size: 1.55rem;
+  }
+  .hb-landing .trust-band-row { gap: 24px; justify-content: flex-start;
+  }
+  .hb-landing .footer-links { gap: 18px;
+  }
+  .hb-landing .footer-brand img { width: 40px;
+  }
+  .hb-landing .closing { padding: 32px 18px;
+  }
+}
+@media (max-width: 480px) {
+  .hb-landing .brand img { width: 40px;
+  }
+  .hb-landing .footer-brand img { width: 40px;
+  }
+  .hb-landing .icon-tile { width: clamp(87px, 24.2vw, 111px); height: clamp(87px, 24.2vw, 111px);
+  }
+  .hb-landing .trust-band .container { padding-top: 40px; padding-bottom: 40px;
+  }
+  .hb-landing .trust-band-row { gap: 12px; justify-content: center;
+  }
+  .hb-landing .partner-card { padding: 14px 14px 12px; gap: 8px;
+  }
+  .hb-landing .partner-logo-box { height: 44px;
+  }
+}
+
+/* ===== Mini-app integration — states the static mockup had no need for:
+   the verifying spinner, the disabled CTA, and the verification error notice.
+   All built from the mockup's own tokens, no new colours. ===== */
+.hb-landing .btn-verify:disabled {
+    cursor: not-allowed;
+    opacity: 0.7;
+    transform: none;
+    box-shadow: var(--shadow-soft);
+}
+
+.hb-landing .btn-spinner {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    border: 2px solid color-mix(in srgb, var(--cta-text) 30%, transparent);
+    border-top-color: var(--cta-text);
+    animation: hb-spin 0.7s linear infinite;
+}
+
+@keyframes hb-spin {
+    to { transform: rotate(360deg); }
+}
+
+.hb-landing .verify-error {
+    margin-top: 18px;
+    max-width: 420px;
+    padding: 12px 18px;
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--coral) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--coral) 30%, transparent);
+    color: var(--coral-muted);
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.45;
+    animation: hb-rise 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* The info modal reuses the World App modal shell; this is its one addition. */
+.hb-landing .app-modal-note {
+    margin-top: 20px;
+    padding: 16px 18px;
+    border-radius: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    text-align: left;
+}
+
+.hb-landing .app-modal-note-title {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin-bottom: 10px;
+}
+
+.hb-landing .app-modal-note ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.hb-landing .app-modal-note li {
+    position: relative;
+    padding-left: 16px;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    font-weight: 500;
+}
+
+.hb-landing .app-modal-note li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.6em;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hb-landing .btn-spinner, .hb-landing .verify-error { animation: none; }
+}
