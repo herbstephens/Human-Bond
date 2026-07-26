@@ -6,13 +6,24 @@ import { formatUsdc, shortAddress } from "@/lib/vault/usdc";
 import { VAULT_RULES } from "@/lib/contracts/vault";
 import type { TxState } from "@/lib/hooks/useVaultActions";
 import { useEnsAvailability } from "@/lib/hooks/useEnsAvailability";
+import { toFullName } from "@/lib/ens/label";
+import { ENS_PARENT } from "@/lib/contracts/registrar";
+import { TxErrorNotice } from "@/app/components/TxErrorNotice";
+import type { FriendlyTxError } from "@/lib/worldcoin/txErrors";
 
 interface CreateVaultOnboardingProps {
     predictedAddress: `0x${string}` | null;
     partnerName: string;
     txState: TxState;
     error: string | null;
-    /** Optional ENS label — when present, the subname is claimed in the same batch. */
+    /** Rich, actionable version of a failed transaction (gas, rejection, …). Preferred over `error`. */
+    txError?: FriendlyTxError | null;
+    /** True once the create tx is submitted and we're waiting for the Safe to appear on-chain. */
+    isConfirming?: boolean;
+    /** Auto-generated label the field starts with, already checked available. Null while resolving. */
+    suggestedLabel?: string | null;
+    /** ENS label to claim in the batch. Undefined means "pick one automatically" — the name is
+     *  always claimed; the caller resolves the automatic label before building the transaction. */
     onCreate: (ensLabel?: string) => void;
 }
 
@@ -21,25 +32,35 @@ interface CreateVaultOnboardingProps {
  * single cent goes in — especially the 50/50 split and the USDC-only limit.
  * Finding those out at a dissolution would be the worst possible time.
  *
- * The couple also chooses their shared ENS name here. It is claimed in the same
- * transaction as the wallet, owned by the Safe, and cannot be renamed — so the
- * choice is made once, up front, with a live availability check.
+ * The couple's shared ENS name is claimed in the same transaction as the wallet,
+ * always: the field is pre-filled from their World usernames and they can edit
+ * it, but leaving it empty just means the automatic name is used. Owned by the
+ * Safe and never renameable — so the choice is surfaced up front, with a live
+ * availability check.
  */
 export function CreateVaultOnboarding({
     predictedAddress,
     partnerName,
     txState,
     error,
+    txError,
+    isConfirming = false,
+    suggestedLabel = null,
     onCreate,
 }: CreateVaultOnboardingProps) {
     const isSending = txState === "sending";
+    // Either waiting for the World App signature (isSending) or for the Safe to be mined (isConfirming).
+    const busy = isSending || isConfirming;
 
-    const [nameInput, setNameInput] = useState("");
-    const availability = useEnsAvailability(nameInput);
+    // null = untouched: the field tracks the async suggestion until the user types.
+    const [nameInput, setNameInput] = useState<string | null>(null);
+    const shownInput = nameInput ?? suggestedLabel ?? "";
+    const availability = useEnsAvailability(shownInput);
 
-    const hasName = nameInput.trim().length > 0;
+    const hasName = shownInput.trim().length > 0;
     const nameReady = availability.status === "available";
-    // A typed-but-not-yet-valid name blocks submission; an empty field is fine (wallet without a name).
+    // A typed-but-not-yet-valid name blocks submission; an empty field is fine — the
+    // name is then generated automatically, never skipped.
     const blockedByName = hasName && !nameReady;
 
     const handleCreate = () => {
@@ -104,8 +125,8 @@ export function CreateVaultOnboarding({
                 <div className="space-y-2">
                     <div className="flex items-center gap-2 px-1">
                         <AtSign size={14} className="text-gray-400" />
-                        <p className="text-xs font-bold text-gray-800">Choose your shared name</p>
-                        <span className="text-[10px] font-medium text-gray-400">optional</span>
+                        <p className="text-xs font-bold text-gray-800">Your shared name</p>
+                        <span className="text-[10px] font-medium text-gray-400">edit it if you like</span>
                     </div>
                     <div
                         className={`flex items-center rounded-2xl border px-4 py-3 transition-colors ${
@@ -117,15 +138,15 @@ export function CreateVaultOnboarding({
                         }`}
                     >
                         <input
-                            value={nameInput}
+                            value={shownInput}
                             onChange={(e) => setNameInput(e.target.value)}
                             placeholder="franco-maria"
                             spellCheck={false}
                             autoCapitalize="none"
-                            disabled={isSending}
+                            disabled={busy}
                             className="flex-1 min-w-0 bg-transparent text-sm font-semibold text-gray-900 placeholder:text-gray-300 focus:outline-none"
                         />
-                        <span className="text-sm font-medium text-gray-400 shrink-0">.humanbond.eth</span>
+                        <span className="text-sm font-medium text-gray-400 shrink-0">.{ENS_PARENT}</span>
                         <span className="ml-2 shrink-0">
                             {availability.status === "checking" && <Loader2 size={16} className="text-gray-400 animate-spin" />}
                             {availability.status === "available" && <Check size={16} className="text-emerald-500" />}
@@ -138,7 +159,7 @@ export function CreateVaultOnboarding({
                         {availability.status === "invalid" && <span className="text-red-500">{availability.reason}</span>}
                         {availability.status === "taken" && <span className="text-red-500">That name is taken</span>}
                         {availability.status === "available" && (
-                            <span className="text-emerald-600">{availability.label}.humanbond.eth is available</span>
+                            <span className="text-emerald-600">{toFullName(availability.label!)} is available</span>
                         )}
                         {availability.status === "error" && (
                             <span className="text-amber-500">Couldn&apos;t check — you can still try</span>
@@ -146,6 +167,7 @@ export function CreateVaultOnboarding({
                         {(availability.status === "idle" || availability.status === "checking") && (
                             <span className="text-gray-400">
                                 Owned by your shared wallet. Chosen once — it can&apos;t be renamed later.
+                                Left empty, one is picked for you.
                             </span>
                         )}
                     </p>
@@ -164,23 +186,34 @@ export function CreateVaultOnboarding({
 
                 <button
                     onClick={handleCreate}
-                    disabled={isSending || blockedByName}
+                    disabled={busy || blockedByName}
                     className="w-full py-4 px-6 rounded-2xl text-sm font-bold text-white bg-gray-900 hover:bg-black transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-gray-200"
                 >
-                    {isSending ? (
+                    {busy ? (
                         <>
                             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            <span>Creating…</span>
+                            <span>{isConfirming ? "Confirming on the network…" : "Creating…"}</span>
                         </>
                     ) : (
                         <>
                             <Wallet size={18} />
-                            <span>{nameReady ? "Create wallet & claim name" : "Create shared wallet"}</span>
+                            <span>Create wallet & claim name</span>
                         </>
                     )}
                 </button>
 
-                {error ? <p className="text-center text-[10px] font-medium text-red-500">{error}</p> : null}
+                {isConfirming ? (
+                    <p className="text-center text-[10px] font-medium text-gray-500 leading-relaxed px-2">
+                        Your wallet is being created on-chain — this takes a few seconds. It’ll open
+                        automatically when it’s ready; you don’t need to do anything.
+                    </p>
+                ) : null}
+
+                {txError ? (
+                    <TxErrorNotice error={txError} />
+                ) : error ? (
+                    <p className="text-center text-[10px] font-medium text-red-500">{error}</p>
+                ) : null}
             </div>
         </div>
     );

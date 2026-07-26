@@ -15,7 +15,7 @@ For local testing with World App, use ngrok to expose the dev server — the con
 
 ## Architecture
 
-**HumanBond** is a blockchain-based partnership protocol on **Worldchain Mainnet** (Chain ID: 480). Users verify their identity via World ID, then create/accept partnership proposals on-chain, mint Vow NFTs as partnership certificates, and earn TIME tokens through milestone NFTs.
+**HumanBond** is a blockchain-based matrimonial protocol on **Worldchain Mainnet** (Chain ID: 480). Users verify their identity via World ID, then create/accept marriage proposals on-chain, mint Vow NFTs as marriage certificates, and earn TIME tokens through milestone NFTs.
 
 ### Tech Stack
 - **Framework:** Next.js (App Router), React 19, TypeScript
@@ -37,6 +37,16 @@ Addresses in `lib/contracts/index.ts`, vault layer in `lib/contracts/vault.ts`, 
 
 World App config: App ID `app_bfc3261816aeadc589f9c6f80a98f5df` (production), actions: `propose-bond`, `accept-bond`.
 
+### Environment switching (production ⇄ test)
+
+The addresses/app_id/ENS parent above are the **production defaults, hardcoded** in
+`lib/contracts/index.ts`, `vault.ts`, `registrar.ts`. Every one is overridable by a `NEXT_PUBLIC_*`
+env var (see the `?? '0x…'` fallbacks). The **TEST** environment (app `HumanBondMultisig`
+`app_925d0aaa…`, ENS `humandbond.eth`, separate contract set deployed 2026-07-25) is selected by
+the block in `.env.local` — which is gitignored, so the test config never travels with the code.
+Comment that block out to run against production. TEST contract addresses live in
+`../worldid-humanbond-protocol/DEPLOYMENT-test.md`.
+
 **Developer Portal whitelist** (blocking — txs fail with `invalid_contract` without it):
 HumanBond proxy, BondVaultModule, HumanBondRegistrar, and SafeProxyFactory
 `0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67` as contract entrypoints; USDC
@@ -44,11 +54,13 @@ HumanBond proxy, BondVaultModule, HumanBondRegistrar, and SafeProxyFactory
 
 ### ENS subnames (Bond names)
 
-When a partnership creates their shared wallet, they may also claim a `<label>.humanbond.eth` subname,
-owned by the Safe and resolving to it. It is the third call of the vault-creation batch
-(`lib/vault/createVault.ts`), added only when a name is chosen. Naming UI + live availability are in
-`CreateVaultOnboarding` via `useEnsAvailability`; label rules in `lib/ens/label.ts`. One name per
-bond instance, no renames. Registry lives on Worldchain (Durin L2Registry
+Every shared wallet is created with a `<label>.humanbond.eth` subname, owned by the Safe and
+resolving to it. It is the (mandatory) third call of the vault-creation batch
+(`lib/vault/createVault.ts`). The onboarding field is pre-filled with an auto-generated label —
+`<usernameA>-<usernameB>` from the couple's World usernames, with numbered variants and a
+`bond-<bondId hex>` fallback (`lib/ens/autoLabel.ts`) — so a couple that never touches the field
+still gets a name. Naming UI + live availability are in `CreateVaultOnboarding` via
+`useEnsAvailability`; label rules in `lib/ens/label.ts`. One name per bond instance, no renames. Registry lives on Worldchain (Durin L2Registry
 `0x3DbB5CE73f3C1cb63D61A6Db73668D4cE10f371B` under `humanbond.eth`).
 
 ### Shared Wallet (Bond Vault)

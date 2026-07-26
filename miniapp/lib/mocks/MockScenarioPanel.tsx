@@ -16,6 +16,7 @@ import { useMockStore } from "./mockStore";
 import { SCENARIOS, type Scenario } from "./scenarios";
 import { useMockVaultStore, MOCK_VAULT } from "./vaultStore";
 import { formatUsdc, shortAddress } from "@/lib/vault/usdc";
+import { useAgentStore } from "@/lib/agent/agentStore";
 
 export function MockScenarioPanel() {
   const router = useRouter();
@@ -103,6 +104,25 @@ export function MockScenarioPanel() {
                     {label}
                   </button>
                 ))}
+                {/* Jump into the FULL demo: bonded + agent ready → bond dashboard */}
+                <button
+                  onClick={() => {
+                    select("married");
+                    const s = useAgentStore.getState();
+                    useAgentStore.setState({
+                      agentReady: true,
+                      answers: {
+                        ...s.answers,
+                        name: s.answers.name ?? { id: null, text: "Ben" },
+                        threshold: s.answers.threshold ?? { id: "t200", text: "Over €200" },
+                      },
+                    });
+                    router.push("/bond/alice");
+                  }}
+                  className="text-left text-[11px] font-bold px-3 py-2 rounded-lg bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 transition-colors"
+                >
+                  → Open bond dashboard (full demo state)
+                </button>
               </div>
             ) : (
               <div className="p-2 flex flex-col gap-2">

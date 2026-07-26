@@ -50,7 +50,7 @@ export function Header() {
     return (
       <header className="fixed top-0 left-0 right-0 w-full z-50 bg-[#E8E8E8]/90 backdrop-blur-md border-b border-black/10">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <Link href="/" className="inline-block">
+          <Link href="/profile" className="inline-block">
             <Image
               src="/Isotype.png"
               alt="HumanBond Logo"
@@ -73,7 +73,7 @@ export function Header() {
     <header className="fixed top-0 left-0 right-0 w-full z-50 bg-[#E8E8E8]/90 backdrop-blur-md border-b border-black/10">
       <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
         {/* Logo - Left */}
-        <Link href="/" className="inline-block">
+        <Link href="/profile" className="inline-block">
           <Image
             src="/Isotype.png"
             alt="HumanBond Logo"

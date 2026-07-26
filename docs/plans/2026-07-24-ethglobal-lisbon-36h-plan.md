@@ -18,7 +18,7 @@ deadline: SUBMISSION SUNDAY 09:00 — video + texts must be DONE SATURDAY NIGHT
 
 | # | Scene | What the audience sees | Sponsor visible |
 |---|---|---|---|
-| 1 | **Bond** | Two Orb/NFC-verified humans form a bond → VowNFT; Safe vault + `alice-bob.humanbond.eth` + charter on Walrus appear automatically | ENS · Walrus · World (tier gate: Selfie is NOT enough to open a shared wallet) |
+| 1 | **Bond** | Two Orb/NFC-verified humans form a bond → VowNFT; Safe vault + `alice-bob.humanbond.eth` + charter on 0G storage appear automatically | ENS · 0G · World (tier gate: Selfie is NOT enough to open a shared wallet) |
 | 2 | **Shared money** | USDC sent to the ENS name → accrues in the vault → partner claims 50% on the phone; per-partner spend stat | — (the claim primitive) |
 | 3 | **Hardware trust** | hito is linked to the trust; threshold set in onboarding; small spend passes phone-only, large spend → hito prompt, confirmed on-device | hito (WYSIWYS) |
 | 4 | **Agents** (Saturday) | Leon asks his personal agent → it asks the trust agent → trust agent (0G, TEE-signed) checks the charter, verifies via **AgentKit** that the requesting agent is backed by a real bonded human → proposes on the Safe → BOTH partners confirm via hito → executes | World AgentKit ($8k!) · 0G |
@@ -42,16 +42,16 @@ W1+W2 = Scene 3 (P0-adjacent). W3+W4 = Scene 4 (Saturday).
 1. **One generic claims table, not hardcoded 50/50:** member/heir = same table with (address, basis points, state). Alive-state claimants = members, death-state claimants = heirs. This makes multi-member trusts and heirs the SAME contract feature — and keeps "invite more people to the trust" a config change later, not a rebuild.
 2. **Vault ≠ Bond:** the vault module must not depend on bond internals — the bond instantiates it. (Enables business/community trusts later without touching the live bond contract.)
 3. **HeartbeatRegistry:** `checkIn()` (World-ID/Selfie-gated), configurable interval (90 days prod / 2 min demo), `isDeceased()` view + challenge window. Holds no funds — low risk.
-4. **Optional if trivial — vesting parameter:** claimable share ramps with bond age ("no one drains 50% on the first date" — Fri idea). One uint, else roadmap.
+4. **Vesting: CUT from the weekend** (was "optional if trivial"). Gap analysis: it contaminates the death-state logic (does vesting continue during ONE_DECEASED? how does it apply to heirs?). Roadmap slide only.
 5. The live mainnet bond contract is **never touched**.
 
 ## Task Matrix
 
 | # | Task | Scene | Owner | Realism | When |
 |---|---|---|---|---|---|
-| T1 | Vault contract (generic claims table, states, claim fn) | 1/2/5 | Mischa | ✅ confirmed Fri | tonight |
+| T1 | Vault contract (generic claims table, states, claim fn) | 1/2/5 | Mischa | 🟡 **greenfield — the believed shared-wallet/USDC code is NOT in this repo (see P10)** | tonight |
 | T2 | ENS subname at bond creation → Safe | 1 | Franco | ✅ | tonight |
-| T3 | Walrus: charter (incl. heir allocations) at creation | 1/5 | Francesca | ✅ | tonight |
+| T3 | 0G storage: charter (incl. heir allocations) at creation | 1/5 | Francesca | ✅ | tonight |
 | T4 | World verification changes (Orb/NFC tier gate for wallet) | 1 | Franco | ✅ ("today" per Fri convo) | tonight |
 | T5 | HeartbeatRegistry + Selfie check-in wiring | 5 | Mischa + Franco | 🟡 | Sat AM |
 | T6 | Heir UI (add heirs, % sliders, pending entry for wallet-less kids) + inheritance opt-in question + spend stat | 5/2 | Leon (UX/copy) + Franco | ✅ | Sat AM |
@@ -73,7 +73,7 @@ W1+W2 = Scene 3 (P0-adjacent). W3+W4 = Scene 4 (Saturday).
 | World Selfie Check (Continuity variant exists) | $1,750 / $875×2 | Selfie as **proof-of-life heartbeat**, not login — the non-generic use the track demands |
 | World Identity Check NFC (Continuity variant exists) | $1,750 / $875×2 | NFC as tier gate for wallet creation + age gate for heirs |
 | ENS | $2,000 | Scene 1: the address that outlives you |
-| Walrus | $2,000 | Scene 1/5: the will that can't be lost |
+| ~~Walrus~~ | ~~$2,000~~ | **DROPPED Sat** — charter + receipts go directly to 0G storage instead |
 | The Graph | $4,000 | T11 if capacity: the public estate registry |
 | 0G Best AI Product | $6,000 | Scene 4 trust agent (requires real 0G Compute inference + live link + video) |
 
@@ -94,6 +94,88 @@ W1+W2 = Scene 3 (P0-adjacent). W3+W4 = Scene 4 (Saturday).
 3. **0G × Safe ownership — largely resolved by docs:** ERC-7857 has `authorizeUsage(tokenId, executor, permissions)` — the Safe owns the family-agent iNFT and authorizes BOTH partners as executors, no ownership transfer needed; contract ownership is supported. Remaining booth question: how is the sealed metadata key managed when the owner is a contract (TEE oracle?), and does one TEE-verified inference call qualify for Best AI Product?
 4. **Minors:** Orb allows 14+ in some jurisdictions (Portugal!) — heir age gate must come from NFC tier, not Orb. Affects T6 copy.
 5. **Sun-09:00 trap:** anything not demoable by Sat 19:00 does not exist. The video is the product.
+
+## Gap Analysis (spec-flow, Sat 09:00) — resolutions to build in
+
+**Contract-blocking — decide BEFORE T1/W1 starts (Mischa + Leon, first thing):**
+
+- **G-CLAIM · Claim accounting:** naive `balance/2` breaks the moment one partner claims and the other spends (double-claim from the remainder). Spec: **cumulative accounting** — `claimable = totalReceived × bps − alreadyClaimed`; spends debit the **spender's** share (the per-member spend stat implies exactly this).
+- **G-MODULE · Native Safe threshold cannot survive a death:** a 2-of-2 Safe can never be reconfigured after Alice dies — the change itself would need her signature. Execute everything through a **custom Safe module whose signature policy reads HeartbeatRegistry state**, not native thresholds.
+- **G-SIGNERS · hito topology:** per partner one phone key + one hito key as owners; the module enforces which combination per amount; **single threshold X this weekend** (drop tier Y).
+
+**Demo-killers — T12 prep (Leon):**
+
+- **G-CLOCK:** with a 2-min interval both partners go amber during Acts 1–4, and the scripted double-lapse adds ~5 min of waiting. Heartbeat interval + challenge window must be **runtime-adjustable per partner**, armed at the start of Act 5.
+- **G-BONDS · Rehearsals burn bonds:** every dry-run permanently consumes a verified World-ID pair (1 bond per human, live contract untouchable) and collides on the ENS label. Check tonight whether dissolution frees an ID for re-bonding; otherwise stock N fresh verified pairs with per-run ENS labels and **reserve one unbonded pair exclusively for showtime**.
+
+**Small build additions (fold into tasks):**
+
+- Death-state transitions need **explicit transactions** — a view emits no events: challenge-start fires automatically from the app, "declare lapsed" is a button (T5)
+- **Prefund every demo EOA** (Alice, Ben, Carla, employer) in the deploy script — an empty wallet fails silently on stage (T12/P4)
+- **Survivor rule hardcoded**: survivor claims 100%, and that line is printed in the charter blob — visibly "written down while alive" (T1/T3)
+- Carla claims in **wallet-address mode on a third phone** (the two mirrored phones are Alice and Ben) (T6/T12)
+- **Pre-test the employer wallet's ENS resolution** on World Chain Sat PM; fallback: resolve in our own UI, send to raw address, keep the name on screen (T2/T12)
+- **Incoming-proposal screen** on the partner's phone (polling is fine) — the S2→S3 handoff is exactly what the audience watches (T6)
+- **Canned rogue-bot trigger** + AgentKit refusal card — the prize-critical 10 seconds needs an actor (T9)
+- **hito retry/decline path:** "resend to device" button; decline = proposal stays pending; rehearse one deliberate failure (T7)
+- **`require(state == BOTH_ALIVE)` on heir/charter writes** — else the survivor can rewrite the estate after the first death, contradicting "nothing about death is decided at death" (T1)
+
+## Team Conversation (Sat) — "AI agents for shared finances"
+
+- **Naming:** the trust's agent is the **trustee agent** (team language — docs previously said "family agent", same thing): neutral, knows both parties' preferences, represents neither. Framing is **decision-making, not dispute arbitration**.
+- **New demo beat option for Scene 4:** restaurant-bill scan — scan receipt → agents confirm the split → payment executes. Concrete, relatable, 15 seconds.
+- **ENS also for personal wallets** (payment rails per person, not just the joint name) — cheap if Durin works, else roadmap.
+- **Pitch arc: 4 minutes, 5 acts** (bond → daily money incl. agents → child/heir → first death → second death + child inherits). The 6-act build structure maps 1:1 — Act 4 (agents) folds into "daily money" on stage.
+- **Confirmed:** USDC as token of choice, Safe encodes hard rules, 0G as the agent-communication framework, child inherits at 18 via World ID age verification.
+- **Team next steps:** simple concept description → LLM-generated basic UI spec; minimal agent demo (two agents share a Safe, a spend triggers wallet confirmation); map demo acts to 0G bounty requirements.
+
+## Agent UX — Decision Cascade & Feelings Loop (Sat night, Leon)
+
+1. **Routing comes first.** The personal agent serves the WHOLE person. On any request it first classifies, visibly: *for you alone* → your wallet, your private threshold rule (partner never involved) — or *for both of you* → hand-off to the trustee. The personal €200-style rule applies ONLY to personal purchases; shared spending follows bond rules.
+2. **The trustee decides, not your agent:** charter check (is this a bond expense?) + fair split from compared incomes (e.g. 10/90).
+3. **Funding, two modes:** shares pulled per expense from each partner's World-ID wallet in USDC (card-on-file allowance) — OR paid from a standing balance already in the shared account. Both valid; **ENS/vault setup needs follow-up questions here** (standing balance vs. per-expense, top-up rules).
+4. **The proposal moment is a first-class screen:** after the two agents have negotiated, the user SEES the proposal (amount, split, recipient) and releases it **via hito wallet**. Money never moves on agent agreement alone.
+5. **The feelings loop — core principle:** the user can always tell their own agent *"I don't feel good about this"* → the agents renegotiate (e.g. Alice covers this one, you get the next) → new proposal. People must know their agent hears feelings and turns them into negotiated interests. This IS the product's emotional promise.
+6. **Demo examples (USDC-believable):** shared = two Kalorama festival tickets (~120 USDC) paid to the seller's ENS; personal contrast = running shoes €90, own wallet, "Alice never hears about it"; receipt pays to `ramiro.eth`. TVs etc. = roadmap line: trustee wallet later links to Apple Pay/card rails.
+7. **Profile & second brain (Sat night, decided):** the ring logo (top-left in chat) opens the **profile** — no bottom menu, the chat stays the center. Profile = (a) you (name, tier, own wallet), (b) **your bonds** (one human can hold several; exactly ONE is the inheritance bond and receives the estate — heirs & shares live INSIDE its charter, no per-bond estate percentages), (c) **second brain** as a section: every fact with provenance (Interview / LinkedIn / AI history / Learned / You), user can add & delete; stored **encrypted in the user's own 0G profile** — portable, platform-unreadable. Death semantics confirmed: the bond survives the first death (estate mode), never dissolves. Personal payments: under your threshold = phone authority, above = your own hito alone. Next build step: clickable bond → bank-style dashboard (balance, transfer, standing order, history, heirs).
+
+## Prerequisites — verify in the FIRST HOUR (Sat 09:00–10:00)
+
+Access and accounts nobody has confirmed yet. Each unverified item silently blocks a task.
+
+| # | Prerequisite | Blocks | Check |
+|---|---|---|---|
+| P1 | **Who controls `humanbond.eth`?** Durin subnames need the parent name + L2 resolver setup — and does Durin support World Chain at all? Fallback: offchain resolver (CCIP-read) | T2 (ENS, Scene 1) | Herb/Franco |
+| P2 | **World Dev Portal:** is our app enrolled in the Selfie Check beta, NFC beta, AND AgentKit? Betas usually need allowlisting — request access TONIGHT, not Sat | T4, T5, T9 | Franco |
+| P3 | **Safe Transaction Service on World Chain?** The proposal inbox (S15) needs off-chain proposal queueing — if the service doesn't run on World Chain, we self-host or queue on-chain | T1, T10, W3 | Mischa |
+| P4 | **Deployer wallet + gas:** who deploys vault + heartbeat to World Chain, with what funded key? Plus test USDC for demo wallets | T1, T5, T12 | Mischa |
+| P5 | **0G account funded** (prepaid ledger needs ≥3 0G) + decision where the family agent process runs (laptop vs. deployed — it must be alive Sunday 09:00) | T8 | Francesca |
+| P6 | ~~Walrus SUI/WAL keys~~ **obsolete — Walrus dropped Sat, charter goes to 0G storage** | T3 | Francesca |
+| P7 | **Graph Studio supports World Chain?** + deploy key | T11 | whoever takes T11 |
+| P8 | **hito × World Chain:** does the device sign for our chain ID, and how does the app talk to it (WalletConnect/SDK)? | T7, W1–W4 | Mischa |
+| P9 | `.env.local` shared with every dev (NO `.env*` exists in the repo, not even an example); `contracts/lib` installed (forge deps are missing) | everyone | tonight |
+| P10 | **Where is Mischa's shared-wallet/limits code?** Repo audit (Sat): zero Safe/USDC/split/limit code exists in this repo — Friday's demo referred to code elsewhere. Locate & import it, or T1/W2 start from zero. Every sponsor SDK (Safe, ENS, 0G) still needs `npm install` — miniapp web3 deps are only MiniKit + wagmi/viem | T1, T7, W1–W4 | Mischa |
+| P11 | Screen reality: only S1–S3 exist (`/marriage/*` routes); S4–S19 are all new. Useful base: `lib/mocks/scenarios.ts` (6 demo scenarios, mock/real swap via `USE_MOCKS`) for T12; `contracts/script/Deploy.s.sol` covers only the 4 live contracts; verification code knows only Orb/Device — Selfie/NFC start from zero | T4, T5, T6, T12 | Franco |
+
+## Definition of Done (per scene)
+
+A scene is DONE when it runs end-to-end on the demo devices **and is captured on backup video**. Not before.
+
+- **Scene 1:** bond → Safe + ENS resolves + charter blob retrievable from 0G storage
+- **Scene 2:** external USDC transfer arrives → each partner claims 50% to their own wallet
+- **Scene 3:** spend below threshold passes phone-only; above threshold requires hito on-device confirm
+- **Scene 4:** agent proposal created via real 0G inference, AgentKit verification shown (incl. one refused bot), executed after both hito confirms
+- **Scene 5:** heartbeat lapse → challenge → Selfie-Check cancel works; then real lapse → death state → sweep pulls pre-approved funds → heir claims
+
+## Submission Deliverables (owner: Leon + Herb — Sat night)
+
+Prize tracks demand more than a video. Missing any of these forfeits the track:
+
+1. ETHGlobal project page + public repo link + demo video <3 min
+2. **0G:** proof of Compute usage (inference logs/signatures) + live link + team Telegram & X handles
+3. **World Selfie/NFC beta tracks: written testing documentation with developer AND user feedback** — a real deliverable, drafted during the build (collect friction notes as we go, don't reconstruct at 2am)
+4. **AgentKit:** working end-to-end flow demonstrable live, not only on video
+5. Per-track submission text (each sponsor form is separate)
 
 ## Bond vs. Trust (settled framing)
 

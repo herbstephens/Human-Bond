@@ -27,7 +27,23 @@ const MockTxConfirm = USE_MOCKS
   : null;
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(() => new QueryClient());
+  // Inside World App every MiniKit popup blurs/refocuses the webview; the React
+  // Query default (refetchOnWindowFocus: true) then refires EVERY query at once,
+  // right after each user action — perceived as the whole app "reloading".
+  // Polling where freshness matters is explicit (home/vault/onboarding), so the
+  // focus refetch adds nothing but churn. retry: 1 keeps a failing public RPC
+  // from snowballing into a 3x-retry error storm across all queries.
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            refetchOnWindowFocus: false,
+            retry: 1,
+          },
+        },
+      }),
+  );
   const pathname = usePathname();
   const isGalleryPage = pathname === '/marriage/gallery';
 

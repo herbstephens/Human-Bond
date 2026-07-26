@@ -17,6 +17,7 @@ import { useBondVault } from "@/lib/hooks/useBondVault";
 import { useVaultSpends } from "@/lib/hooks/useVaultSpends";
 import { useVaultActions } from "@/lib/hooks/useVaultActions";
 import { useWorldProfile, displayName } from "@/lib/worldcoin/useWorldProfile";
+import { resolveAutoLabel, useSuggestedLabel } from "@/lib/ens/autoLabel";
 import { needsYourSignature } from "@/lib/vault/types";
 import { VaultBalanceCard } from "@/app/components/vault/VaultBalanceCard";
 import { SendFundsForm } from "@/app/components/vault/SendFundsForm";
@@ -42,11 +43,19 @@ export default function VaultPage() {
 
     const partner = (dashboard?.partner ?? null) as `0x${string}` | null;
     const { profile: partnerProfile } = useWorldProfile(partner ?? "");
+    const { profile: myProfile } = useWorldProfile(address ?? "");
     const partnerName = displayName(partner ?? "", partnerProfile.username);
 
     const partnerA = (marriageView?.partnerA ?? null) as `0x${string}` | null;
     const partnerB = (marriageView?.partnerB ?? null) as `0x${string}` | null;
     const bondId = (marriageView?.bondId ?? null) as `0x${string}` | null;
+
+    // Usernames in bond order (partner A first), so both partners' devices derive
+    // the same automatic ENS label regardless of who is looking at the screen.
+    const iAmPartnerA = !!address && !!partnerA && address.toLowerCase() === partnerA.toLowerCase();
+    const usernameA = iAmPartnerA ? myProfile.username : partnerProfile.username;
+    const usernameB = iAmPartnerA ? partnerProfile.username : myProfile.username;
+    const suggestedLabel = useSuggestedLabel(usernameA, usernameB, bondId);
 
     const { vault, isLoading: isVaultLoading, refetch: refetchVault } = useBondVault(partnerA, partnerB, bondId);
     const { spends, refetch: refetchSpends } = useVaultSpends(bondId, partnerA, partnerB);
@@ -56,13 +65,48 @@ export default function VaultPage() {
         void refetchSpends();
     }, [refetchVault, refetchSpends]);
 
-    const { state, error, createVault, proposeSpend, approveSpend, cancelSpend, reset } = useVaultActions({
+    const { state, error, txError, createVault, proposeSpend, approveSpend, cancelSpend, reset } = useVaultActions({
         bondId,
         partnerA,
         partnerB,
         partner,
         onDone: handleDone,
     });
+
+    // After the create tx is submitted, the Safe still needs a few blocks to deploy before
+    // vaultOf(bondId) returns it. Poll until it appears so the view flips to the created wallet on
+    // its own — instead of looking frozen on the onboarding screen and needing an app restart.
+    const [awaitingCreation, setAwaitingCreation] = useState(false);
+    // Confirming only while we've submitted AND the Safe hasn't shown up yet — deriving it (rather
+    // than clearing the flag in an effect) keeps the success path free of setState-in-effect.
+    const isConfirming = awaitingCreation && !!vault && !vault.isCreated;
+
+    // The name is mandatory: when the couple left the field empty, resolve an
+    // automatic label (usernames first, bondId fallback) before building the batch.
+    const handleCreateVault = useCallback(
+        async (ensLabel?: string) => {
+            if (!bondId) return;
+            const label = ensLabel ?? (await resolveAutoLabel(usernameA, usernameB, bondId));
+            const ok = await createVault(label);
+            if (ok && !USE_MOCKS) setAwaitingCreation(true);
+        },
+        [createVault, bondId, usernameA, usernameB],
+    );
+
+    useEffect(() => {
+        if (!isConfirming) return;
+        let attempts = 0;
+        const id = setInterval(() => {
+            attempts += 1;
+            void refetchVault();
+            // Give up after ~2 min so a dropped tx never leaves the form stuck confirming.
+            if (attempts >= 40) {
+                clearInterval(id);
+                setAwaitingCreation(false);
+            }
+        }, 3000);
+        return () => clearInterval(id);
+    }, [isConfirming, refetchVault]);
 
     const { pending, history, awaitingYou } = useMemo(() => {
         const pendingList = spends.filter((s) => !s.executed && !s.cancelled);
@@ -112,7 +156,10 @@ export default function VaultPage() {
                         partnerName={partnerName}
                         txState={state}
                         error={error}
-                        onCreate={createVault}
+                        txError={txError}
+                        isConfirming={isConfirming}
+                        suggestedLabel={suggestedLabel}
+                        onCreate={handleCreateVault}
                     />
                 ) : null}
 
@@ -144,6 +191,7 @@ export default function VaultPage() {
                             partnerName={partnerName}
                             txState={state}
                             error={error}
+                            txError={txError}
                             onSend={proposeSpend}
                             onReset={reset}
                         />

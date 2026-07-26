@@ -45,11 +45,12 @@ const MarriageDashboard = dynamic(
   { ssr: false }
 );
 
-import { BondCelebrationOverlay } from "../components/marriage/BondCelebrationOverlay";
+import { BondedOnboarding } from "../components/bond/BondedOnboarding";
+import { useBondVault } from "@/lib/hooks/useBondVault";
+import { useRouteGuard } from "@/lib/hooks/useLiveStage";
 import { BondDissolutionOverlay } from "../components/marriage/BondDissolutionOverlay";
-// Temporary Hito handoff probe. Lives on the unbonded screen on purpose, so it can
-// be tested without an active bond. Remove once the integration is settled.
-import { HitoLinkTest } from "../components/marriage/HitoLinkTest";
+
+import { AliveCta } from "../components/agent/AliveCta";
 
 // ---------------------------------------------------------------------------
 
@@ -74,18 +75,32 @@ export default function HomePage() {
   } = useMarriage();
   const { status: notifStatus, requestPermission } = useNotificationPermission();
 
+  // Which post-bond screen to show is decided on-chain: until the Safe exists the
+  // couple is still onboarding (and naming it is what creates it); once it does,
+  // the full dashboard — wallet, dissolve, gallery, milestones, TIME — takes over.
+  const { vault: bondVault, isLoading: isVaultLoading } = useBondVault(
+    (marriageView?.partnerA ?? null) as `0x${string}` | null,
+    (marriageView?.partnerB ?? null) as `0x${string}` | null,
+    (marriageView?.bondId ?? null) as `0x${string}` | null,
+  );
+  const vaultCreated = Boolean(bondVault?.isCreated);
+
   const [isLoading, setIsLoading] = useState(true);
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
-  const [showCelebration, setShowCelebration] = useState(
+  // After an accept, the flag used to trigger a heart overlay saying "You're
+  // Bonded!" — right before BondedOnboarding says it again. One screen too many:
+  // now the flag only holds the loading state until the bond is visible on-chain,
+  // and the ring assembly does the celebrating.
+  const [awaitingBond, setAwaitingBond] = useState(
     () => typeof window !== "undefined" && peekBondCelebrationFlag()
   );
   const [dissolutionOverlay, setDissolutionOverlay] = useState<{ partnerName?: string } | null>(null);
   const showDissolution = dissolutionOverlay !== null;
 
-  const handleCelebrationComplete = useCallback(() => {
+  const handleBondArrived = useCallback(() => {
     consumeBondCelebrationFlag();
-    setShowCelebration(false);
-  }, []); 
+    setAwaitingBond(false);
+  }, []);
 
   const handleDissolutionComplete = useCallback(() => {
     setDissolutionOverlay(null);
@@ -132,6 +147,11 @@ export default function HomePage() {
       setLocalProposalCancelled(false);
     }
   }, [hasPendingProposal, localProposalCancelled]);
+
+  // Routing is the contract's job, not this page's: useRouteGuard sends the
+  // user to /profile exactly when the dashboard stage is reached (bond + vault
+  // + ceremony + agent), and never before — see lib/hooks/useLiveStage.ts.
+  useRouteGuard('/home');
 
   // Detect World App on client to conditionally show chat buttons
   const [isWorldApp, setIsWorldApp] = useState(false);
@@ -186,24 +206,21 @@ export default function HomePage() {
   const hasIncomingProposals = isConnected && incomingProposals.length > 0;
   const effectiveHasPendingProposal = hasPendingProposal && !localProposalCancelled;
 
-  const { profile: celebrationPartnerProfile } = useWorldProfile(
-    showCelebration && dashboard?.partner ? dashboard.partner : null
-  );
-  const celebrationPartnerName = dashboard?.partner
-    ? displayName(dashboard.partner, celebrationPartnerProfile.username)
-    : undefined;
-
   // Poll dashboard while waiting for on-chain bond confirmation after accept
   useEffect(() => {
-    if (!showCelebration || isBonded) return;
+    if (!awaitingBond) return;
+    if (isBonded) {
+      handleBondArrived();
+      return;
+    }
     void refetch();
     const pollId = setInterval(() => { void refetch(); }, 1500);
-    const timeoutId = setTimeout(handleCelebrationComplete, 20000);
+    const timeoutId = setTimeout(handleBondArrived, 20000);
     return () => {
       clearInterval(pollId);
       clearTimeout(timeoutId);
     };
-  }, [showCelebration, isBonded, refetch, handleCelebrationComplete]);
+  }, [awaitingBond, isBonded, refetch, handleBondArrived]);
 
   // Poll dashboard while waiting for on-chain dissolution confirmation
   useEffect(() => {
@@ -238,10 +255,12 @@ export default function HomePage() {
   }, [isVerified, checkVerificationExpiry, router]);
 
   // Show loading state while checking verification or fetching dashboard
-  // Include isMarriageLoading only if the user is potentially married to unify animations
-  const isDataLoading = isConnected && (isDashboardLoading || isProposalsLoading || (dashboard?.isBonded && isMarriageLoading));
+  // Include isMarriageLoading only if the user is potentially married to unify animations.
+  // The vault read joins it for the same reason: it decides onboarding vs dashboard, so
+  // landing before it resolves would flash "name your wallet" at a couple who has one.
+  const isDataLoading = isConnected && (isDashboardLoading || isProposalsLoading || (dashboard?.isBonded && (isMarriageLoading || isVaultLoading)));
 
-  if ((isLoading || isDataLoading) && !showCelebration && !showDissolution) {
+  if ((isLoading || isDataLoading || awaitingBond) && !showDissolution) {
     return (
       <div className="min-h-screen bg-[#E8E8E8] flex flex-col items-center justify-center p-6">
         <div className="relative">
@@ -258,23 +277,14 @@ export default function HomePage() {
 
   // Overlay active — render nothing but the background + overlay.
   // This prevents any flash of home content while the animation plays.
-  if (showCelebration || showDissolution) {
+  if (showDissolution) {
     return (
       <div className="min-h-screen bg-[#E8E8E8]">
-        {showCelebration && (
-          <BondCelebrationOverlay
-            isReady={isBonded}
-            partnerName={celebrationPartnerName}
-            onComplete={handleCelebrationComplete}
-          />
-        )}
-        {showDissolution && (
-          <BondDissolutionOverlay
-            isReady={!isBonded}
-            partnerName={dissolutionOverlay.partnerName}
-            onComplete={handleDissolutionComplete}
-          />
-        )}
+        <BondDissolutionOverlay
+          isReady={!isBonded}
+          partnerName={dissolutionOverlay.partnerName}
+          onComplete={handleDissolutionComplete}
+        />
       </div>
     );
   }
@@ -298,7 +308,7 @@ export default function HomePage() {
                 </div>
                 <div className="flex-1 text-left space-y-1.5">
                   <h3 className="text-base font-black text-gray-900 tracking-tight">
-                    {incomingProposals.length} Proposal{incomingProposals.length > 1 ? 's' : ''} Received
+                    {incomingProposals.length} open bond invite{incomingProposals.length > 1 ? 's' : ''}
                   </h3>
                   <p className="text-[10px] font-bold text-black-400 uppercase tracking-widest">Tap to review</p>
                 </div>
@@ -383,8 +393,36 @@ export default function HomePage() {
               </div>
             )}
 
-            {/* Hero Section */}
-            <div className="space-y-4">
+            {/* Hero Section — two rings find each other and interlock, for good. */}
+            <div className="space-y-5">
+              {!effectiveHasPendingProposal && !hasIncomingProposals && (
+                <div className="flex justify-center">
+                  {/* THE logo — the two rings drift in from the sides as halves
+                      of the mark and meet. Clean: no glow. */}
+                  <div className="relative w-[104px] h-[104px]" aria-hidden>
+                    <style>{`
+                      @keyframes hbHalfL { 0% { transform: translateX(-30px); opacity: 0; } 55% { opacity: 1; } 100% { transform: translateX(0); } }
+                      @keyframes hbHalfR { 0% { transform: translateX(30px); opacity: 0; } 55% { opacity: 1; } 100% { transform: translateX(0); } }
+                    `}</style>
+                    <div className="absolute inset-0">
+                      {/* left half of the mark slides in from the left */}
+                      <div
+                        className="absolute inset-0 overflow-hidden"
+                        style={{ clipPath: 'inset(0 50% 0 0)', animation: 'hbHalfL 3.2s cubic-bezier(.3,.7,.2,1) both' }}
+                      >
+                        <Image src="/Isotype.png" alt="" width={104} height={104} className="w-full h-full object-contain" />
+                      </div>
+                      {/* right half slides in from the right */}
+                      <div
+                        className="absolute inset-0 overflow-hidden"
+                        style={{ clipPath: 'inset(0 0 0 50%)', animation: 'hbHalfR 3.2s cubic-bezier(.3,.7,.2,1) both' }}
+                      >
+                        <Image src="/Isotype.png" alt="" width={104} height={104} className="w-full h-full object-contain" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
               <h1 className="text-5xl md:text-7xl font-black text-gray-900 tracking-tighter leading-[0.9] flex flex-col">
                 {effectiveHasPendingProposal ? (
                   <span className="text-gray-9As00">Shared Destiny.</span>
@@ -397,54 +435,28 @@ export default function HomePage() {
                   </>
                 )}
               </h1>
-              <p className="text-sm text-gray-500 font-medium max-w-[280px] mx-auto leading-relaxed">
-                Certify your commitment on-chain. <br />Verified, eternal, and shared.
+              <p className="text-[15px] text-gray-500 font-medium max-w-[340px] mx-auto leading-relaxed">
+                One shared address for you two. Your personal agents handle the money between you — every move released by you both.
               </p>
-              {activeBondCount > BigInt(0) && (
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white/60 border border-gray-200/70 rounded-full text-gray-500 animate-in fade-in duration-700">
-                  <Link2 size={11} className="text-gray-400" />
-                  <span className="text-[9px] font-bold uppercase tracking-[0.15em]">{activeBondCount.toString()} bonds on Worldchain</span>
-                </div>
-              )}
             </div>
 
             {/* Main Action Buttons */}
             {isConnected ? (
-              <div className="w-full flex flex-col gap-4">
+              <div className="w-full flex flex-col gap-4 pt-8">
                 {effectiveHasPendingProposal || isCooldownActive ? (
                   <div className="w-full px-8 py-5 rounded-2xl bg-gray-100 text-gray-400 text-xs font-black uppercase tracking-[0.2em] cursor-not-allowed border border-gray-200 text-center">
                     {effectiveHasPendingProposal ? "Proposal in Progress" : "Cooldown Active"}
                   </div>
                 ) : (
-                  <Link
-                    href="/marriage/create"
-                    className="group w-full bg-black text-white px-8 py-5 rounded-2xl text-xs font-black uppercase tracking-[0.2em] hover:bg-gray-900 transition-all duration-300 shadow-xl shadow-gray-200 flex items-center justify-center gap-3 hover:-translate-y-1 active:translate-y-0"
+                  <AliveCta
+                    onClick={() => router.push("/marriage/create")}
+                    className="w-full px-8 py-5 rounded-2xl text-xs tracking-[0.2em]"
+                    glow={false}
                   >
-                    <span>Make a Proposal</span>
-                    <Sparkles size={16} className="text-white group-hover:rotate-12 transition-transform" />
-                  </Link>
+                    Create your first bond
+                  </AliveCta>
                 )}
 
-                <Link
-                  href="/marriage/proposals"
-                  className="w-full bg-white text-black px-8 py-5 rounded-2xl text-xs font-black uppercase tracking-[0.2em] border border-gray-100 hover:bg-gray-50 transition-all duration-300 shadow-sm flex items-center justify-center gap-3 hover:-translate-y-1 active:translate-y-0 relative"
-                >
-                  <Users size={16} className="text-gray-400" />
-                  <span>Accept a Proposal</span>  
-                  {hasIncomingProposals && (
-                    <span className="absolute -top-2 -right-2 bg-black-500 text-white text-[10px] font-black rounded-full h-6 w-6 flex items-center justify-center shadow-lg shadow-black-200">
-                      {incomingProposals.length}
-                    </span>
-                  )}
-                </Link>
-
-                <Link
-                  href="/marriage/gallery"
-                  className="w-full bg-white text-black px-8 py-5 rounded-2xl text-xs font-black uppercase tracking-[0.2em] border border-gray-100 hover:bg-gray-50 transition-all duration-300 shadow-sm flex items-center justify-center gap-3 hover:-translate-y-1 active:translate-y-0"
-                >
-                  <ImageIcon size={16} className="text-gray-400" />
-                  <span>My Gallery</span>
-                </Link>
 
                 {/* TIME balance from previous bond — subtle footer pill */}
                 {dashboard && Number(dashboard.timeBalance) > 0 && (
@@ -467,9 +479,6 @@ export default function HomePage() {
                     <span>Enable notifications</span>
                   </button>
                 )}
-
-                {/* Temporary — see import note */}
-                <HitoLinkTest />
               </div>
             ) : (
               <div className="flex flex-col items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-1000">
@@ -483,17 +492,14 @@ export default function HomePage() {
             )}
           </div>
         ) : (
-          <div className={`w-full max-w-lg mx-auto space-y-4 ${showCelebration ? "" : "animate-in fade-in zoom-in duration-700"}`}>
+          <div className="w-full max-w-lg mx-auto space-y-4 animate-in fade-in zoom-in duration-700">
+            {/* Post-bond, home IS the onboarding ring — before the wallet exists
+                it claims name+Safe in one batch; after, it shows the named ring
+                and hands off to the bond page (the actual dashboard of this demo).
+                The legacy MarriageDashboard (TIME, gallery, dissolve) stays out
+                of the flow on purpose. */}
             {dashboard && isConnected && (
-              <MarriageDashboard
-                dashboard={dashboard}
-                onRefresh={refetch}
-                onDissolved={handleDissolved}
-                onDissolutionFailed={handleDissolutionFailed}
-                marriageView={marriageView}
-                dissolutionRequest={dissolutionRequest}
-                isMarriageLoading={isMarriageLoading}
-              />
+              <BondedOnboarding partnerAddress={dashboard.partner} />
             )}
             {notifStatus === 'not_granted' && (
               <button
@@ -507,6 +513,15 @@ export default function HomePage() {
           </div>
         )}
       </main>
+
+      {process.env.NODE_ENV !== "production" && (
+        <Link
+          href="/test"
+          className="relative z-10 pb-4 text-center font-mono text-[9px] uppercase tracking-[0.16em] text-gray-400 transition-colors hover:text-black"
+        >
+          test
+        </Link>
+      )}
 
       {/* Cancel Proposal Confirm Modal */}
       {showCancelProposalConfirm && (
@@ -582,4 +597,3 @@ export default function HomePage() {
     </div>
   );
 }
-

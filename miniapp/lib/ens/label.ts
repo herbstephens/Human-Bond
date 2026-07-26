@@ -12,6 +12,8 @@
  * every technically-valid ENS label. For a marriage name, legibility wins.
  */
 
+import { ENS_PARENT } from '@/lib/contracts/registrar';
+
 export const MAX_LABEL_BYTES = 63;
 
 export type LabelCheck = { ok: true; label: string } | { ok: false; reason: string };
@@ -41,7 +43,7 @@ export function checkLabel(input: string): LabelCheck {
   return { ok: true, label };
 }
 
-/** Full name as it will appear, e.g. "franco-maria.humanbond.eth". */
+/** Full name as it will appear, e.g. "franco-maria.humanbond.eth" (or .humandbond.eth on TEST). */
 export function toFullName(label: string): string {
-  return `${label}.humanbond.eth`;
+  return `${label}.${ENS_PARENT}`;
 }

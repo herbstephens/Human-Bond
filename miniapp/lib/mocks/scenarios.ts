@@ -24,15 +24,16 @@ export type Scenario =
   | "dissolutionPending";
 
 export const SCENARIOS: { id: Scenario; label: string }[] = [
-  { id: "single", label: "Single" },
-  { id: "proposalReceived", label: "Proposal received" },
-  { id: "proposalSent", label: "Proposal sent" },
-  { id: "married", label: "Married" },
+  { id: "single", label: "Fresh start · no bond" },
+  { id: "proposalReceived", label: "Bond invite received" },
+  { id: "proposalSent", label: "Bond invite sent" },
+  { id: "married", label: "Bonded · you & Alice" },
   { id: "cooldown", label: "Cooldown" },
   { id: "dissolutionPending", label: "Dissolution pending" },
 ];
 
-export const DEFAULT_SCENARIO: Scenario = "married";
+// Demo starts EMPTY: login → 'Create your first bond' → bond creation → bonded.
+export const DEFAULT_SCENARIO: Scenario = "single";
 
 export type ScenarioData = {
   dashboard: UserDashboard | null;

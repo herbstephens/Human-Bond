@@ -1356,4 +1356,47 @@ contract AutomationFlowTest is Test {
         emit HumanBond.MilestoneNftUpdated(newMilestoneNft);
         humanBond.setMilestoneNft(newMilestoneNft);
     }
+
+    // ---- requireOnchainProof toggle (cloud-verify path) ----
+
+    function test_requireOnchainProof_defaultsTrue() public view {
+        assertTrue(humanBond.requireOnchainProof());
+    }
+
+    function test_setRequireOnchainProof_reverts_ifNotOwner() public {
+        vm.prank(leticia);
+        vm.expectRevert();
+        humanBond.setRequireOnchainProof(false);
+    }
+
+    function test_setRequireOnchainProof_updatesAndEmits() public {
+        vm.expectEmit(address(humanBond));
+        emit HumanBond.RequireOnchainProofUpdated(false);
+        humanBond.setRequireOnchainProof(false);
+        assertFalse(humanBond.requireOnchainProof());
+    }
+
+    /// @dev With the toggle ON (default), an invalid proof must block bonding.
+    function test_propose_reverts_whenProofInvalid_andToggleOn() public {
+        worldId.setShouldRevert(true);
+        vm.prank(leticia);
+        vm.expectRevert("MockWorldID: invalid proof");
+        humanBond.propose(bob, ROOT, NULLIFIER_PROPOSE, proof);
+    }
+
+    /// @dev With the toggle OFF, bonding succeeds even though the verifier would reject the proof —
+    ///      this is the backend-gated (cloud verify) path that lets Selfie Check bond.
+    function test_bond_succeedsWithoutProof_whenToggleOff() public {
+        humanBond.setRequireOnchainProof(false);
+        worldId.setShouldRevert(true); // verifier would revert if it were ever called
+
+        vm.prank(leticia);
+        humanBond.propose(bob, ROOT, NULLIFIER_PROPOSE, proof);
+
+        vm.prank(bob);
+        humanBond.accept(leticia, ROOT, NULLIFIER_ACCEPT, proof);
+
+        assertTrue(humanBond.activeBondOf(leticia) != bytes32(0));
+        assertEq(humanBond.activeBondOf(leticia), humanBond.activeBondOf(bob));
+    }
 }

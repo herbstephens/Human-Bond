@@ -23,7 +23,7 @@ flowchart TB
     subgraph T[THE FAMILY TRUST · alice-ben.humanbond.eth]
         direction TB
         V[(Vault · Safe)]
-        CH[Charter on Walrus<br/>rules · heirs · percentages]
+        CH[Charter on 0G storage<br/>rules · heirs · percentages]
         FA[Family Agent · 0G iNFT<br/>owned by the Safe<br/>both partners authorized]
         V --- CH
         V --- FA
@@ -115,7 +115,7 @@ Two minutes ago, these were two strangers to the chain. Now they leave with a na
 | **S1 Verify** | Tier badges (Selfie / NFC / Orb). Copy states the gate: *"A shared trust needs NFC or Orb verification."* | World ID proof |
 | **S2 Propose** | Alice picks Ben (QR / username) | `proposeBond()` (live contract) |
 | **S3 Vows** | Ben accepts; vow text shown; VowNFT preview | `acceptBond()` → VowNFT |
-| **S4 Trust is born** | One celebratory screen: Safe created · `alice-ben.humanbond.eth` registered · charter stored on Walrus (blob ID visible) | Safe deploy · ENS subname · Walrus blob |
+| **S4 Trust is born** | One celebratory screen: Safe created · `alice-ben.humanbond.eth` registered · charter stored on 0G storage (blob ID visible) | Safe deploy · ENS subname · 0G storage blob |
 | **S5 Trust settings** | Three onboarding steps: (a) inheritance opt-in — *"Is this the trust your life savings should flow to when you die?"* (b) hito threshold slider — *"ask my hardware wallet above $X"* (c) hito pairing (W1) | threshold stored in vault config |
 
 ## Act 2 — Daily Life (Scenes 2+3: Money & Hardware)
@@ -125,7 +125,7 @@ Money is where trust gets real. This act proves the everyday: getting paid, taki
 | Screen | What happens | On-chain |
 |---|---|---|
 | **S6 Trust home** | Balance · members · ENS address front and center (this IS the routing story: give this address to whoever pays you) · per-member monthly spend stat · heartbeat status chips (green) | reads vault |
-| **S7 Receive** | Employer sends 1,000 USDC to the ENS name → balance ticks up live | ERC-20 transfer to Safe |
+| **S7 Receive** | Employer sends 1,000 USDC to the ENS name → balance ticks up live. **Nothing splits, nothing forwards** — the money arrives and waits to be claimed | ERC-20 transfer to Safe |
 | **S8 Claim** | Ben claims his 50% to his personal wallet — one tap, no co-signature. *Claims, not custody.* | `claim()` on vault |
 | **S9 Spend small** | Alice pays $8 (below threshold) — phone only, instant | Safe tx |
 | **S10 Spend large** | Alice tries $500 → **hito lights up**, shows real recipient + amount on its own display (WYSIWYS), she confirms on-device | Safe tx w/ hardware signer (W2) |
@@ -137,7 +137,7 @@ One screen, one slider — and the couple becomes a family. Adding an heir shoul
 | Screen | What happens | On-chain |
 |---|---|---|
 | **S11 Heirs** | Add Carla: % slider (e.g. 100% after both gone). Two modes: wallet address OR *"no wallet yet"* → pending entry, note: *"claimable once she verifies (NFC, 18+)"* | heir row in vault claims table |
-| **S12 Charter v2** | Updated charter (heir allocations) re-stored on Walrus — *"a will that cannot be lost"* — visible in trust home | Walrus blob v2 |
+| **S12 Charter v2** | Updated charter (heir allocations) re-stored on 0G storage — *"a will that cannot be lost"* — visible in trust home | 0G storage blob v2 |
 
 ## Act 4 — The Family Agent (Scene 4: Agents, Saturday)
 
@@ -150,6 +150,8 @@ The trust gets staff. The family agent works for the charter, not for either par
 | **S15 Proposal inbox** | Proposal card: amount, purpose, TEE signature, confirmation status Alice ⬜ / Ben ⬜ → **both hito devices light up** → both confirm → executes | Safe proposal → threshold sigs → exec (W3+W4) |
 
 **The refused-bot beat matters:** AgentKit's track is "tell a bot from a human-backed agent" — show the negative case for 10 seconds.
+
+**Act 4 additions (Sat night):** (a) **Routing contrast** — "buy tickets for us" routes to the trustee with visible reasoning, "buy me shoes" stays in the personal wallet under the private rule, Alice never involved: two requests, 20 seconds, the whole cascade understood. (b) **Negotiation visible** — the two agents' discussion (cash-flow argument vs. income comparison) appears as typed reasoning before any proposal. (c) **Proposal release via hito** — the negotiated proposal (amount · split · recipient ENS) is a card the human releases on hardware; and the **feelings loop**: "I don't feel good about this" sends the agents back to renegotiate (e.g. Alice covers this one). Money never moves on agent agreement alone.
 
 **The full choreography (W3+W4):**
 
@@ -209,7 +211,7 @@ The last act inverts the product: its users are gone, and it still works. Carla 
 | S4–S5 | T1+T2+T3 UI + settings flow (T6/T7) | Franco + Leon copy |
 | S6–S8 | trust home + claim (T1 UI) | Franco |
 | S9–S10 | hito W1/W2 (T7) | Mischa |
-| S11–S12 | heir UI (T6) + Walrus v2 (T3) | Franco + Leon |
+| S11–S12 | heir UI (T6) + 0G storage v2 (T3) | Franco + Leon |
 | S13–S15 | agents (T8/T9/T10) + proposal inbox UI | Francesca + Franco + Mischa |
 | S16–S18 | heartbeat UX + death states (T5 + **new: T15**) | Franco + Mischa |
 | S17 collect | **new: T14 sweep function** — `collectFromDeceased()`, one function, allowance-based | Mischa |
