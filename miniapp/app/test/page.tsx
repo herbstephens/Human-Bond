@@ -38,6 +38,19 @@ export default function TestIndexPage() {
             the world.org universal link — the path MiniKit cannot take.
           </p>
         </Link>
+
+        <Link
+          href="/test/0g_hooks_test"
+          className="mt-4 block rounded-3xl border border-white/10 bg-black/20 p-5 transition-colors hover:border-amber-400/50 hover:bg-black/30"
+        >
+          <p className="font-mono text-[10px] uppercase tracking-widest text-amber-300">
+            0G router
+          </p>
+          <p className="mt-2 text-lg font-semibold">Trigger propose_spend</p>
+          <p className="mt-1 text-sm text-[#b9ad9b]">
+            Sends one shared-spend prompt through the personal agent chat route.
+          </p>
+        </Link>
       </section>
     </main>
   );

@@ -240,6 +240,16 @@ export async function POST(req: Request) {
 
   const action = calls.length === 1 ? actionFromToolCall(calls[0]) : null;
   debugAgentTool(action ? `normalized ${action.type}` : 'no tool call selected', action);
+  if (action?.type === 'propose_spend') {
+    console.info('[agent-tools] propose_spend activated', {
+      model: MODEL,
+      bondId: action.bondId,
+      label: action.label,
+      recipient: action.recipient,
+      amountUsdc: action.amountUsdc,
+      detail: action.detail,
+    });
+  }
   if (!content && !action) {
     return NextResponse.json({ error: `0G router returned an empty response (${MODEL})` }, { status: 502 });
   }
