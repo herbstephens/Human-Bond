@@ -66,7 +66,6 @@ Beyond the bond itself, HumanBond exposes a Partnership Registry API: a verifiab
 - The VowNFT token ID and contract address
 - Both partners' World ID identity tiers
 - The TIME Protocol split configuration
-- A pointer to the Walrus-stored partnership charter
 
 Anyone can resolve `herb-agatha.humanbond.eth` to reach the partnership's shared receiving address — without either partner revealing their individual wallet.
 
