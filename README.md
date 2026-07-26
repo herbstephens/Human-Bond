@@ -1,6 +1,6 @@
 # 🤝 HumanBond
 
-**The first proof-of-humanity partnership protocol — live on World Chain — giving economic standing to the partner the market has always ignored.**
+**The first proof-of-humanity agentic partnership protocol — live on World Chain.**
 
 [![World Chain](https://img.shields.io/badge/World%20Chain-Mainnet-6B4FBB?style=flat-square)](https://worldscan.org)
 [![World App](https://img.shields.io/badge/World%20App-Live-00C2FF?style=flat-square)](https://worldapp.world)
