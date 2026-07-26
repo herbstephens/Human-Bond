@@ -64,6 +64,19 @@ export default function TestIndexPage() {
             Tests the Device-level proof-of-life check and resets the heartbeat.
           </p>
         </Link>
+
+        <Link
+          href="/test/identity_check"
+          className="mt-4 block rounded-3xl border border-white/10 bg-black/20 p-5 transition-colors hover:border-amber-400/50 hover:bg-black/30"
+        >
+          <p className="font-mono text-[10px] uppercase tracking-widest text-amber-300">
+            World ID 4.0
+          </p>
+          <p className="mt-2 text-lg font-semibold">Check age over 18</p>
+          <p className="mt-1 text-sm text-[#b9ad9b]">
+            Requests a minimum-age identity attestation and verifies the returned proof server-side.
+          </p>
+        </Link>
       </section>
     </main>
   );
