@@ -27,3 +27,20 @@ export type CaseRecord = {
 
 export const caseKey = (bondId: string, caseId: string) => `case/${bondId}/${caseId}`;
 export const caseIndexKey = (bondId: string) => `caseIndex/${bondId}`;
+
+// --- memory (per bond, per person) -----------------------------------------
+
+/** Append-only ledger of everything that happened in a bond — shared, auditable. */
+export const historyKey = (bondId: string) => `history/${bondId}`;
+/** The distilled relationship memo BOTH agents can see for this bond. */
+export const bondMemoryKey = (bondId: string) => `bondMemory/${bondId}`;
+/** One agent's PRIVATE model of the partner, learned by negotiating. Keyed by
+ *  the owning human's address so it never leaks to the peer's agent. */
+export const partnerModelKey = (address: string, bondId: string) =>
+  `partnerModel/${address.toLowerCase()}/${bondId}`;
+
+export type BondMemory = { memo: string; updatedAt: number };
+export type PartnerModel = { notes: string; updatedAt: number };
+
+/** What one agent carries into a negotiation beyond its own profile + the charter. */
+export type NegotiationMemory = { bondMemo?: string; partnerModel?: string };

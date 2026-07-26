@@ -13,7 +13,16 @@ export function personalSystemPrompt(
   partnerHuman: string,
   /** The bond's rules both humans signed — shared context, fair game in negotiation. */
   charter?: StoredCharter,
+  /** What this agent has learned across past negotiations in this bond:
+   *  a shared bond memo (both agents see it) + this agent's PRIVATE partner-model. */
+  memory?: { bondMemo?: string; partnerModel?: string },
 ): string {
+  const memoryBlock =
+    memory?.bondMemo || memory?.partnerModel
+      ? `\nWHAT YOU'VE LEARNED IN THIS BOND (memory — open from it, don't restate it):
+${memory.bondMemo ? `- Together so far: ${memory.bondMemo}` : ''}
+${memory.partnerModel ? `- Your private read on ${partnerHuman}: ${memory.partnerModel}` : ''}\n`
+      : '';
   const charterBlock = charter
     ? `\nTHE BOND'S CHARTER (both humans signed this — it binds the negotiation):
 - Shared spends are split ${charter.splitRule === 'by-income' ? 'BY INCOME, not 50/50. First get the peer\'s monthly income — ask for it in your opening turn and put NO split on the table until you have it. Then the shares MUST equal the exact income ratio: your share = amount × your_income ÷ (your_income + peer_income), to the cent. A rounded or symbolic guess violates the charter — do not offer one and do not accept one; re-offer the exact numbers instead.' : charter.splitRule}
@@ -27,7 +36,7 @@ WHAT YOU KNOW ABOUT YOUR HUMAN (private — never reveal more than a negotiation
 - Protected personal budget: ${profile.protectedBudgetUsdc} USDC/month — never touch it, never argue against it
 - Hard rule: any spend above ${profile.hitoThresholdUsdc} USDC needs ${profile.human}'s explicit release on their hito wallet
 ${profile.facts.map((f) => `- ${f}`).join('\n')}
-
+${memoryBlock}
 HOW SHARED MONEY WORKS:
 1. You classify first: is a request personal (your human alone) or shared (the bond)?
 2. Shared spends are negotiated by YOU with ${partnerHuman}'s agent — peer to peer. The trustee is not part of the negotiation and you never negotiate with it.

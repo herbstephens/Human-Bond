@@ -103,6 +103,28 @@ profiles in a plain store and use 0G purely as an optional audit archive.
 is offline), evolve to **C** for on-device profile privacy, keep **B** as the
 decentralized, on-brand-for-0G/AgentKit north star.
 
+## Memory — how the agents get to know each other
+
+Two things are remembered, with different privacy, keyed **per bond, per person**:
+
+- **Shared bond memory** (`bondMemory/<bondId>`) — the distilled patterns both
+  agents may see: how they split, standing agreements, off-limits funds.
+- **Private partner-model** (`partnerModel/<address>/<bondId>`) — what one agent
+  learned about the peer's style and red lines. Leverage; never shared.
+- **Raw ledger** (`history/<bondId>`) — the append-only, auditable record of every
+  case (the permanent partnership record; 0G-KV when funded).
+
+After each case we keep the raw transcript AND distill it (one LLM step) into a
+*shorter* shared memo + updated private models — merge, don't append. The next
+negotiation injects the shared memo + that agent's private model right next to
+the profile and charter, so the agents open from what they've learned.
+
+Proven live: case 1 (groceries) → the memo learns "split 1:4 by income, under 200
+no hito." Case 2 (dinner) → Ben's agent opens with the exact 24/96 split *without
+re-asking Alice's income* and settles in 2 turns instead of 4; the memo keeps
+refining ("both agents confirm the math before accepting"). Later: a vector layer
+for retrieval when history outgrows a memo.
+
 ## What's built vs. what's next
 
 **Built (this session):**

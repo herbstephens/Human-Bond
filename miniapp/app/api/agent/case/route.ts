@@ -13,7 +13,17 @@
 import { NextResponse } from 'next/server';
 import { getHbStorage } from '@/lib/agents/hbStorage.server';
 import { llmCfgFromEnv, runCase, type NegParty } from '@/lib/agents/negotiationRun.server';
-import { caseIndexKey, caseKey, type CaseRecord } from '@/lib/agents/case';
+import { distillCase } from '@/lib/agents/memory.server';
+import {
+  bondMemoryKey,
+  caseIndexKey,
+  caseKey,
+  historyKey,
+  partnerModelKey,
+  type BondMemory,
+  type CaseRecord,
+  type PartnerModel,
+} from '@/lib/agents/case';
 import type { PaymentRequest } from '@/lib/agents/runtime';
 import type { AgentIdentity } from '@/lib/agents/protocol';
 import type { StoredCharter, StoredProfile } from '@/lib/agents/storage';
@@ -66,7 +76,20 @@ export async function POST(req: Request) {
     requestedBy: idA.human,
   };
 
-  const { transcript, settlement } = await runCase(llmCfgFromEnv(), partyA, partyB, charter, request, body.situationNote);
+  // Memory in: the shared bond memo (both see) + each agent's PRIVATE model of
+  // the partner, so they open from what they've learned, not cold.
+  const [bondMem, modelAboutB, modelAboutA] = await Promise.all([
+    store.getJsonOrNull<BondMemory>(bondMemoryKey(body.bondId)),
+    store.getJsonOrNull<PartnerModel>(partnerModelKey(body.a.address, body.bondId)),
+    store.getJsonOrNull<PartnerModel>(partnerModelKey(body.b.address, body.bondId)),
+  ]);
+
+  const cfg = llmCfgFromEnv();
+  const { transcript, settlement } = await runCase(cfg, partyA, partyB, charter, request, {
+    situationNote: body.situationNote,
+    memoryA: { bondMemo: bondMem?.memo, partnerModel: modelAboutB?.notes },
+    memoryB: { bondMemo: bondMem?.memo, partnerModel: modelAboutA?.notes },
+  });
 
   const record: CaseRecord = {
     caseId: newCaseId(),
@@ -80,7 +103,36 @@ export async function POST(req: Request) {
   };
   await store.putJson(caseKey(record.bondId, record.caseId), record);
   await store.append(caseIndexKey(record.bondId), record.caseId);
-  return NextResponse.json({ case: record });
+  // Raw ledger — the permanent, auditable record of what happened in this bond.
+  await store.append(historyKey(record.bondId), {
+    caseId: record.caseId,
+    label: request.label,
+    amountUsdc: request.amountUsdc,
+    shares: settlement.shares,
+    memo: settlement.memo,
+    at: record.createdAt,
+  });
+
+  // Memory out: distill this case into a shorter shared memo + updated private
+  // partner-models, so the NEXT negotiation opens smarter.
+  const distilled = await distillCase(cfg, {
+    humanA: idA.human,
+    humanB: idB.human,
+    priorBondMemo: bondMem?.memo ?? '',
+    priorModelAboutB: modelAboutB?.notes ?? '',
+    priorModelAboutA: modelAboutA?.notes ?? '',
+    transcript,
+    settlement,
+    label: request.label,
+    amountUsdc: request.amountUsdc,
+  });
+  await Promise.all([
+    store.putJson(bondMemoryKey(body.bondId), { memo: distilled.bondMemo, updatedAt: record.createdAt }),
+    store.putJson(partnerModelKey(body.a.address, body.bondId), { notes: distilled.modelAboutB, updatedAt: record.createdAt }),
+    store.putJson(partnerModelKey(body.b.address, body.bondId), { notes: distilled.modelAboutA, updatedAt: record.createdAt }),
+  ]);
+
+  return NextResponse.json({ case: record, bondMemo: distilled.bondMemo });
 }
 
 export async function GET(req: Request) {

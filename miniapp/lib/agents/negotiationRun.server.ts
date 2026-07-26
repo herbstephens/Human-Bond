@@ -8,6 +8,7 @@ import { LlmDriver, type LlmConfig } from './llmDriver';
 import { personalSystemPrompt } from './prompts';
 import type { AgentIdentity, NegotiationTranscript, Settlement } from './protocol';
 import type { StoredCharter, StoredProfile } from './storage';
+import type { NegotiationMemory } from './case';
 
 export function llmCfgFromEnv(): LlmConfig {
   const apiKey = process.env.ZG_ROUTER_API_KEY;
@@ -34,17 +35,17 @@ export async function runCase(
   b: NegParty,
   charter: StoredCharter | undefined,
   request: PaymentRequest,
-  situationNote?: string,
+  opts: { situationNote?: string; memoryA?: NegotiationMemory; memoryB?: NegotiationMemory } = {},
 ): Promise<{ transcript: NegotiationTranscript; settlement: Settlement }> {
   const partyA = {
     identity: a.identity,
     profile: a.profile,
-    driver: new LlmDriver(cfg, personalSystemPrompt(a.profile, b.identity.human, charter), situationNote),
+    driver: new LlmDriver(cfg, personalSystemPrompt(a.profile, b.identity.human, charter, opts.memoryA), opts.situationNote),
   };
   const partyB = {
     identity: b.identity,
     profile: b.profile,
-    driver: new LlmDriver(cfg, personalSystemPrompt(b.profile, a.identity.human, charter)),
+    driver: new LlmDriver(cfg, personalSystemPrompt(b.profile, a.identity.human, charter, opts.memoryB)),
   };
   return negotiate(partyA, partyB, request);
 }
