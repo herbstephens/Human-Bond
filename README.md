@@ -1,6 +1,6 @@
-# 🤝 HumanBond
+# 💍 HumanBond
 
-**The first proof-of-humanity agentic partnership protocol — live on World Chain.**
+**The first proof-of-humanity partnership protocol — live on World Chain — giving economic standing to the partner the market has always ignored.**
 
 [![World Chain](https://img.shields.io/badge/World%20Chain-Mainnet-6B4FBB?style=flat-square)](https://worldscan.org)
 [![World App](https://img.shields.io/badge/World%20App-Live-00C2FF?style=flat-square)](https://worldapp.world)
@@ -219,14 +219,14 @@ Human-Bond/
 
 ## Team
 
-| | | |
-|---|---|---|
-| **Herb Stephens** | Protocol design | Co-founder, Democracy Earth Foundation · Portugal · herb@democracy.earth |
-| **Leticia Azevedo** | Smart contracts | V2 contracts deployed + income split · [@leticarolina](https://github.com/leticarolina) · Brazil |
-| **Franco Amicone** | Frontend + Agents | MiniKit + World AgentKit + 0G + ENS · ETHGlobal Lisbon in-person · Argentina |
-| **Francesca** | Culture & Quality | Team cohesion, creative direction, and quality standards · the reason we shipped |
-| **Mikhail (Misha)** | Advisor | Founder, hito hardware wallet · hardware wallet infrastructure |
-| **Leon** | Project Manager | Operations and coordination · Berlin |
+| | |
+|---|---|
+| **Herb Stephens** | Co-founder, Democracy Earth Foundation · Protocol design · Portugal · herb@democracy.earth |
+| **Leticia Azevedo** | Smart contracts · V2 deployment · [@leticarolina](https://github.com/leticarolina) · Brazil |
+| **Franco Amicone** | Frontend · MiniKit · World AgentKit · 0G · ENS · ETHGlobal Lisbon in-person · Argentina |
+| **Francesca** | Culture, quality, and team cohesion · the reason we shipped |
+| **Mikhail (Misha)** | Advisor · Founder, hito hardware wallet · Berlin |
+| **Leon** | Project Manager · Berlin |
 
 ---
 
