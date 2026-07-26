@@ -9,11 +9,23 @@ export type StoredAgentKey = {
   iv: string;
   authTag: string;
   createdAt: number;
+  /** The partner wallet this agent acts for — the wallet→agent half of the link. */
+  owner?: `0x${string}`;
+  bondId?: string;
   agentBook: {
     status: 'pending' | 'registered';
     nonce: string;
     txHash?: `0x${string}`;
+    /** AgentBook's anonymous human identifier (nullifier hash), once registered. */
+    humanId?: string;
   };
+};
+
+/** The agent→owner link, inverted: which agent acts for this wallet. */
+type OwnerLink = {
+  agentAddress: `0x${string}`;
+  bondId?: string;
+  updatedAt: number;
 };
 
 function encryptionKey(): Buffer {
@@ -30,6 +42,10 @@ function storageKey(address: string): string {
   return `agent-keys/${address.toLowerCase()}`;
 }
 
+function ownerKey(wallet: string): string {
+  return `agent-owner/${wallet.toLowerCase()}`;
+}
+
 /**
  * Read-your-own-write for the activation flow.
  *
@@ -43,8 +59,12 @@ function storageKey(address: string): string {
  * and any address it has not seen still goes to the network.
  */
 const recentWrites = new Map<string, StoredAgentKey>();
+const recentOwnerLinks = new Map<string, OwnerLink>();
 
-export async function createAndStoreAgentKey(nonce: bigint): Promise<StoredAgentKey> {
+export async function createAndStoreAgentKey(
+  nonce: bigint,
+  link?: { owner: `0x${string}`; bondId?: string },
+): Promise<StoredAgentKey> {
   const privateKey = generatePrivateKey();
   const account = privateKeyToAccount(privateKey);
   const iv = randomBytes(12);
@@ -61,6 +81,8 @@ export async function createAndStoreAgentKey(nonce: bigint): Promise<StoredAgent
     iv: iv.toString('base64'),
     authTag: cipher.getAuthTag().toString('base64'),
     createdAt: Date.now(),
+    owner: link?.owner,
+    bondId: link?.bondId,
     agentBook: {
       status: 'pending',
       nonce: nonce.toString(),
@@ -86,6 +108,7 @@ export async function getStoredAgentKey(address: `0x${string}`): Promise<StoredA
 export async function markAgentRegistered(
   record: StoredAgentKey,
   txHash: `0x${string}`,
+  humanId?: string,
 ): Promise<void> {
   const updated = {
     ...record,
@@ -93,10 +116,55 @@ export async function markAgentRegistered(
       ...record.agentBook,
       status: 'registered',
       txHash,
+      humanId: humanId ?? record.agentBook.humanId,
     },
   } satisfies StoredAgentKey;
   recentWrites.set(record.address.toLowerCase(), updated);
   await zeroGKvStorageFromEnv().putJson(storageKey(record.address), updated);
+
+  // The wallet→agent link is written only now, after AgentBook accepted the
+  // proof — an aborted activation must never repoint a wallet at an
+  // unregistered agent. Last successful registration wins.
+  if (updated.owner) {
+    const linkRecord: OwnerLink = {
+      agentAddress: updated.address,
+      bondId: updated.bondId,
+      updatedAt: Date.now(),
+    };
+    recentOwnerLinks.set(updated.owner.toLowerCase(), linkRecord);
+    await zeroGKvStorageFromEnv().putJson(ownerKey(updated.owner), linkRecord);
+  }
+}
+
+/**
+ * Which agent acts for this wallet — the read side of the link, used by
+ * verify-backing to resolve wallet → agent before the on-chain lookupHuman.
+ * Null means no agent finished registration for this wallet yet.
+ *
+ * The KV node hangs (no timeout in the SDK) on keys it has never seen — which
+ * is precisely the common case here, a wallet that hasn't registered. So the
+ * network read races an 8s deadline; on timeout the wallet is treated as
+ * unlinked. The in-process map answers instantly for anything THIS server
+ * registered, which covers both partners in the shared-server demo.
+ */
+export async function agentAddressForOwner(
+  wallet: `0x${string}`,
+): Promise<`0x${string}` | null> {
+  const justLinked = recentOwnerLinks.get(wallet.toLowerCase());
+  if (justLinked) return justLinked.agentAddress;
+
+  try {
+    const link = await Promise.race([
+      zeroGKvStorageFromEnv().getJsonOrNull<OwnerLink>(ownerKey(wallet)),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('0G-KV owner-link read timed out')), 8_000),
+      ),
+    ]);
+    return link?.agentAddress ?? null;
+  } catch (caught) {
+    console.warn(`[agent-vault] owner link for ${wallet} unavailable: ${String(caught)}`);
+    return null;
+  }
 }
 
 export async function loadAgentPrivateKey(address: `0x${string}`): Promise<`0x${string}`> {
