@@ -69,7 +69,7 @@ Beyond the bond itself, HumanBond exposes a Partnership Registry API: a verifiab
 
 Anyone can resolve `herb-agatha.humanbond.eth` to reach the partnership's shared receiving address — without either partner revealing their individual wallet.
 
-**Qualification:** HumanBond is an existing live product. ENS integration is the new feature shipped at this hackathon. ENS is load-bearing — it provides the shared economic identity that makes the Partnership Registry legible to the outside world.
+**Qualification:** HumanBond is an existing live product. ENS integration is a new feature shipped at this hackathon. ENS is load-bearing — it provides the shared economic identity that makes the Partnership Registry legible to the outside world.
 
 ---
 
