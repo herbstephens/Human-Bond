@@ -224,7 +224,7 @@ Human-Bond/
 | **Herb Stephens** | Co-founder, Democracy Earth Foundation · Protocol design · Portugal · herb@democracy.earth |
 | **Leticia Azevedo** | Smart contracts · V2 deployment · [@leticarolina](https://github.com/leticarolina) · Brazil |
 | **Franco Amicone** | Frontend · MiniKit · World AgentKit · 0G · ENS · ETHGlobal Lisbon in-person · Argentina |
-| **Francesca** | Culture, quality, and team cohesion · the reason we shipped |
+| **Francesca Martina** | Culture, quality, and team cohesion · the reason we shipped |
 | **Mikhail Kirillov** | Advisor · Founder, hito hardware wallet · Berlin |
 | **Leon Brunsen** | Project Manager · Berlin |
 
