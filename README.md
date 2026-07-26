@@ -225,8 +225,8 @@ Human-Bond/
 | **Leticia Azevedo** | Smart contracts · V2 deployment · [@leticarolina](https://github.com/leticarolina) · Brazil |
 | **Franco Amicone** | Frontend · MiniKit · World AgentKit · 0G · ENS · ETHGlobal Lisbon in-person · Argentina |
 | **Francesca Martina** | Culture, quality, and team cohesion · Italy |
-| **Mikhail Kirillov** | Advisor · Founder, hito hardware wallet · Russia |
-| **Leon Brunsen** | Project Manager · Germany |
+| **Mikhail Kirillov** | Full-stack · Founder, hito hardware wallet · Russia |
+| **Leon Brunsen** | Project and Product Manager · Germany |
 
 ---
 
