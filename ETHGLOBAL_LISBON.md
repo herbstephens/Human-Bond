@@ -8,7 +8,11 @@
 
 ## Project Description
 
-HumanBond is a two-person partnership protocol deployed and live on World Chain Mainnet, searchable today in the World App store. Two World ID–verified humans form an on-chain bond — a soulbound VowNFT anchored to biometric proof of unique humanity, not just a wallet address. When either partner earns income through the TIME Protocol, a 50/50 split is enforced automatically on-chain: the working partner and the non-market partner — the caregiver, the homemaker, the person whose contribution the formal economy has never recognized — receive equal shares. This is not a philosophical gesture. It is a smart contract. Beyond the bond itself, HumanBond exposes a Partnership Registry API: a verifiable, privacy-preserving on-chain record of partnership status that dating platforms, financial services, and legal systems can query with user consent. HumanBond is the first application of TIME Protocol's identity stack to a relationship that predates every financial system on earth — and the first time that partnership has had programmable economic consequences.
+HumanBond is a two-person partnership protocol deployed and live on World Chain Mainnet, searchable today in the World App store. 
+
+Two World ID–verified humans form an on-chain bond — a soulbound VowNFT anchored to biometric proof of unique humanity, not just a wallet address. When either partner earns income through the TIME Protocol, a 50/50 split is enforced automatically on-chain: the working partner and the non-market partner — the caregiver, the homemaker, the person whose contribution the formal economy has never recognized — receive equal shares. This is not a philosophical gesture. It is a smart contract. 
+
+Beyond the bond itself, HumanBond exposes a Partnership Registry API: a verifiable, privacy-preserving on-chain record of partnership status that dating platforms, financial services, and legal systems can query with user consent. HumanBond is the first application of TIME Protocol's identity stack to a relationship that predates every financial system on earth — and the first time that partnership has had programmable economic consequences.
 
 ---
 
