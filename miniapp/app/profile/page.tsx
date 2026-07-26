@@ -14,10 +14,8 @@ import { useEffect, useState } from 'react';
 import { Link2, MessageCircle, Plus, Upload, X } from 'lucide-react';
 import { AliveCta } from '@/app/components/agent/AliveCta';
 import { useMarriage } from '@/lib/marriage/context';
-import { useUsdcBalance } from '@/lib/hooks/useUsdcBalance';
 import { useLiveBondSync } from '@/lib/agent/useLiveBondSync';
 import { useWorldProfile } from '@/lib/worldcoin/useWorldProfile';
-import { formatUsdc } from '@/lib/vault/usdc';
 import { USE_MOCKS } from '@/lib/config';
 import { META } from '@/lib/design';
 import { useRouteGuard } from '@/lib/hooks/useLiveStage';
@@ -37,14 +35,19 @@ function derivedFacts(
   importedSources: string[],
 ): BrainFact[] {
   const facts: BrainFact[] = [];
-  if (importedSources.includes('linkedin')) {
-    facts.push({ id: 'd-li', text: 'Product Lead in Lisbon — employed', source: 'LinkedIn' });
-  }
-  if (importedSources.includes('x')) {
-    facts.push({ id: 'd-x', text: 'Deep in crypto and festivals', source: 'X' });
-  }
-  if (importedSources.includes('chatgpt') || importedSources.includes('claude')) {
-    facts.push({ id: 'd-ai', text: 'Careful planner, budget-aware, hates surprises', source: 'AI history' });
+  // The imported-source facts are playground fiction (there is no real import
+  // pipeline) — they must never surface in live, even if an old live session
+  // persisted importedSources before the import UI was mock-gated.
+  if (USE_MOCKS) {
+    if (importedSources.includes('linkedin')) {
+      facts.push({ id: 'd-li', text: 'Product Lead in Lisbon — employed', source: 'LinkedIn' });
+    }
+    if (importedSources.includes('x')) {
+      facts.push({ id: 'd-x', text: 'Deep in crypto and festivals', source: 'X' });
+    }
+    if (importedSources.includes('chatgpt') || importedSources.includes('claude')) {
+      facts.push({ id: 'd-ai', text: 'Careful planner, budget-aware, hates surprises', source: 'AI history' });
+    }
   }
   for (const q of INTERVIEW_QUESTIONS) {
     const a = answers[q.id];
@@ -80,7 +83,6 @@ export default function ProfilePage() {
     customFacts,
     payments,
     vaultBalances,
-    heartbeatOk,
     heartbeatDaysLeft,
     heartbeatChecked,
     bonds,
@@ -93,7 +95,6 @@ export default function ProfilePage() {
   // also mirrors the ONE real bond into the store (Mika & co are mock-only).
   useLiveBondSync();
   const { address } = useMarriage();
-  const { balance: walletUsdc } = useUsdcBalance(address);
   const { profile: myProfile } = useWorldProfile(address ?? '');
   const [draft, setDraft] = useState('');
   const [showSelfie, setShowSelfie] = useState(false);
@@ -165,10 +166,15 @@ export default function ProfilePage() {
     setAddBrainOpen(false);
   };
 
+  // "Linked accounts" is a playground card: linking does nothing real (it just
+  // flags importedSources), so live never offers it. Live shows what is real:
+  // interview answers, learned behavior, and what you typed in yourself.
   const brainCards: { key: string; label: string; sub: string; items: BrainFact[]; kind: 'facts' | 'accounts' | 'you' }[] = [
     { key: 'info', label: 'Info', sub: `${infoFacts.length} ${infoFacts.length === 1 ? 'thing' : 'things'} your agent knows`, items: infoFacts, kind: 'facts' },
     ...(aiFacts.length ? [{ key: 'ai', label: 'AI history', sub: `${aiFacts.length} insight${aiFacts.length === 1 ? '' : 's'}`, items: aiFacts, kind: 'facts' as const }] : []),
-    { key: 'accounts', label: 'Linked accounts', sub: `${linkedAccounts.length} connected`, items: [], kind: 'accounts' },
+    ...(USE_MOCKS
+      ? [{ key: 'accounts', label: 'Linked accounts', sub: `${linkedAccounts.length} connected`, items: [] as BrainFact[], kind: 'accounts' as const }]
+      : []),
     ...(youFacts.length ? [{ key: 'you', label: 'Added by you', sub: `${youFacts.length} ${youFacts.length === 1 ? 'entry' : 'entries'}`, items: youFacts, kind: 'you' as const }] : []),
   ];
 
@@ -188,15 +194,11 @@ export default function ProfilePage() {
   return (
     <div className="min-h-screen bg-[#E8E8E8] flex flex-col">
       {/* Header — you */}
+      {/* No wallet balance here — this page is about the BONDS, and the
+          personal wallet number was one more place for mock/real to diverge. */}
       <header className="px-6 pt-6 pb-2 flex items-center gap-4">
         <div className="flex-1 min-w-0">
           <h1 className="text-3xl font-anton text-black tracking-wide truncate">HEY {name.toUpperCase()}!</h1>
-        </div>
-        <div className="text-right shrink-0">
-          <p className="text-3xl font-anton text-black tracking-wide">
-            {USE_MOCKS ? '1,240' : walletUsdc !== null ? Math.round(Number(walletUsdc) / 1e6).toLocaleString('en-US') : '0'}
-            <span className="text-gray-400 ml-2">USDC</span>
-          </p>
         </div>
       </header>
 
@@ -293,9 +295,22 @@ export default function ProfilePage() {
                 className="block w-full bg-white rounded-2xl px-5 py-4 transition-all hover:shadow-md active:scale-[0.99]"
               >
                 <div className="flex items-center justify-between gap-3">
+                  {/* Live shows the REGISTERED name or none — a made-up ENS on a
+                      money row reads as payable. The ben-… name is mock-only. */}
                   <h3 className="text-xl font-anton text-black tracking-wide truncate min-w-0">
-                    {(!USE_MOCKS && bondEnsLabel ? bondEnsLabel : `ben-${b.partner.toLowerCase().split(/\s+/)[0]}`).toUpperCase()}
-                    <span className={META}>.{ENS_PARENT.toUpperCase()}</span>
+                    {USE_MOCKS ? (
+                      <>
+                        {`ben-${b.partner.toLowerCase().split(/\s+/)[0]}`.toUpperCase()}
+                        <span className={META}>.{ENS_PARENT.toUpperCase()}</span>
+                      </>
+                    ) : bondEnsLabel ? (
+                      <>
+                        {bondEnsLabel.toUpperCase()}
+                        <span className={META}>.{ENS_PARENT.toUpperCase()}</span>
+                      </>
+                    ) : (
+                      <>YOU &amp; {b.partner.toUpperCase()}</>
+                    )}
                   </h3>
                   <p className="text-2xl font-anton text-black tracking-wide tabular-nums shrink-0">
                     {Math.round(vaultBalances[b.id] ?? 0).toLocaleString('en-US')}

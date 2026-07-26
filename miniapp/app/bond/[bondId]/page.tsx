@@ -9,11 +9,11 @@
 'use client';
 
 import { useRouter, useParams } from 'next/navigation';
-import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowUp, Bell, Check, Copy, MessageCircle, Send, X } from 'lucide-react';
+import { AlertTriangle, ArrowDownToLine, ArrowUp, Bell, Check, Copy, MessageCircle, Send, X } from 'lucide-react';
 import { AliveCta } from '@/app/components/agent/AliveCta';
-import { shortAddress } from '@/lib/vault/usdc';
+import { formatUsdc, shortAddress } from '@/lib/vault/usdc';
+import { VAULT_RULES } from '@/lib/contracts/vault';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAgentStore, type Heir } from '@/lib/agent/agentStore';
 import { USE_MOCKS } from '@/lib/config';
@@ -97,12 +97,22 @@ export default function BondProfilePage() {
   const balance = vaultBalances[bond.id] ?? 0;
   const invested = investments[bond.id];
   const liquid = balance - (invested?.amount ?? 0);
-  // The bond's name — the ENS label the couple chose on chain.
-  const bondName = bondEnsLabel ?? liveVault?.ensLabel ?? `ben-${bond.partner.toLowerCase()}`;
+  // The bond's REAL ENS label — set when the couple named the bond, then
+  // confirmed by the registrar read. Null until one of those exists.
+  const ensLabel = bondEnsLabel ?? liveVault?.ensLabel ?? null;
+  // Display-only name for the headline. The `ben-…` fallback is a placeholder,
+  // never a payable address — anything that hands a name out to be paid to
+  // (the Receive dialog) must use `ensLabel` and render nothing without it.
+  const bondName = ensLabel ?? `ben-${bond.partner.toLowerCase()}`;
   const [copiedField, setCopiedField] = useState<'ens' | 'addr' | null>(null);
   const [receiveOpen, setReceiveOpen] = useState(false);
   // Real USDC transfer history of the Safe (live only) + how many rows show.
-  const { transfers } = useVaultTransfers(liveVault?.address ?? null);
+  const {
+    transfers,
+    isLoading: isTransfersLoading,
+    error: transfersError,
+    refetch: refetchTransfers,
+  } = useVaultTransfers(liveVault?.address ?? null);
   const [shownTransfers, setShownTransfers] = useState(5);
   const copyToClipboard = async (text: string, field: 'ens' | 'addr') => {
     await navigator.clipboard.writeText(text);
@@ -508,9 +518,13 @@ export default function BondProfilePage() {
       {/* Header */}
       <header className="px-6 pt-4 pb-4 flex items-center gap-4">
         <div className="flex-1">
+          {/* Live: the registered name, or plain "YOU & PARTNER" while unnamed —
+              never a made-up ENS. Mock keeps the playground name. */}
           <h1 className="text-4xl font-anton text-black tracking-wide truncate">
-            {bondName.toUpperCase()}
-            <span className="text-base text-gray-400">.{ENS_PARENT.toUpperCase()}</span>
+            {(USE_MOCKS || ensLabel ? bondName : `You & ${bond.partner}`).toUpperCase()}
+            {(USE_MOCKS || ensLabel) && (
+              <span className="text-base text-gray-400">.{ENS_PARENT.toUpperCase()}</span>
+            )}
           </h1>
         </div>
       </header>
@@ -567,27 +581,32 @@ export default function BondProfilePage() {
             <DialogHeader>
               <DialogTitle>Receive USDC</DialogTitle>
               <DialogDescription>
-                Anyone can send USDC on World Chain to your bond. Use the name or the address.
+                Anyone can send USDC on World Chain to your bond.{' '}
+                {ensLabel ? 'Use the name or the address.' : 'Use the address below.'}{' '}
                 Only USDC is accepted at the moment.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3">
-              <button
-                onClick={() => copyToClipboard(`${bondName}.${ENS_PARENT}`, 'ens')}
-                className="w-full flex items-center justify-between gap-3 rounded-2xl bg-gray-50 px-4 py-3.5 text-left hover:bg-gray-100 transition-colors"
-              >
-                <div className="min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-0.5">
-                    {copiedField === 'ens' ? 'Copied!' : 'ENS name'}
-                  </p>
-                  <p className="text-sm font-mono font-semibold text-gray-800 truncate">
-                    {bondName}.{ENS_PARENT}
-                  </p>
-                </div>
-                <span className="shrink-0 w-9 h-9 rounded-xl bg-white flex items-center justify-center text-gray-500">
-                  {copiedField === 'ens' ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
-                </span>
-              </button>
+              {/* Only a REGISTERED name is offered to copy — handing out a
+                  placeholder here would send someone's USDC into nothing. */}
+              {ensLabel && (
+                <button
+                  onClick={() => copyToClipboard(`${ensLabel}.${ENS_PARENT}`, 'ens')}
+                  className="w-full flex items-center justify-between gap-3 rounded-2xl bg-gray-50 px-4 py-3.5 text-left hover:bg-gray-100 transition-colors"
+                >
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-0.5">
+                      {copiedField === 'ens' ? 'Copied!' : 'ENS name'}
+                    </p>
+                    <p className="text-sm font-mono font-semibold text-gray-800 truncate">
+                      {ensLabel}.{ENS_PARENT}
+                    </p>
+                  </div>
+                  <span className="shrink-0 w-9 h-9 rounded-xl bg-white flex items-center justify-center text-gray-500">
+                    {copiedField === 'ens' ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
+                  </span>
+                </button>
+              )}
               {liveVault?.address && (
                 <button
                   onClick={() => copyToClipboard(liveVault.address, 'addr')}
@@ -690,7 +709,30 @@ export default function BondProfilePage() {
           <h2 className="text-2xl font-anton text-black tracking-wide">ACTIVITY</h2>
           <div className="bg-white rounded-2xl divide-y divide-gray-100">
             {!USE_MOCKS ? (
-              transfers && transfers.length > 0 ? (
+              // Four distinct states, never conflated: still loading, failed,
+              // genuinely empty, and the list. An explorer outage rendering as
+              // "no transfers yet" would be the page lying about the money.
+              isTransfersLoading ? (
+                [0, 1, 2].map((i) => (
+                  <div key={i} className="px-5 py-3.5 flex items-center justify-between gap-3">
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-2.5 w-40 rounded bg-gray-100 animate-pulse" />
+                      <div className="h-2 w-20 rounded bg-gray-100 animate-pulse" />
+                    </div>
+                    <div className="h-2.5 w-12 rounded bg-gray-100 animate-pulse shrink-0" />
+                  </div>
+                ))
+              ) : transfersError ? (
+                <div className="px-5 py-3.5 flex items-center justify-between gap-3">
+                  <p className={`${META} text-red-500`}>Could not load activity</p>
+                  <button
+                    onClick={() => void refetchTransfers()}
+                    className={`${META} hover:text-gray-700 transition-colors shrink-0`}
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : transfers && transfers.length > 0 ? (
                 <>
                   {transfers.slice(0, shownTransfers).map((t, i) => (
                     <a
@@ -745,11 +787,29 @@ export default function BondProfilePage() {
             <p className={`${META} mt-0.5`}>What you two agreed</p>
           </div>
           <div className="bg-white rounded-2xl divide-y divide-gray-100">
+            {/* The vault's REAL spend rules — live straight from the module,
+                mock from the same constants the playground sim enforces. Rows
+                that only exist in the demo story (income split, 0G charter doc,
+                the hito threshold default) never show in live without data. */}
             {[
-              { k: 'Split of shared expenses', v: 'By income' },
-              { k: 'Your hardware threshold', v: `hito above ${threshold}` },
+              {
+                k: 'No approval needed',
+                v: `Instant under ${formatUsdc(liveVault?.smallSpendThreshold ?? VAULT_RULES.SMALL_SPEND_THRESHOLD, 0)} USDC`,
+              },
+              {
+                k: 'Shared instant budget',
+                v: `${formatUsdc(liveVault?.dailyFreeLimit ?? VAULT_RULES.DAILY_FREE_LIMIT, 0)} USDC per 24h`,
+              },
+              { k: `${bond.partner} co-signs`, v: 'Above that, both approve' },
+              { k: 'Automatic', v: '50/50 split on dissolve' },
+              ...(answers.threshold ? [{ k: 'Your hardware threshold', v: `hito above ${threshold}` }] : []),
               { k: 'Proof of life', v: 'Selfie Check' },
-              { k: 'Will & rules document', v: 'encrypted on 0G storage' },
+              ...(USE_MOCKS
+                ? [
+                    { k: 'Split of shared expenses', v: 'By income' },
+                    { k: 'Will & rules document', v: 'encrypted on 0G storage' },
+                  ]
+                : []),
             ].map((row) => (
               <div key={row.k} className="px-5 py-3.5 flex items-center justify-between gap-4">
                 <p className="font-anton text-[11px] text-gray-700 uppercase tracking-wide">{row.v}</p>

@@ -28,7 +28,7 @@ type BlockscoutTransfer = {
 };
 
 export function useVaultTransfers(vaultAddress: `0x${string}` | null) {
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['vaultTransfers', vaultAddress],
     queryFn: async (): Promise<VaultTransfer[]> => {
       const res = await fetch(
@@ -48,5 +48,13 @@ export function useVaultTransfers(vaultAddress: `0x${string}` | null) {
     enabled: !USE_MOCKS && !!vaultAddress,
     staleTime: 30_000,
   });
-  return { transfers: data ?? null, isLoading, refetch };
+
+  // The error travels: a dead explorer must never render as "no transfers yet",
+  // which is the one thing a money screen may not lie about.
+  return {
+    transfers: data ?? null,
+    isLoading,
+    error: error ? (error instanceof Error ? error.message : 'Failed to load transfers') : null,
+    refetch,
+  };
 }
