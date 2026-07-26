@@ -19,7 +19,7 @@ Beyond the bond itself, HumanBond exposes a Partnership Registry API: a verifiab
 ## What We Built at the Hackathon
 
 - `finalizeWorkAndDistribute()` — 50/50 Work TIME split on payment receipt. When a payment is received for verified work, the contract mints TIME and distributes 50% to the worker and 50% to their bonded partner automatically. No manual split required. No trust required.
-- **World 'Selfie Check' and 'NFC Credentials' ** — this adds two layers to the ID stack, eliminating use friction by introducing Tier 2 and Tier 3 sign-up [to the existing Tier 0 and Tier 4, iris orb scan].
+- **World 'Selfie Check' and 'NFC Credentials'** — this adds two layers to the ID stack, eliminating use friction by introducing Tier 2 and Tier 3 sign-up [to the existing Tier 0 and Tier 4, iris orb scan].
 - **ENS subname registration** — During bond formation, partners register `name1-name2.humanbond.eth` as their shared economic address
 - **0G Storage** — VowNFT metadata, partnership charter, and milestone records stored permanently
 
