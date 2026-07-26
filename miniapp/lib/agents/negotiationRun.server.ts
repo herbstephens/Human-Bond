@@ -18,7 +18,9 @@ export function llmCfgFromEnv(): LlmConfig {
     // The engine's own note: 'zai-org/GLM-5-FP8' does not exist on the router;
     // the GLM family is glm-5 / glm-5.1 / glm-5.2. Overridable per deployment.
     model: process.env.ZG_ROUTER_NEGOTIATE_MODEL ?? 'glm-5.2',
-    temperature: 0.4,
+    // Low temperature: the by-income split is arithmetic, not vibes. Higher
+    // temperatures let the agents anchor on round guesses (60/40) and accept.
+    temperature: 0.2,
   };
 }
 
