@@ -56,6 +56,22 @@ Beyond the bond itself, HumanBond exposes a Partnership Registry API: a verifiab
 
 ---
 
+### 🤖 World — AgentKit New Use Cases · $8,000
+
+**Technology:** World's AgentKit resolves any wallet address to a verified human via AgentBook — `createAgentBookVerifier().lookupHuman(address)` — turning "is this a bot or a real person's agent?" into one on-chain call on World Chain.
+
+**Before:** HumanBond's trustee agent, the neutral decision-maker that manages a bonded partnership's shared vault, would talk to any wallet that connected. It had no way to tell a partner's real personal agent from an unregistered script pretending to be one. Authorization rested on who claimed to act for the bond, not on any verified relationship to the two humans who formed it.
+
+**After:** Every request to move funds through the trustee now passes an AgentKit door policy first. The requesting wallet is resolved to its linked agent address, then checked against AgentBook: is a verified human actually behind it? Because a bond has two partners, the trustee also runs a distinct-humans check, the two agents proposing a shared spend must resolve to two different verified humans, not one person routing both sides. An unregistered wallet, including a canned rogue-agent address kept specifically for this demo beat, is refused at the door: no verified human found. Only once both agents clear the check does the trustee quote the spend and hand off to both partners for hito confirmation. Registration itself runs through `npx @worldcoin/agentkit-cli register`, gasless, hosted relay, a World App prompt, for each partner's agent.
+
+This changes authorization, not reputation: it decides who is allowed to move money in a new vertical, shared family finances and inheritance, and it denies that authorization outright when the human-backing check fails. Not a wrapper, not a content-generation demo, not a discount for a human-backed bot.
+
+**Testing documentation:** Still open. Both demo agents need to complete registration before we can report real beta-access friction and flow duration; that pass is tracked as a follow-up, not written here as if it already happened.
+
+**Qualification:** Uses AgentKit as the sole authorization gate for a real financial action (release from a shared trust vault), not a wrapper. Verifies human-backing via live AgentBook lookups plus a distinct-humans check across both bonded partners' agents. Working end-to-end flow: request → AgentBook lookup → distinct-humans check → rogue-agent refusal or pass → live Uniswap quote → dual hito confirmation → execution.
+
+---
+
 ### 🔄 ENS — Best ENS Continuity Integration · $2,000
 
 **Technology:** ENS turns wallet addresses into human-readable names. Subnames like `herb-agatha.humanbond.eth` can be registered under the `humanbond.eth` parent name.
