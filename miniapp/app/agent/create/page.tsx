@@ -222,6 +222,15 @@ export default function AgentCreatePage() {
         throw new Error(`World ID verification failed: ${finalPayload.error_code}`);
       }
 
+      if (
+        process.env.NODE_ENV !== 'production' &&
+        process.env.NEXT_PUBLIC_BYPASS_AGENTBOOK_REGISTRATION === '1'
+      ) {
+        setActivationState('complete');
+        completeInterview();
+        return;
+      }
+
       setActivationState('registering');
       const completeResponse = await fetch('/api/agent/activate/complete', {
         method: 'POST',
