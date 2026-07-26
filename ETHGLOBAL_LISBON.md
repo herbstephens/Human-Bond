@@ -62,13 +62,13 @@ Beyond the bond itself, HumanBond exposes a Partnership Registry API: a verifiab
 
 **Before:** HumanBond's shared vault had no concept of agent trust. Any address holding a signing key — a partner's own agent, an unrelated script, a compromised signer — had identical standing when proposing a spend. Multi-agent shared finance had no way to ask "is this agent allowed to act for a human who is actually in this trust."
 
-**After:** The AgentBook door policy is real, callable code, not a mock claim: `/api/agent/verify-backing` resolves a wallet to its linked agent and asks AgentBook, on World Chain, whether a verified human stands behind it. Because a bond has two partners, it also runs a distinct-humans check, confirming the two agents proposing a shared spend answer to two different verified humans, not one person routing both sides. An unregistered wallet, including a rogue-agent address kept for this exact demo beat, is refused: no verified human found. Registration runs through `npx @worldcoin/agentkit-cli register`, gasless, hosted relay, a World App prompt.
+**After:** `/api/agent/verify-backing` resolves a wallet to its linked agent and asks AgentBook, on World Chain, whether a verified human stands behind it. Because a bond has two partners, it also runs a distinct-humans check, confirming the two agents proposing a shared spend answer to two different verified humans, not one person routing both sides. An unregistered wallet, including a rogue-agent address kept for this exact demo beat, is refused: no verified human found. Registration runs through `npx @worldcoin/agentkit-cli register`, gasless, hosted relay, a World App prompt.
 
 Honestly: today this check gates the trustee's negotiation flow in our demo build (`NEXT_PUBLIC_USE_MOCKS=1`), where it runs before any proposal can be raised. It is not yet wired into the production spend path — the agent-chat → `propose_spend` → on-chain `proposeSpend()` flow real users hit today has no AgentBook check in front of it, and Safe-side execution from an agent proposal is still being built. The AgentBook call itself is real and on-chain; gating real money with it is demo-only as of this branch.
 
 **Testing documentation:** See World Beta Testing Documentation in `ETHGLOBAL_LISBON_planVSbuild.md` — the AgentKit dev-feedback notes on `createAgentBookVerifier()` being hidden behind the x402 payment-hooks story in the docs are part of that section.
 
-**Qualification:** Uses AgentKit as a real authorization check, live AgentBook lookup, distinct-humans check, rogue-agent refusal, not a wrapper or badge. Demonstrated end-to-end in the demo build today; wiring it in front of the production spend path is the next step, not yet shipped.
+**Qualification:** Uses AgentKit as a real authorization check: live AgentBook lookup, distinct-humans check, rogue-agent refusal. Demonstrated end-to-end in the demo build today; wiring it in front of the production spend path is the next step, not yet shipped.
 
 ---
 
