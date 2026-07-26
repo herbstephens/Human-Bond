@@ -21,7 +21,7 @@ Beyond the bond itself, HumanBond exposes a **Partnership Registry API** — a v
 
 ---
 
-## Live Deployments — World Chain Mainnet
+## Live Deployments — World Chain Mainnet 
 
 | Contract | Address | Standard |
 |---|---|---|
