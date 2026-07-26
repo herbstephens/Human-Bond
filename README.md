@@ -13,7 +13,7 @@
 
 **HumanBond is a two-person partnership protocol for World ID–verified humans, live on World Chain Mainnet and in the World App store.** Two humans bond on-chain. A soulbound VowNFT is minted. Work TIME income is split 50/50 automatically — the working partner and the non-market partner (caregiver, homemaker) receive equal shares.
 
-**New at ETHGlobal Lisbon:** each partner has their own Human-Backed AI agent (World AgentKit), anchored to their World ID nullifier and representing their values — learned from on-chain TIME staking and income history. A Partnership Agent mediates disputes between them. When agents agree on a spending decision, both partners must explicitly approve. Agent preference models run on 0G Compute (TEE-sealed — neither partner can see the other's deliberations) and are stored on 0G Storage. Partnership names are registered as ENS subnames: `partner1-partner2.humanbond.eth`.
+**New at ETHGlobal Lisbon:** each partner has their own Human-Backed AI agent (World AgentKit), anchored to their World ID nullifier and representing their values. A Partnership Agent mediates disputes between them. When agents agree on a spending decision, both partners must explicitly approve. Agent preference models run on 0G Compute (TEE-sealed — neither partner can see the other's deliberations) and are stored on 0G Storage. Partnership names are registered as ENS subnames: `partner1-partner2.humanbond.eth`.
 
 Three things that matter:
 
