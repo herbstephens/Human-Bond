@@ -46,6 +46,8 @@ Herb — lead, protocol, pitch · Franco — frontend/MiniKit, ENS, World verifi
 
 # Design & Copy
 
+**Dashboard surfaces (`/profile`, `/bond/[id]`) follow the design CI in [`docs/design-system.md`](docs/design-system.md)** — two Anton type roles (`HEADING` + `META` from `miniapp/lib/design.ts`), borderless cards, no amber/yellow, USDC inline, black CTAs without glow. `/profile` is the reference implementation. The chat rules below govern the agent-chat / onboarding surfaces.
+
 **Chat rules (agent surfaces — bindend):**
 
 1. **Never two bubbles at once.** The agent must always feel like someone thinking and writing: typing indicator first, then ONE message that types out live, a pause, then the next. All agent output goes through the sequential queue in `lib/agent/agentStore.ts` (`_enqueue`) — never push two agent messages in the same tick.

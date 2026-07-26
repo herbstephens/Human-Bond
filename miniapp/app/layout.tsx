@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import { Providers } from "./components/Providers";
 import "./globals.css";
 
@@ -11,6 +12,12 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+// Display face for headlines — always uppercase, via the `font-anton` utility.
+const anton = localFont({
+  src: "./fonts/Anton-Regular.ttf",
+  variable: "--font-anton-loaded",
 });
 
 export const metadata: Metadata = {
@@ -25,7 +32,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} ${anton.variable} antialiased`}>
         <Providers>{children}</Providers>
       </body>
     </html>

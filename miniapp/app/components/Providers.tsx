@@ -45,7 +45,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       }),
   );
   const pathname = usePathname();
-  const isGalleryPage = pathname === '/marriage/gallery';
+  // Two routes bring their own chrome and must not get the app header or its
+  // 80px offset: the gallery, and the landing (which has its own sticky nav).
+  const isFullBleedPage = pathname === '/marriage/gallery' || pathname === '/';
 
   return (
     // Without appId MiniKit installs anonymously ("App ID not provided during
@@ -55,8 +57,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
       <WagmiProvider config={wagmiConfig}>
         <QueryClientProvider client={queryClient}>
           <MarriageProvider>
-            {!isGalleryPage && <Header />}
-            <div className={isGalleryPage ? "pt-0" : "pt-20"}>
+            {!isFullBleedPage && <Header />}
+            <div className={isFullBleedPage ? "pt-0" : "pt-20"}>
               {children}
             </div>
             {MockScenarioPanel && <MockScenarioPanel />}
