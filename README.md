@@ -11,25 +11,27 @@
 
 ## TL;DR for ETHGlobal Lisbon Judges
 
-**HumanBond is a two-person partnership protocol for World ID–verified humans, live on World Chain Mainnet.** Two humans bond on-chain. A soulbound VowNFT is minted. Income is split 50/50 automatically — the working partner and the non-market partner (caregiver, homemaker) receive equal shares. The partnership is represented by three AI agents: one per partner, one for the bond. When partners disagree, agents mediate. When agents agree, hito hardware wallets approve. The Partnership Registry is the first verifiable, privacy-preserving on-chain record of partnership status — queryable by dating platforms and financial institutions with user consent.
+**HumanBond is a two-person partnership protocol for World ID–verified humans, live on World Chain Mainnet and in the World App store.** Two humans bond on-chain. A soulbound VowNFT is minted. Work TIME income is split 50/50 automatically — the working partner and the non-market partner (caregiver, homemaker) receive equal shares.
 
-Three things that matter for this hackathon:
+**New at ETHGlobal Lisbon:** each partner has their own Human-Backed AI agent (World AgentKit), anchored to their World ID nullifier and representing their values — learned from on-chain TIME staking and income history. A Partnership Agent mediates disputes between them. When agents agree on a spending decision, both partners approve physically with their hito hardware wallets. Agent preference models run on 0G Compute (TEE-sealed — neither partner can see the other's deliberations) and are stored on 0G Storage. Partnership names are registered as ENS subnames: `partner1-partner2.humanbond.eth`.
 
-1. **We are live on World Chain Mainnet.** Four V2 contracts deployed and verified. HumanBond Mini App live in World App store — search `HumanBond` right now. This is production, not a prototype.
-2. **Three AI agents.** Each partner has a Human-Backed AI agent (World AgentKit) representing their values — learned from on-chain TIME staking and income history. A Partnership Agent mediates disputes and executes agreements via Hedera, with both partner agents and both hito hardware wallets required to approve. Agent models stored privately on 0G Compute (TEE-sealed).
-3. **B2B revenue engine.** The Partnership Registry is a verification API for the $6B dating app industry — one endpoint answers "is this World ID nullifier in an active partnership?" without leaking PII.
+Three things that matter:
+
+1. **Already live.** Four V2 contracts on World Chain Mainnet. Mini App in World App store — search `HumanBond` right now.
+2. **Three AI agents.** Human-Backed Partner Agents (World AgentKit) + a neutral Partnership Agent. Private inference on 0G. Agent identities on ENS.
+3. **B2B registry.** The Partnership Registry answers "is this World ID nullifier in an active partnership?" without leaking any PII — queryable by dating platforms and financial institutions.
 
 ---
 
 ## What We Built at This Hackathon
 
-| Feature | Builder | Status |
+| Feature | Builder | Description |
 |---|---|---|
-| `finalizeWorkAndDistribute()` — 50/50 Work TIME split on payment receipt | Leticia | ✅ Shipped |
-| Partner Agent A + Partner Agent B (World AgentKit, 0G Compute) | Franco | ✅ Shipped |
-| Partnership Agent — mediator on Hedera, HCS audit trail | Franco | ✅ Shipped |
-| Age Grant visualisation — governance endowment at verification | Franco | ✅ Shipped |
-| ENS subname registration — `name1-name2.humanbond.eth` | Franco | ✅ Shipped |
+| `finalizeWorkAndDistribute()` | Leticia | 50/50 Work TIME split on payment receipt — mints TIME and distributes to both partners atomically |
+| Partner Agent A + Partner Agent B | Franco | Human-Backed AI agents (World AgentKit), running on 0G Compute (TEE), stored on 0G Storage |
+| Partnership Agent | Franco | Neutral mediator agent — reads VowNFT data + TIME history, brokers agreements, requires hito wallet approval |
+| Age Grant visualisation | Franco | Shows governance endowment (Age × 365 TIME) and Liquidity Ladder unlock progress |
+| ENS subname registration | Franco | `partner1-partner2.humanbond.eth` registered during bond formation; agent ENS identities |
 
 ---
 
@@ -60,13 +62,25 @@ Contracts authored and deployed by [@leticarolina](https://github.com/leticaroli
 
 ## Prize Tracks
 
-| Sponsor | Track | What we built |
-|---|---|---|
-| **World** | AgentKit — Human-Backed Agents ($4,000–8,000) | Partner agents anchored to World ID nullifiers. The Partnership Agent can only execute when both Human-Backed Agents agree. Physical hito wallet approval required for spending. |
-| **Hedera** | AI & Agentic Payments ($3,000–6,000) | Partnership Agent executes shared spending via Hedera Scheduled Transactions. Mediation log written to Hedera HCS — immutable, auditable, sub-second settlement. |
-| **0G** | Best AI Product ($3,000–6,000) | Partner agents run on 0G Compute (TEE-sealed inference — neither partner sees the other's deliberations). Preference models stored encrypted on 0G Storage. |
+### 🤖 World — AgentKit: Human-Backed Agents
 
-See [`ETHGLOBAL_LISBON.md`](./ETHGLOBAL_LISBON.md) for full before/after descriptions for each prize track.
+Partner Agents are anchored to World ID nullifiers via World AgentKit. Each agent acts exclusively on behalf of its verified human — it can be told apart from a bot because it carries a cryptographic World ID proof. The Partnership Agent can only execute when both Human-Backed Agents consent. This is the core access/authorization model: two verified humans, two agents, one agreement required before any action.
+
+**Why it qualifies:** World AgentKit enables services to tell the difference between "a bot" and "an agent acting on behalf of a real, unique human." Our agents change authorization (Partnership Agent gated on both), economic terms (agent-negotiated spending decisions), and accountability (agreements require physical hito wallet sign-off from both World ID–verified humans).
+
+### 🔵 ENS — AI Agent Integration
+
+Three on-chain ENS identities — two partner agents and one partnership agent — registered as subnames under `humanbond.eth`:
+
+- `partner1-agent.humanbond.eth` — Agent A identity
+- `partner2-agent.humanbond.eth` — Agent B identity
+- `partner1-partner2.humanbond.eth` — Partnership shared address + agent identity
+
+ENS text records store: World ID tier, 0G Storage endpoint for agent memory, agent capabilities, VowNFT pointer. Agents are discoverable and trust-attributed on-chain. Any application can resolve `partner1-partner2.humanbond.eth` to reach the partnership's shared economic identity.
+
+### 🧠 0G — Best AI Product
+
+Each Partner Agent is a private Digital Twin running on 0G Compute (TEE-sealed inference). Neither partner can see the other agent's deliberations — only the output. The preference model is stored encrypted on 0G Storage and evolves over time as the partner's on-chain governance staking and income split history updates. The Partnership Agent's mediation logic also runs on 0G. Every AI action is verifiable on-chain via TEE attestation.
 
 ---
 
@@ -76,18 +90,19 @@ See [`ETHGLOBAL_LISBON.md`](./ETHGLOBAL_LISBON.md) for full before/after descrip
 Partner A (World ID verified)          Partner B (World ID verified)
          │                                      │
     Agent A                               Agent B
- (0G Compute TEE)                     (0G Compute TEE)
- Preference model from                 Preference model from
- TIME staking + income history         TIME staking + income history
+ (0G Compute — TEE sealed)            (0G Compute — TEE sealed)
+ Preference model: TIME staking,       Preference model: TIME staking,
+ income history, VowNFT milestones     income history, VowNFT milestones
  World AgentKit–backed                 World AgentKit–backed
+ ENS: partner1-agent.humanbond.eth     ENS: partner2-agent.humanbond.eth
          │                                      │
          └──────────┬───────────────────────────┘
                     │
             Partnership Agent
-         (Hedera Agent Kit)
-         Neutral mediator — serves the bond, not either partner
-         Logs to Hedera HCS — immutable audit trail
-         Executes via Hedera Scheduled Transaction
+         Neutral — serves the bond, not either partner
+         Reads: VowNFT data + TIME history from both
+         Brokers compromise between Agent A and Agent B
+         ENS: partner1-partner2.humanbond.eth
                     │
          Both agents agree
                     │
@@ -96,10 +111,10 @@ Partner A (World ID verified)          Partner B (World ID verified)
     (physical approval)    (physical approval)
          └──────────┬──────────┘
                     │
-         Hedera executes — sub-second
+         Transaction executes on World Chain
 ```
 
-**Why this matters:** couples fight about money. Most AI agents serve the individual. The Partnership Agent serves the bond — it represents the relationship itself, not either partner. No agent can override the other. Neither can any transaction execute without physical hardware wallet approval from both partners.
+**Why this reduces fighting:** couples fight about money because neither partner feels fully heard. Each partner's agent represents their actual values from on-chain data — not what they claim to want, but what they consistently chose. The Partnership Agent doesn't take sides. It finds the overlap. No execution without physical consent from both.
 
 ---
 
@@ -107,9 +122,9 @@ Partner A (World ID verified)          Partner B (World ID verified)
 
 **The most consequential commitment most humans make runs on 19th-century infrastructure.**
 
-- **The non-market partner is economically invisible.** The caregiver who doesn't earn a wage builds no credit, no pension, no financial standing. The formal economy ignores them entirely — until the partnership ends and it's too late.
-- **No cryptographic proof of partnership status.** There is no interoperable, privacy-preserving way to prove "I am in a partnership" or "I am not." This gap bleeds into the dating stack as fraud.
-- **~30%** of dating app users are in committed relationships. **$300M/year** lost to catfishing. **$1.14B** in romance scam losses (FTC 2023).
+- **The non-market partner is economically invisible.** The caregiver who doesn't earn a wage builds no credit, no pension, no financial record. The formal economy ignores them until the partnership ends.
+- **No cryptographic proof of partnership status.** There is no interoperable, privacy-preserving way to verify "I am in a partnership." This gap enables fraud.
+- **~30%** of dating app users are in committed relationships. **$300M/year** lost to catfishing. **$1.14B** in romance scam losses reported by the FTC in 2023.
 
 ---
 
@@ -117,26 +132,45 @@ Partner A (World ID verified)          Partner B (World ID verified)
 
 | | | |
 |---|---|---|
-| 🤝 | **Bond** | Two World ID-verified humans verify identity (Selfie Check / NFC Credentials / Orb). VowNFT minted. Bond recorded in Partnership Registry. |
-| ⚖️ | **50/50 Split** | `finalizeWorkAndDistribute()` — when either partner earns Work TIME, 50% auto-routes to the non-working partner. Enforced in code. |
-| 🤖 | **Agents** | Each partner has a Human-Backed AI agent. Partnership Agent mediates. hito hardware wallets approve spending. All mediation logged to Hedera HCS. |
-| 🔍 | **Registry** | Partnership Registry API: `GET /v1/bond-status/{nullifier}` — one query, no PII exposed. Dating platforms verify partnership status without seeing any personal data. |
+| 🤝 | **Bond** | Two World ID–verified humans verify (Selfie Check / NFC Credentials / Orb). VowNFT minted soulbound. Bond recorded in Partnership Registry. |
+| ⚖️ | **50/50 Split** | `finalizeWorkAndDistribute()` — payment received → Work TIME minted → 50% to worker + 50% to partner. Automatic. No trust required. |
+| 🤖 | **Agents** | Human-Backed AI agents (World AgentKit) represent each partner. Partnership Agent mediates. hito hardware wallets approve spending. Private inference on 0G. |
+| 🔍 | **Registry** | `GET /v1/bond-status/{nullifier}` — one query, no PII. Dating platforms verify partnership status without receiving any personal data. |
 
 ---
 
-## World Identity Integration
-
-HumanBond uses three World identity credentials — partners choose based on what's available:
+## World Identity Stack
 
 | Tier | Protocol | What it proves |
 |---|---|---|
-| **Tier 3** ★ | World Orb — Proof of Humanity | Iris biometric · ZK uniqueness proof · Full governance weight |
-| **Tier 2** | NFC Credentials (World beta) | Reads passport NFC chip · verifies age >18, jurisdiction |
+| **Tier 3** ★ | World Orb — Proof of Humanity | Iris biometric · ZK uniqueness · Full governance weight |
+| **Tier 2** | NFC Credentials (World beta) | Passport NFC chip · age >18 · jurisdiction |
 | **Tier 1** | Selfie Check (World beta) | Liveness detection · confirms real person |
 
-Identity tier recorded immutably in VowNFT. Upgradeable — not downgradeable.
+Two separate external nullifiers: `propose-bond` and `accept-bond`. A propose proof cannot be replayed as an accept. World ID is load-bearing — HumanBond cannot exist without it.
 
-**World ID is load-bearing, not cosmetic.** Two separate external nullifiers: `propose-bond` and `accept-bond` are cryptographically distinct. A `propose` proof cannot be replayed as an `accept`.
+---
+
+## Income Split — `finalizeWorkAndDistribute()`
+
+```solidity
+// Called when payment is received for verified work
+// Mints Work TIME and splits 50/50 between partners
+function finalizeWorkAndDistribute(
+    bytes32 workerNullifier,
+    uint256 workAmount,
+    address payerAddress
+) external {
+    // Verify worker is in active partnership
+    // Calculate: workerShare = workAmount * splitBps / 10000
+    // Mint TIME to worker wallet (50%)
+    // Mint TIME to partner wallet (50%)
+    // Record IncomeEvent on-chain
+    // Emit IncomeSplit event
+}
+```
+
+The non-market partner receives TIME automatically — no claim required, no trust required, no asking. See [`docs/income-split.md`](./docs/income-split.md) for full spec.
 
 ---
 
@@ -145,33 +179,15 @@ Identity tier recorded immutably in VowNFT. Upgradeable — not downgradeable.
 ```
 GET /v1/bond-status/{world_id_nullifier}
 
-Response:
 {
   "bonded": true,
   "since": "2026-01-15",
   "identityTier": 3,
-  "ensSubname": "herb-agatha.humanbond.eth",
-  "chain": "worldchain"
+  "ensSubname": "herb-agatha.humanbond.eth"
 }
 ```
 
-No PII. No names. No wallet addresses. Just status and tier. Every dating platform on earth can integrate this in 30 minutes.
-
-At $0.50–$2 per verification across ~360M global dating app users, 10% penetration = $18M–$72M/year of pure B2B revenue. Couples register voluntarily (for the income split, the agents, the VowNFT). Dating apps get the registry as a byproduct.
-
-See [`PARTNERSHIP_REGISTRY.md`](./PARTNERSHIP_REGISTRY.md) for the full spec.
-
----
-
-## TIME Protocol Integration
-
-HumanBond is the first reference application of [TIME Protocol](https://github.com/herbstephens/TIME-Protocol) — the human-anchoring layer where **1 TIME = 1 verified hour of human existence**.
-
-- **Identity:** HumanBond requires both partners to verify via TIME Protocol's identity stack
-- **Issuance:** `finalizeWorkAndDistribute()` mints Work TIME and splits 50/50 on receipt
-- **Reputation:** VowNFT activity feeds the Partnership Score dimension of TIME Protocol's Reputation Score
-
-See [`docs/time-protocol-integration.md`](./docs/time-protocol-integration.md) for the full integration.
+No PII. No names. No wallet addresses. Status and tier only. Dating platform integration: 30 minutes. At $0.50–$2 per verification across ~360M global dating app users, 10% penetration = $18M–$72M/year pure B2B revenue. See [`PARTNERSHIP_REGISTRY.md`](./PARTNERSHIP_REGISTRY.md) for full spec.
 
 ---
 
@@ -179,27 +195,23 @@ See [`docs/time-protocol-integration.md`](./docs/time-protocol-integration.md) f
 
 ```
 Human-Bond/
-├── README.md                     ← You are here
-├── ETHGLOBAL_LISBON.md           ← Prize track descriptions
-├── PARTNERSHIP_REGISTRY.md       ← B2B API specification
+├── README.md                          ← You are here
+├── ETHGLOBAL_LISBON.md                ← Prize track descriptions
+├── PARTNERSHIP_REGISTRY.md            ← B2B API specification
 ├── contracts/
-│   ├── README.md                 ← V2 contract documentation
-│   ├── HumanBond.sol             ← Core partnership contract (Leticia)
-│   ├── VowNFT.sol                ← Soulbound partnership NFT (Leticia)
-│   ├── MilestoneNFT.sol          ← Milestone records (Leticia)
-│   └── TIMEToken.sol             ← ERC-20 TIME token (Leticia)
+│   ├── README.md                      ← Contract documentation
+│   └── [Leticia's contracts]          ← HumanBond, VowNFT, MilestoneNFT, TIMEToken
 ├── miniapp/
-│   ├── README.md                 ← MiniKit frontend documentation
-│   └── [source]                  ← Next.js MiniKit app (Franco)
+│   ├── README.md                      ← Frontend documentation
+│   └── [Franco's MiniKit source]      ← Next.js World App Mini App
 ├── docs/
-│   ├── architecture.md           ← Technical architecture + agent flow
+│   ├── architecture.md
 │   ├── time-protocol-integration.md
-│   ├── identity-stack.md         ← Selfie Check / NFC / Orb
-│   ├── income-split.md           ← 50/50 split mechanics
-│   └── the-graph-subgraph.md     ← Partnership Registry subgraph
-├── brand/                        ← Logos and visual assets
-├── deck/                         ← Pitch deck
-└── LICENSE
+│   ├── identity-stack.md
+│   ├── income-split.md
+│   └── agent-architecture.md
+├── brand/
+└── deck/
 ```
 
 ---
@@ -209,15 +221,14 @@ Human-Bond/
 | | | |
 |---|---|---|
 | **Herb Stephens** | Protocol design | Co-founder, Democracy Earth Foundation · Portugal · herb@democracy.earth |
-| **Leticia Azevedo** | Smart contracts | HumanBond V2 deployed · [@leticarolina](https://github.com/leticarolina) · Brazil |
-| **Franco Amicone** | Frontend / MiniKit | ETHGlobal Lisbon in-person · Argentina |
+| **Leticia Azevedo** | Smart contracts | V2 contracts deployed + income split · [@leticarolina](https://github.com/leticarolina) · Brazil |
+| **Franco Amicone** | Frontend + Agents | MiniKit + World AgentKit + 0G + ENS · ETHGlobal Lisbon in-person · Argentina |
 
 ---
 
 ## Links
 
-- **Live app:** World App store → search `HumanBond`
-- **GitHub:** https://github.com/herbstephens/Human-Bond
+- **Live Mini App:** World App store → search `HumanBond`
 - **TIME Protocol:** https://github.com/herbstephens/TIME-Protocol
 - **Website:** https://timeprotocol.earth
 - **Contact:** herb@democracy.earth
