@@ -56,6 +56,22 @@ Beyond the bond itself, HumanBond exposes a Partnership Registry API: a verifiab
 
 ---
 
+### 🤖 World — AgentKit New Use Cases · $8,000
+
+**Technology:** World's AgentKit lets any wallet or AI agent prove a real, verified human stands behind it — a live lookup against AgentBook (`createAgentBookVerifier().lookupHuman(address)`) rather than a credential a script can fake. Registration is gasless via `npx @worldcoin/agentkit-cli register`, one relay call, one World App prompt.
+
+**Before:** HumanBond's shared vault had no concept of agent trust. Any address holding a signing key — a partner's own agent, an unrelated script, a compromised signer — had identical standing when proposing a spend. Multi-agent shared finance had no way to ask "is this agent allowed to act for a human who is actually in this trust."
+
+**After:** Every World-verified human who forms a Bond gets their own Bond Agent, meant to be registered through AgentKit and checkable on-chain via AgentBook. When two humans form a Bond together, a trustee agent is meant to be created to manage that Bond and mediate between the two partners' verified Bond Agents. The AgentBook door check exists as real, callable code today: `/api/agent/verify-backing` resolves a wallet to its linked agent, then asks AgentBook whether a verified human stands behind it, and runs a distinct-humans check confirming the two agents proposing a shared spend answer to two different verified humans, not one person routing both sides. An unregistered wallet, including a rogue-agent address kept for this demo beat, is refused outright: no verified human found.
+
+Three things are still open, not yet true today. Agent registration itself is unfinished: our own plan doc still lists `npx @worldcoin/agentkit-cli register` for both demo agents as an unchecked, blocking task, so no agent is confirmed human-backed in AgentBook yet. Second, the AgentBook check and the trustee are separate systems right now: the tested trustee runtime, `TrusteeExecutor` in `lib/agents/runtime.ts`, exercised headlessly through `npm run agents:demo`, verifies dual agent signatures against a settlement, but never calls AgentBook. The check only runs today in the frontend demo build (`NEXT_PUBLIC_USE_MOCKS=1`), ahead of the trustee, not inside it. Third, none of this is wired into the production spend path yet, agent chat through `propose_spend` to on-chain `proposeSpend()`.
+
+**Testing documentation:** See World Beta Testing Documentation in `ETHGLOBAL_LISBON_planVSbuild.md`. The AgentKit dev-feedback notes on `createAgentBookVerifier()` being hidden behind the x402 payment-hooks story in the docs are part of that section.
+
+**Qualification:** Uses AgentKit as a real, callable authorization check: live AgentBook lookup, distinct-humans check, rogue-agent refusal. Registration, connecting that check to the trustee's execution logic, and connecting the result to production are the work still ahead of running this end to end for real users.
+
+---
+
 ### 🔄 ENS — Best ENS Continuity Integration · $2,000
 
 **Technology:** ENS turns wallet addresses into human-readable names. Subnames like `herb-agatha.humanbond.eth` can be registered under the `humanbond.eth` parent name.
