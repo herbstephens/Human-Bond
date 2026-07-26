@@ -179,9 +179,15 @@ Per the track rubric — strategic fit 30%, **reusable feedback 25% ("Don't be n
 3. Will AgentBook get a testnet deployment (and the Dev Portal a test-nullifier mode) so multi-human flows are demoable without consuming real identities?
 4. Is there an intended pattern for **recurring** verification (our 90-day heartbeat)? A native "verify at most every N days" action config would collapse most of our custom logic.
 
-### Deployment path
+### 30-day deployment path
 
-HumanBond stays live on World Chain mainnet after the weekend as a beta learning source: bond flow, Selfie-Check heartbeat and the AgentKit-gated trustee already run against production infrastructure (production app_id, real Safe, real ENS subnames, real AgentBook lookups). We are available for follow-up interviews with the Selfie Check and AgentKit teams.
+HumanBond stays live on World Chain mainnet after the weekend as a beta learning source.
+
+**Week 1.** Complete AgentKit registration for both partner agents through `npx @worldcoin/agentkit-cli register`, closing the human-backing verification gap that currently blocks the AgentBook door check from running against real registered agents rather than demo identities. Replace the heartbeat's mock Selfie Check overlay with a real MiniKit verify call: today it is a fixed 2.4-second UI timer with no credential request behind it. Separately, the app's real MiniKit verification calls, used for bond formation and agent activation, do reach World ID, but the consent sheet they trigger only asks for "Verification level" and does not itself render a selfie-capture step. Worth raising with World directly, since it is unclear whether that is expected behavior for the Selfie Check credential specifically or a sign it is not yet enabled for this app_id. Fully verify the death-flow on-chain end to end, lapse, challenge, cancel, heir claim, which currently runs as UI and narration but is unverified as a complete on-chain sequence.
+
+**Weeks 2 through 4.** Wire the AgentBook human-backing check into the trustee's actual execution path. Today it runs as a separate check ahead of the trustee rather than inside the flow that moves real money. Connecting the two turns verified human-backed authorization into something enforced on every real spend, instead of something demonstrated separately. Revisit the deliberately deferred scope from the hackathon weekend: a Graph subgraph publishing the Partnership Registry as a public, queryable standard, real swap execution from the Safe (quotes are live today, execution needs module wiring), and the 0G KV multi-browser agent bus (written, blocked on a testnet faucet during the weekend). Continue running as a live beta source on World Chain mainnet, gathering comparative data between Selfie Check and Orb-verified (POH) cohorts on fraud, retention, and behavior, one of the named preferred feedback areas the bounty brief asks for and currently has zero coverage.
+
+We are available for follow-up interviews with the Selfie Check and AgentKit teams.
 
 ---
 
