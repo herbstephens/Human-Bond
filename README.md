@@ -25,14 +25,14 @@ Three things that matter:
 
 ## What We Built at This Hackathon
 
-| Feature | Builder | Description |
+| Feature | Description |
 |---|---|---|
-| `finalizeWorkAndDistribute()` | Leticia | 50/50 Work TIME split on payment receipt — mints TIME and distributes to both partners atomically |
-| Partner Agent A + Partner Agent B | Franco | Human-Backed AI agents (World AgentKit), running on 0G Compute (TEE), stored on 0G Storage |
-| Partnership Agent | Franco | Neutral mediator agent — reads VowNFT data + TIME history, brokers agreements between agents |
-| World NFC Credentials | Franco | Reads passport NFC chip during bond formation — verifies age >18 and jurisdiction. VowNFT records verified attributes. (World Identity Check Beta) |
-| Age Grant visualisation | Franco | Shows governance endowment (Age × 365 TIME) and Liquidity Ladder unlock progress |
-| ENS subname registration | Franco | `partner1-partner2.humanbond.eth` registered during bond formation; agent ENS identities |
+| `finalizeWorkAndDistribute()` | 50/50 Work TIME split on payment receipt — mints TIME and distributes to both partners atomically |
+| Partner Agent A + Partner Agent B | Human-Backed AI agents (World AgentKit), running on 0G Compute (TEE), stored on 0G Storage |
+| Partnership Agent | Neutral mediator agent — reads VowNFT data + TIME history, brokers agreements between agents |
+| World NFC Credentials | Reads passport NFC chip during bond formation — verifies age >18 and jurisdiction. VowNFT records verified attributes. (World Identity Check Beta) |
+| Age Grant visualisation | Shows governance endowment (Age × 365 TIME) and Liquidity Ladder unlock progress |
+| ENS subname registration | `partner1-partner2.humanbond.eth` registered during bond formation; agent ENS identities |
 
 ---
 
