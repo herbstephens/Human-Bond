@@ -61,6 +61,11 @@ function derivedFacts(
   return facts;
 }
 
+/** The one meta-text style — every secondary label (ENS suffix, USDC, counts,
+ *  validity notes) uses this so they never drift apart again. Anton, like the
+ *  ".humanbond.eth" suffix, just small + gray. */
+const META = 'font-anton text-[11px] text-gray-400 uppercase tracking-wide';
+
 /** Social accounts the user can link into their second brain. AI sources
  *  (chatgpt/claude) live under the AI-history card, not here. */
 const ACCOUNT_CATALOG: { id: string; label: string }[] = [
@@ -194,9 +199,8 @@ export default function ProfilePage() {
         <div className="text-right shrink-0">
           <p className="text-3xl font-anton text-black tracking-wide">
             {USE_MOCKS ? '1,240' : walletUsdc !== null ? Math.round(Number(walletUsdc) / 1e6).toLocaleString('en-US') : '0'}
-            <span className="text-sm text-gray-400 ml-1">USDC</span>
+            <span className="text-gray-400 ml-2">USDC</span>
           </p>
-          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">In your wallet</p>
         </div>
       </header>
 
@@ -246,7 +250,7 @@ export default function ProfilePage() {
             />
           </div>
 
-          <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+          <p className={META}>
             Your Selfie Check is valid for {daysLeft} {daysLeft === 1 ? 'day' : 'days'}
           </p>
 
@@ -295,11 +299,11 @@ export default function ProfilePage() {
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="text-xl font-anton text-black tracking-wide truncate min-w-0">
                     {(!USE_MOCKS && bondEnsLabel ? bondEnsLabel : `ben-${b.partner.toLowerCase().split(/\s+/)[0]}`).toUpperCase()}
-                    <span className="text-[11px] text-gray-400">.{ENS_PARENT.toUpperCase()}</span>
+                    <span className={META}>.{ENS_PARENT.toUpperCase()}</span>
                   </h3>
-                  <p className="text-2xl font-black text-gray-900 font-mono tabular-nums shrink-0">
+                  <p className="text-2xl font-anton text-black tracking-wide tabular-nums shrink-0">
                     {Math.round(vaultBalances[b.id] ?? 0).toLocaleString('en-US')}
-                    <span className="text-xs text-gray-400 ml-1">USDC</span>
+                    <span className={`${META} ml-1`}>USDC</span>
                   </p>
                 </div>
               </Link>
@@ -381,7 +385,7 @@ export default function ProfilePage() {
                   className="w-full px-5 py-4 flex items-center justify-between gap-3 text-left active:scale-[0.99] transition-transform"
                 >
                   <h3 className="text-xl font-anton text-black tracking-wide shrink-0">{cat.label.toUpperCase()}</h3>
-                  <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wide text-right">{cat.sub}</p>
+                  <p className={`${META} text-right`}>{cat.sub}</p>
                 </button>
                 {open && (
                   <div className="px-5 pb-4 pt-1 border-t border-gray-100 space-y-2">

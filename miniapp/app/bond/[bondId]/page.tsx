@@ -527,7 +527,7 @@ export default function BondProfilePage() {
             </div>
           </div>
           <div className="mt-4 flex gap-2 relative z-10">
-            {!USE_MOCKS && liveVault?.isCreated && (
+            {liveVault?.isCreated && (
               <button
                 onClick={() => setSendOpen(true)}
                 className="flex-1 py-3.5 rounded-xl bg-white text-black text-[11px] font-black uppercase tracking-[0.15em] flex items-center justify-center gap-2 active:scale-[0.98] transition-all"
@@ -594,7 +594,7 @@ export default function BondProfilePage() {
             </div>
           </DialogContent>
         </Dialog>
-        {!USE_MOCKS && liveVault?.isCreated && (
+        {liveVault?.isCreated && (
           <SendFundsForm
             open={sendOpen}
             onOpenChange={setSendOpen}
