@@ -17,10 +17,10 @@
          │                │                │
          ▼                ▼                ▼
   ┌─────────────┐  ┌────────────┐  ┌─────────────────┐
-  │  World ID   │  │   Walrus   │  │     The Graph   │
-  │  ZK Proofs  │  │  Storage   │  │    Subgraph     │
-  │ Selfie/NFC/ │  │  Sui eco   │  │  Partnership    │
-  │     Orb     │  │            │  │   Registry      │
+  │  World ID   │  │     0G     │  │      ENS        │
+  │  ZK Proofs  │  │  Storage   │  │    Subname      │
+  │ Selfie/NFC/ │  │            │  │    Registry     │
+  │     Orb     │  │            │  │                 │
   └──────┬──────┘  └─────┬──────┘  └────────┬────────┘
          │               │                   │
          └───────────────┼───────────────────┘
