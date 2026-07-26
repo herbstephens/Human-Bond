@@ -95,9 +95,8 @@ The schema is designed as a **standard** — `PartnershipStatus`, `PartnershipEv
 2. Show existing bond between two verified partners
 3. Demonstrate `finalizeWorkAndDistribute()` — trigger a TIME split, show both wallets receive
 4. Show ENS subname resolution: `herb-agatha.humanbond.eth` → shared address
-5. Show Walrus storage: open partnership charter URL, load from decentralised storage
-6. Show The Graph query: curl Partnership Registry subgraph, return partnership status for a nullifier
-7. Show Selfie Check / NFC flow: new partner onboarding with non-Orb credential
+5. Show 0G storage: open partnership charter URL, load from decentralised storage
+6. Show Selfie Check / NFC flow: new partner onboarding with non-Orb credential
 
 ---
 
@@ -106,7 +105,7 @@ The schema is designed as a **standard** — `PartnershipStatus`, `PartnershipEv
 - **Live app:** World App store → search `HumanBond`
 - **GitHub:** https://github.com/herbstephens/Human-Bond
 - **TIME Protocol:** https://github.com/herbstephens/TIME-Protocol
-- **Website:** https://timeprotocol.earth
+- **Website:** https://democracy.earth
 - **Contact:** herb@democracy.earth
 
 ---
