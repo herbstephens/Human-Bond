@@ -1,4 +1,4 @@
-# 🤝 HumanBond
+# 💍 HumanBond
 
 **The first proof-of-humanity partnership protocol — live on World Chain — giving economic standing to the partner the market has always ignored.**
 
@@ -13,7 +13,7 @@
 
 **HumanBond is a two-person partnership protocol for World ID–verified humans, live on World Chain Mainnet and in the World App store.** Two humans bond on-chain. A soulbound VowNFT is minted. Work TIME income is split 50/50 automatically — the working partner and the non-market partner (caregiver, homemaker) receive equal shares.
 
-**New at ETHGlobal Lisbon:** each partner has their own Human-Backed AI agent (World AgentKit), anchored to their World ID nullifier and representing their values — learned from on-chain TIME staking and income history. A Partnership Agent mediates disputes between them. When agents agree on a spending decision, both partners approve physically with their hito hardware wallets. Agent preference models run on 0G Compute (TEE-sealed — neither partner can see the other's deliberations) and are stored on 0G Storage. Partnership names are registered as ENS subnames: `partner1-partner2.humanbond.eth`.
+**New at ETHGlobal Lisbon:** each partner has their own Human-Backed AI agent (World AgentKit), anchored to their World ID nullifier and representing their values — learned from on-chain TIME staking and income history. A Partnership Agent mediates disputes between them. When agents agree on a spending decision, both partners must explicitly approve. Agent preference models run on 0G Compute (TEE-sealed — neither partner can see the other's deliberations) and are stored on 0G Storage. Partnership names are registered as ENS subnames: `partner1-partner2.humanbond.eth`.
 
 Three things that matter:
 
@@ -29,7 +29,7 @@ Three things that matter:
 |---|---|---|
 | `finalizeWorkAndDistribute()` | Leticia | 50/50 Work TIME split on payment receipt — mints TIME and distributes to both partners atomically |
 | Partner Agent A + Partner Agent B | Franco | Human-Backed AI agents (World AgentKit), running on 0G Compute (TEE), stored on 0G Storage |
-| Partnership Agent | Franco | Neutral mediator agent — reads VowNFT data + TIME history, brokers agreements, requires hito wallet approval |
+| Partnership Agent | Franco | Neutral mediator agent — reads VowNFT data + TIME history, brokers agreements between agents |
 | Age Grant visualisation | Franco | Shows governance endowment (Age × 365 TIME) and Liquidity Ladder unlock progress |
 | ENS subname registration | Franco | `partner1-partner2.humanbond.eth` registered during bond formation; agent ENS identities |
 
@@ -66,7 +66,7 @@ Contracts authored and deployed by [@leticarolina](https://github.com/leticaroli
 
 Partner Agents are anchored to World ID nullifiers via World AgentKit. Each agent acts exclusively on behalf of its verified human — it can be told apart from a bot because it carries a cryptographic World ID proof. The Partnership Agent can only execute when both Human-Backed Agents consent. This is the core access/authorization model: two verified humans, two agents, one agreement required before any action.
 
-**Why it qualifies:** World AgentKit enables services to tell the difference between "a bot" and "an agent acting on behalf of a real, unique human." Our agents change authorization (Partnership Agent gated on both), economic terms (agent-negotiated spending decisions), and accountability (agreements require physical hito wallet sign-off from both World ID–verified humans).
+**Why it qualifies:** World AgentKit enables services to tell the difference between "a bot" and "an agent acting on behalf of a real, unique human." Our agents change authorization (Partnership Agent gated on both), economic terms (agent-negotiated spending decisions), and accountability (agreements require sign-off from both World ID–verified humans).
 
 ### 🔵 ENS — AI Agent Integration
 
@@ -107,14 +107,14 @@ Partner A (World ID verified)          Partner B (World ID verified)
          Both agents agree
                     │
          ┌──────────┴──────────┐
-    hito wallet A          hito wallet B
-    (physical approval)    (physical approval)
+     Partner A approves        Partner B approves
+     (explicit sign-off)       (explicit sign-off)
          └──────────┬──────────┘
                     │
          Transaction executes on World Chain
 ```
 
-**Why this reduces fighting:** couples fight about money because neither partner feels fully heard. Each partner's agent represents their actual values from on-chain data — not what they claim to want, but what they consistently chose. The Partnership Agent doesn't take sides. It finds the overlap. No execution without physical consent from both.
+**Why this reduces fighting:** couples fight about money because neither partner feels fully heard. Each partner's agent represents their actual values from on-chain data — not what they claim to want, but what they consistently chose. The Partnership Agent doesn't take sides. It finds the overlap. No execution without explicit consent from both.
 
 ---
 
@@ -134,7 +134,7 @@ Partner A (World ID verified)          Partner B (World ID verified)
 |---|---|---|
 | 🤝 | **Bond** | Two World ID–verified humans verify (Selfie Check / NFC Credentials / Orb). VowNFT minted soulbound. Bond recorded in Partnership Registry. |
 | ⚖️ | **50/50 Split** | `finalizeWorkAndDistribute()` — payment received → Work TIME minted → 50% to worker + 50% to partner. Automatic. No trust required. |
-| 🤖 | **Agents** | Human-Backed AI agents (World AgentKit) represent each partner. Partnership Agent mediates. hito hardware wallets approve spending. Private inference on 0G. |
+| 🤖 | **Agents** | Human-Backed AI agents (World AgentKit) represent each partner. Partnership Agent mediates. both partners approve spending. Private inference on 0G. |
 | 🔍 | **Registry** | `GET /v1/bond-status/{nullifier}` — one query, no PII. Dating platforms verify partnership status without receiving any personal data. |
 
 ---
