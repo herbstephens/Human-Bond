@@ -54,3 +54,19 @@ One subtlety worth flagging for other teams using Durin: text records get applie
 
 On the product side, per the plan's own framing, autoLabel.ts generates label candidates from both partners' World usernames first, checks availability on-chain before proposing one, and falls back to a bondId-derived label, so the flow always resolves to something available, even when usernames collide or contain characters outside the label charset.
 
+
+## Zero Gravity (0G)
+
+HumanBond's personal and trustee agents run their inference through 0G Compute's router, https://router-api.0g.ai/v1, model zai-org/GLM-5-FP8, with separate environment overrides for chat versus negotiation so each role can point at a different router or model independently. /api/agent/chat is the live route a partner's personal agent talks through: free text goes to the model, and the model decides whether a request is a shared spend, at which point it returns a propose_spend action rather than executing anything itself.
+
+Everything the agents need to remember, and their own signing keys, live on 0G Storage through a custom KV client, ZeroGKvStorage, built against @0gfoundation/0g-storage-ts-sdk. Writes go through a funded flow contract on the Galileo testnet, reads go straight to a KV node, and keys are namespaced by purpose: brain/<human> for a person's second brain, charter/<bondId> for the partnership's charter, history/<bondId> for the settlement log, and agent-keys/<address> for each Bond agent's own private key, AES-encrypted before it ever reaches storage, alongside agent-owner/<wallet> recording which agent acts for which human. That log is read-modify-write JSON under its own key, so an agent's reasoning, its past actions, and its own credentials all stay retrievable on 0G rather than existing only in a running process.
+
+The two connect directly. When the model returns propose_spend, the amount and recipient flow into a real on-chain call, BondVaultModule.proposeSpend through MiniKit, gated behind explicit hito approval before anything moves. So the path from an agent's decision to a proposal a human has to sign runs through 0G Compute for the reasoning, 0G Storage for what the agent remembers and for the key that identifies it, and the vault contract for what actually executes.
+
+## 0G Feedback
+
+Building on 0G-KV surfaced a genuine consistency bug worth documenting for other teams. 0G-KV is eventually consistent: a write submits a storage transaction, and the KV node indexes it afterward. The agent activation flow writes a key in /activate/start and reads it back seconds later in /activate/complete, well inside that indexing window, so the read hung until the client timed out and registration never reached the relay. The fix was an in-process cache that serves a read-your-own-write for anything this process just wrote, falling back to the network for everything else. That's a real gap between how a KV store is usually assumed to behave and how 0G-KV actually behaves under fast sequential writes.
+
+Writes also require a funded key on the Galileo testnet, through faucet.0g.ai, before anything can be stored at all. A separate feature, a multi-browser agent message bus built entirely on 0G-KV, turn-based conversation writes, per-agent signature keys, deterministic settlement hashing on both sides, is real, working code, 167 lines, but stayed blocked for the weekend purely on testnet faucet funding, not on the SDK or the API, worth flagging since it's pure infrastructure friction rather than an integration problem.
+
+The log storage pattern, read-modify-write JSON arrays under a single key for each bond's settlement history, works cleanly at demo write volume but is an honest scaling caveat: two concurrent writers to the same log key would race, since append() reads, modifies, then writes as three separate unsynchronized steps, that's a limitation of the current implementation rather than something 0G-KV itself prevents.
