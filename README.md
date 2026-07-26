@@ -1,4 +1,4 @@
-# 💍 HumanBond
+# 🤝 HumanBond
 
 **The first proof-of-humanity partnership protocol — live on World Chain — giving economic standing to the partner the market has always ignored.**
 
