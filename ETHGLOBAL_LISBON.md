@@ -74,25 +74,6 @@ Anyone can resolve `herb-agatha.humanbond.eth` to reach the partnership's shared
 
 ---
 
-### 🏆 The Graph — Best Use of Composable or Standardized Graph Data Products · $4,000
-
-**Technology:** The Graph is the indexing and query layer of web3. Subgraphs provide structured, real-time access to blockchain data.
-
-**Before:** The HumanBond Partnership Registry exists on World Chain Mainnet — VowNFTs minted, income splits recorded — but it is opaque to the outside world. A dating platform that wants to display a "verified partnership" badge has to run its own World Chain node. Every external integration requires bespoke work.
-
-**After:** HumanBond publishes a standardised Partnership Registry subgraph on The Graph — a clean, queryable schema that any application can integrate in minutes. The subgraph indexes:
-- Partnership formation events (VowNFT minted with both World ID nullifiers)
-- Income split executions (50/50 TIME distributions)
-- Milestone completions (MilestoneNFT mints)
-- Partnership dissolution events
-- Identity tier upgrades
-
-The schema is designed as a **standard** — `PartnershipStatus`, `PartnershipEvent`, `IncomeRecord`, and `IdentityTier` entities that any app querying relationship data on World Chain can adopt. Query: *"is this World ID nullifier currently in an active HumanBond partnership?"* — one query, one standard, composable with any World ID application.
-
-**Qualification:** Uses live World Chain Mainnet data from deployed contracts. Schema explicitly designed as a reusable standard. Shows what became easier because of a shared schema.
-
----
-
 ## Demo Script
 
 1. Open World App on phone · search `HumanBond` · show live app
