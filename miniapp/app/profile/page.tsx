@@ -19,6 +19,7 @@ import { useLiveBondSync } from '@/lib/agent/useLiveBondSync';
 import { useWorldProfile } from '@/lib/worldcoin/useWorldProfile';
 import { formatUsdc } from '@/lib/vault/usdc';
 import { USE_MOCKS } from '@/lib/config';
+import { META } from '@/lib/design';
 import { useRouteGuard } from '@/lib/hooks/useLiveStage';
 import { ENS_PARENT } from '@/lib/contracts/registrar';
 import { SelfieCheckOverlay } from '@/app/components/agent/SelfieCheck';
@@ -60,11 +61,6 @@ function derivedFacts(
   }
   return facts;
 }
-
-/** The one meta-text style — every secondary label (ENS suffix, USDC, counts,
- *  validity notes) uses this so they never drift apart again. Anton, like the
- *  ".humanbond.eth" suffix, just small + gray. */
-const META = 'font-anton text-[11px] text-gray-400 uppercase tracking-wide';
 
 /** Social accounts the user can link into their second brain. AI sources
  *  (chatgpt/claude) live under the AI-history card, not here. */

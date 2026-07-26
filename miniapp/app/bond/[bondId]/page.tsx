@@ -17,6 +17,7 @@ import { shortAddress } from '@/lib/vault/usdc';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAgentStore, type Heir } from '@/lib/agent/agentStore';
 import { USE_MOCKS } from '@/lib/config';
+import { META } from '@/lib/design';
 import { useRouteGuard } from '@/lib/hooks/useLiveStage';
 import { ENS_PARENT } from '@/lib/contracts/registrar';
 import { useLiveBondSync } from '@/lib/agent/useLiveBondSync';
@@ -82,7 +83,7 @@ export default function BondProfilePage() {
   const params = useParams<{ bondId: string }>();
   const {
     agentReady, answers, payments, heirs, addHeir, requestRemoveHeir,
-    vaultBalances, deposits, standingOrders, bondEnsLabel,
+    vaultBalances, deposits, bondEnsLabel,
     investments, invest, bonds, bondRules, addBondRule, removeBondRule,
   } = useAgentStore();
   // The live store starts EMPTY until useLiveBondSync mirrors the chain — a
@@ -386,18 +387,25 @@ export default function BondProfilePage() {
     setRuleDraft('');
   };
 
-  const activity = [
+  // Mock activity: action on the left (black), amount + counterparty on the
+  // right. Built from real mock-store events (deposits, agent payments); no
+  // standing orders (not supported yet). Falls back to a representative example
+  // so the pattern is visible before any mock action. Live mode ignores this.
+  const activityFromStore = [
     ...deposits
       .filter((d) => d.bondId === bond.id)
-      .map((d) => ({ id: d.id, text: `Deposit — ${d.amount.toFixed(2)} from you`, tag: 'Deposit' })),
+      .map((d) => ({ id: d.id, label: 'Deposit', detail: `${d.amount.toFixed(0)} · from you` })),
     ...Object.values(payments)
       .filter((p) => p.stage === 'paid' && !p.personal)
-      .map((p) => ({ id: p.id, text: `${p.label} — ${p.amountUsdc.toFixed(2)} to ${p.recipientEns}`, tag: 'Agent payment' })),
-    ...((standingOrders[bond.id] ?? 0) > 0
-      ? [{ id: 'so-1', text: `Standing order — ${(standingOrders[bond.id] ?? 0).toFixed(2)} from you, monthly`, tag: 'Standing order' }]
-      : []),
-    { id: 'so-2', text: 'Standing order — 500.00 from Alice, monthly', tag: 'Standing order' },
+      .map((p) => ({ id: p.id, label: 'Agent payment', detail: `${p.amountUsdc.toFixed(2)} · to ${p.recipientEns}` })),
   ];
+  const activity = activityFromStore.length
+    ? activityFromStore
+    : [
+        { id: 'ex-dep', label: 'Deposit', detail: '250 · from you' },
+        { id: 'ex-pay1', label: 'Agent payment', detail: '84.50 · to kalorama.eth' },
+        { id: 'ex-pay2', label: 'Agent payment', detail: '12.00 · to sevilla.eth' },
+      ];
 
   // The OPPORTUNITY — arrives like a push notification, not a survey.
   // Rendered inside the history at its marker so it scrolls up like a message.
@@ -504,25 +512,24 @@ export default function BondProfilePage() {
             bond's ENS name + address with copy, real send flow (partner
             approves above the free limit). */}
         <section className="bg-[#1A1A1A] rounded-[2rem] p-6 relative overflow-hidden">
-          <div className="absolute -top-12 -right-12 w-32 h-32 bg-amber-500/10 blur-[50px]" />
-          <p className="text-[9px] font-bold text-gray-500 uppercase tracking-[0.25em] relative z-10">Parked in the vault</p>
-          <p className="text-4xl font-black text-white font-mono tracking-tight mt-1 relative z-10">
-            {balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-            <span className="text-sm text-gray-500 ml-2">USDC</span>
+          <p className={`${META} relative z-10`}>Parked in the vault</p>
+          <p className="text-4xl font-anton text-white tracking-wide mt-1 relative z-10">
+            {Math.round(balance).toLocaleString('en-US')}
+            <span className="text-gray-500 ml-2">USDC</span>
           </p>
           {/* Where the money lives — simple and unmissable */}
           <div className="mt-3 flex gap-2 relative z-10">
             <div className="flex-1 bg-white/5 rounded-xl px-4 py-2.5">
-              <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest">Ready to spend</p>
-              <p className="text-sm font-black text-white font-mono">{liquid.toLocaleString('en-US', { minimumFractionDigits: 2 })}</p>
+              <p className={META}>Ready to spend</p>
+              <p className="text-lg font-anton text-white tracking-wide">{Math.round(liquid).toLocaleString('en-US')}</p>
             </div>
             <div className="flex-1 bg-emerald-500/10 rounded-xl px-4 py-2.5">
-              <p className="text-[8px] font-black text-emerald-400/80 uppercase tracking-widest flex items-center gap-1">
+              <p className="font-anton text-[11px] text-emerald-400/80 uppercase tracking-wide flex items-center gap-1">
                 <span className="w-1 h-1 rounded-full bg-emerald-400" />
                 Earning
               </p>
-              <p className="text-sm font-black text-emerald-300 font-mono">
-                {(invested?.amount ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+              <p className="text-lg font-anton text-emerald-300 tracking-wide">
+                {Math.round(invested?.amount ?? 0).toLocaleString('en-US')}
               </p>
             </div>
           </div>
@@ -612,8 +619,8 @@ export default function BondProfilePage() {
         <section className="space-y-3">
           <div>
             <h2 className="text-2xl font-anton text-black tracking-wide">YOUR BOND AGENT</h2>
-            <p className="text-[11px] text-gray-500 font-medium mt-0.5">
-              It serves the bond, not either of you — and only executes what both of you confirm.
+            <p className={`${META} mt-0.5`}>
+              It serves the bond, not either of you — and only executes what both of you confirm
             </p>
           </div>
           <div className="bg-white rounded-[1.75rem] p-4 space-y-3">
@@ -686,14 +693,14 @@ export default function BondProfilePage() {
                       className="px-5 py-3.5 flex items-center justify-between gap-3 hover:bg-gray-50 transition-colors"
                     >
                       <div className="min-w-0 flex-1">
-                        <p className="text-[12px] font-medium text-gray-800">
+                        <p className="font-anton text-[11px] text-gray-700 uppercase tracking-wide truncate">
                           {t.incoming
                             ? `Received from ${shortAddress(t.from)}`
                             : `Sent to ${shortAddress(t.to)}`}
                         </p>
-                        <p className="text-[10px] text-gray-400 font-medium mt-0.5">{formatTransferTime(t.timestamp)}</p>
+                        <p className={`${META} mt-0.5`}>{formatTransferTime(t.timestamp)}</p>
                       </div>
-                      <span className={`text-[12px] font-black font-mono shrink-0 ${t.incoming ? 'text-emerald-600' : 'text-gray-800'}`}>
+                      <span className={`font-anton text-[11px] uppercase tracking-wide shrink-0 ${t.incoming ? 'text-emerald-600' : 'text-gray-700'}`}>
                         {t.incoming ? '+' : '−'}{t.amountUsdc.toFixed(2)}
                       </span>
                     </a>
@@ -701,22 +708,22 @@ export default function BondProfilePage() {
                   {transfers.length > shownTransfers && (
                     <button
                       onClick={() => setShownTransfers((n) => n + 5)}
-                      className="w-full px-5 py-3 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-gray-700 transition-colors"
+                      className={`w-full px-5 py-3 ${META} hover:text-gray-700 transition-colors`}
                     >
                       Show more
                     </button>
                   )}
                 </>
               ) : (
-                <p className="px-5 py-3.5 text-[12px] font-medium text-gray-400">
-                  No transfers yet — send USDC to your bond address and it shows up here.
+                <p className={`px-5 py-3.5 ${META}`}>
+                  No transfers yet — send USDC to your bond address and it shows up here
                 </p>
               )
             ) : (
               activity.map((a) => (
                 <div key={a.id} className="px-5 py-3.5 flex items-center justify-between gap-3">
-                  <p className="text-[12px] font-medium text-gray-800 flex-1">{a.text}</p>
-                  <span className="text-[8px] font-black uppercase tracking-widest text-gray-300 shrink-0">{a.tag}</span>
+                  <p className="font-anton text-[11px] text-gray-700 uppercase tracking-wide">{a.label}</p>
+                  <p className={`${META} shrink-0 text-right`}>{a.detail}</p>
                 </div>
               ))
             )}
@@ -727,27 +734,27 @@ export default function BondProfilePage() {
         <section className="space-y-3">
           <div>
             <h2 className="text-2xl font-anton text-black tracking-wide">RULES</h2>
-            <p className="text-[11px] text-gray-500 font-medium mt-0.5">What you two agreed.</p>
+            <p className={`${META} mt-0.5`}>What you two agreed</p>
           </div>
           <div className="bg-white rounded-2xl divide-y divide-gray-100">
             {[
-              { k: 'Split of shared expenses', v: 'By income — currently you 10% · Alice 90%' },
+              { k: 'Split of shared expenses', v: 'By income' },
               { k: 'Your hardware threshold', v: `hito above ${threshold}` },
-              { k: 'Proof of life', v: 'Profile-level Selfie Check — one check covers all your bonds' },
-              { k: 'Will & rules document', v: 'v2 · encrypted on 0G storage' },
+              { k: 'Proof of life', v: 'Selfie Check' },
+              { k: 'Will & rules document', v: 'encrypted on 0G storage' },
             ].map((row) => (
               <div key={row.k} className="px-5 py-3.5 flex items-center justify-between gap-4">
-                <p className="text-[12px] font-bold text-gray-500">{row.k}</p>
-                <p className="text-[12px] font-medium text-gray-800 text-right">{row.v}</p>
+                <p className="font-anton text-[11px] text-gray-700 uppercase tracking-wide">{row.v}</p>
+                <p className={`${META} shrink-0 text-right`}>{row.k}</p>
               </div>
             ))}
             {/* Rules YOU TWO wrote — they feed both agents as binding context */}
             {bondRules.map((r) => (
               <div key={r.id} className="px-5 py-3.5 flex items-center gap-3">
-                <p className="text-[12px] font-medium text-gray-800 flex-1">{r.text}</p>
+                <p className="font-anton text-[11px] text-gray-700 uppercase tracking-wide flex-1">{r.text}</p>
                 {r.status === 'awaiting-partner' ? (
-                  <span className="text-[8px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 shrink-0 flex items-center gap-1">
-                    <span className="w-1 h-1 rounded-full bg-amber-500 animate-pulse" />
+                  <span className={`${META} bg-gray-100 rounded-full px-2 py-0.5 shrink-0 flex items-center gap-1`}>
+                    <span className="w-1 h-1 rounded-full bg-gray-400 animate-pulse" />
                     waiting for {bond.partner}
                   </span>
                 ) : (
@@ -789,22 +796,21 @@ export default function BondProfilePage() {
           <section className="space-y-3">
             <div>
               <h2 className="text-2xl font-anton text-black tracking-wide">YOUR WILL</h2>
-              <p className="text-[11px] text-gray-500 font-medium mt-0.5">
-                Who claims when you’re both gone. Adding or removing an heir takes both of you.
+              <p className={`${META} mt-0.5`}>
+                Who claims when you’re both gone. Adding or removing an heir takes both of you
               </p>
             </div>
+            {/* Teaser: recognizable but not live yet — blurred cover + "SOON" */}
+            <div className="relative">
+              <div className="blur-[1px] opacity-90 pointer-events-none select-none space-y-3">
             {heirs.map((h) => (
               <div
                 key={h.id}
                 className="bg-white rounded-2xl px-5 py-4 flex items-center justify-between"
               >
                 <div>
-                  <p className="text-sm font-black text-gray-900">{h.name}</p>
-                  <p
-                    className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 ${
-                      h.status === 'awaiting-partner' || h.status === 'awaiting-removal' ? 'text-gray-700' : 'text-gray-400'
-                    }`}
-                  >
+                  <p className="font-anton text-lg text-black tracking-wide">{h.name.toUpperCase()}</p>
+                  <p className={`${META} mt-0.5 ${h.status === 'awaiting-partner' || h.status === 'awaiting-removal' ? 'text-gray-700' : ''}`}>
                     {h.status === 'awaiting-partner' ? (
                       <span className="inline-flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-pulse" />
@@ -821,7 +827,7 @@ export default function BondProfilePage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <p className="text-sm font-black text-gray-900 font-mono">{h.sharePct}%</p>
+                  <p className="font-anton text-lg text-black tracking-wide">{h.sharePct}%</p>
                   {h.status !== 'awaiting-removal' && (
                     <button
                       onClick={() => setConfirmRemove(h)}
@@ -850,10 +856,10 @@ export default function BondProfilePage() {
               />
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                  <p className={META}>
                     Share of the estate · {remainingPct}% unallocated
                   </p>
-                  <p className="text-sm font-black text-gray-900 font-mono">{effectiveShare}%</p>
+                  <p className="font-anton text-lg text-black tracking-wide">{effectiveShare}%</p>
                 </div>
                 <input
                   type="range"
@@ -875,6 +881,13 @@ export default function BondProfilePage() {
               </p>
             </div>
             )}
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="font-anton text-3xl text-black tracking-[0.2em] bg-white/50 backdrop-blur-sm rounded-full px-6 py-2">
+                  SOON
+                </span>
+              </div>
+            </div>
           </section>
         )}
       </main>
