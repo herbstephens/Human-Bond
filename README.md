@@ -1,4 +1,4 @@
-# 🤝 HumanBond
+# 💍 HumanBond
 
 **The first proof-of-humanity partnership protocol — live on World Chain — giving economic standing to the partner the market has always ignored.**
 
@@ -30,6 +30,7 @@ Three things that matter:
 | `finalizeWorkAndDistribute()` | Leticia | 50/50 Work TIME split on payment receipt — mints TIME and distributes to both partners atomically |
 | Partner Agent A + Partner Agent B | Franco | Human-Backed AI agents (World AgentKit), running on 0G Compute (TEE), stored on 0G Storage |
 | Partnership Agent | Franco | Neutral mediator agent — reads VowNFT data + TIME history, brokers agreements between agents |
+| World NFC Credentials | Franco | Reads passport NFC chip during bond formation — verifies age >18 and jurisdiction. VowNFT records verified attributes. (World Identity Check Beta) |
 | Age Grant visualisation | Franco | Shows governance endowment (Age × 365 TIME) and Liquidity Ladder unlock progress |
 | ENS subname registration | Franco | `partner1-partner2.humanbond.eth` registered during bond formation; agent ENS identities |
 
