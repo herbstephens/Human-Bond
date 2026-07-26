@@ -1,4 +1,4 @@
-# 🤝 HumanBond
+# 💍 HumanBond
 
 **The first proof-of-humanity partnership protocol — live on World Chain — giving economic standing to the partner the market has always ignored.**
 
@@ -13,7 +13,7 @@
 
 **HumanBond is a two-person partnership protocol for World ID–verified humans, live on World Chain Mainnet and in the World App store.** Two humans bond on-chain. A soulbound VowNFT is minted. Work TIME income is split 50/50 automatically — the working partner and the non-market partner (caregiver, homemaker) receive equal shares.
 
-**New at ETHGlobal Lisbon:** each partner has their own Human-Backed AI agent (World AgentKit), anchored to their World ID nullifier and representing their values. A Partnership Agent mediates disputes between them. When agents agree on a spending decision, both partners must explicitly approve. Agent preference models run on 0G Compute (TEE-sealed — neither partner can see the other's deliberations) and are stored on 0G Storage. Partnership names are registered as ENS subnames: `partner1-partner2.humanbond.eth`.
+**New at ETHGlobal Lisbon:** each partner has their own Human-Backed AI agent (World AgentKit), anchored to their World ID nullifier and representing their values — learned from on-chain TIME staking and income history. A Partnership Agent mediates disputes between them. When agents agree on a spending decision, both partners must explicitly approve. Agent preference models run on 0G Compute (TEE-sealed — neither partner can see the other's deliberations) and are stored on 0G Storage. Partnership names are registered as ENS subnames: `partner1-partner2.humanbond.eth`.
 
 Three things that matter:
 
@@ -25,14 +25,14 @@ Three things that matter:
 
 ## What We Built at This Hackathon
 
-| Feature | Description |
+| Feature | Builder | Description |
 |---|---|---|
-| `finalizeWorkAndDistribute()` | 50/50 Work TIME split on payment receipt — mints TIME and distributes to both partners atomically |
-| Partner Agent A + Partner Agent B | Human-Backed AI agents (World AgentKit), running on 0G Compute (TEE), stored on 0G Storage |
-| Partnership Agent | Neutral mediator agent — reads VowNFT data + TIME history, brokers agreements between agents |
-| World NFC Credentials | Reads passport NFC chip during bond formation — verifies age >18 and jurisdiction. VowNFT records verified attributes. (World Identity Check Beta) |
-| Age Grant visualisation | Shows governance endowment (Age × 365 TIME) and Liquidity Ladder unlock progress |
-| ENS subname registration | `partner1-partner2.humanbond.eth` registered during bond formation; agent ENS identities |
+| `finalizeWorkAndDistribute()` | Leticia | 50/50 Work TIME split on payment receipt — mints TIME and distributes to both partners atomically |
+| Partner Agent A + Partner Agent B | Franco | Human-Backed AI agents (World AgentKit), running on 0G Compute (TEE), stored on 0G Storage |
+| Partnership Agent | Franco | Neutral mediator agent — reads VowNFT data + TIME history, brokers agreements between agents |
+| World NFC Credentials | Franco | Reads passport NFC chip during bond formation — verifies age >18 and jurisdiction. VowNFT records verified attributes. (World Identity Check Beta) |
+| Age Grant visualisation | Franco | Shows governance endowment (Age × 365 TIME) and Liquidity Ladder unlock progress |
+| ENS subname registration | Franco | `partner1-partner2.humanbond.eth` registered during bond formation; agent ENS identities |
 
 ---
 
@@ -224,6 +224,9 @@ Human-Bond/
 | **Herb Stephens** | Protocol design | Co-founder, Democracy Earth Foundation · Portugal · herb@democracy.earth |
 | **Leticia Azevedo** | Smart contracts | V2 contracts deployed + income split · [@leticarolina](https://github.com/leticarolina) · Brazil |
 | **Franco Amicone** | Frontend + Agents | MiniKit + World AgentKit + 0G + ENS · ETHGlobal Lisbon in-person · Argentina |
+| **Francesca** | Culture & Quality | Team cohesion, creative direction, and quality standards · the reason we shipped |
+| **Mikhail (Misha)** | Advisor | Founder, hito hardware wallet · hardware wallet infrastructure |
+| **Leon** | Project Manager | Operations and coordination · Berlin |
 
 ---
 
