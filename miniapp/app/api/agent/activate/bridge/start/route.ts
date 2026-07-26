@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { createPublicClient, http } from 'viem';
+import { createPublicClient, http, isAddress } from 'viem';
 import { worldchain } from 'viem/chains';
-import { createAndStoreAgentKey } from '@/lib/agents/agentKeyVault.server';
+import { createAndStoreAgentKey, markAgentRegistered } from '@/lib/agents/agentKeyVault.server';
 import { startActivation } from '@/lib/agents/activationSessions.server';
 import {
   AGENTKIT_AGENT_BOOK,
@@ -18,15 +18,31 @@ import {
  * Mints the agent key, opens a World ID bridge session under AGENTKIT's app (the
  * only app the global AgentBook accepts), and hands the waiting to the server.
  * The client gets a link to tap and a session id to check back on.
+ *
+ * `owner` is the partner wallet this agent will act for — required, because an
+ * agent nobody can claim is useless to the bond. The wallet→agent link is
+ * persisted only after AgentBook accepts the proof.
  */
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    const body = (await request.json().catch(() => ({}))) as {
+      owner?: string;
+      bondId?: string;
+    };
+    if (!body.owner || !isAddress(body.owner)) {
+      return NextResponse.json(
+        { error: 'owner (the partner wallet this agent acts for) is required' },
+        { status: 400 },
+      );
+    }
+    const owner = body.owner as `0x${string}`;
+
     const client = createPublicClient({
       chain: worldchain,
       transport: http(process.env.WORLDCHAIN_RPC_URL),
     });
 
-    const agent = await createAndStoreAgentKey(BigInt(0));
+    const agent = await createAndStoreAgentKey(BigInt(0), { owner, bondId: body.bondId });
     const nonce = await client.readContract({
       address: AGENTKIT_AGENT_BOOK,
       abi: AGENTKIT_AGENT_BOOK_ABI,
@@ -87,6 +103,11 @@ export async function POST() {
           );
         }
         console.info(`[activation] ${agent.address} is human-backed — humanId ${humanId}`);
+
+        // Persist the outcome: agent record → registered (with humanId), and
+        // the owner wallet → agent link that verify-backing resolves later.
+        await markAgentRegistered(agent, txHash, humanId.toString());
+        console.info(`[activation] linked owner ${owner} → agent ${agent.address}`);
         return txHash;
       },
     });

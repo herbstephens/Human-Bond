@@ -22,6 +22,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AliveCta } from '@/app/components/agent/AliveCta';
+import { useMarriage } from '@/lib/marriage/context';
 
 type StartResult = {
   sessionId: string;
@@ -42,6 +43,13 @@ type Status = {
 
 const SESSION_KEY = 'hb-activation-session';
 
+type BackingCheck = {
+  wallet?: string;
+  address: `0x${string}` | null;
+  backed: boolean;
+  humanId: string | null;
+};
+
 async function responseJson<T>(response: Response): Promise<T> {
   const text = await response.text();
   if (!response.ok) {
@@ -58,6 +66,9 @@ async function responseJson<T>(response: Response): Promise<T> {
 }
 
 export function AgentBridgeClient() {
+  // The agent is registered FOR someone: the connected wallet becomes its
+  // owner, which is what verify-backing resolves later.
+  const { address: owner, marriageView } = useMarriage();
   const [start, setStart] = useState<StartResult | null>(null);
   const [status, setStatus] = useState<Status | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -118,13 +129,21 @@ export function AgentBridgeClient() {
   }, []);
 
   const begin = async () => {
+    if (!owner) {
+      setError('Wallet not connected yet — the agent must be linked to your wallet.');
+      return;
+    }
     setStarting(true);
     setError(null);
     setStatus(null);
     setStart(null);
     try {
       const result = await responseJson<StartResult>(
-        await fetch('/api/agent/activate/bridge/start', { method: 'POST' }),
+        await fetch('/api/agent/activate/bridge/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ owner, bondId: marriageView?.bondId ?? undefined }),
+        }),
       );
       setStart(result);
       localStorage.setItem(SESSION_KEY, result.sessionId);
@@ -133,6 +152,26 @@ export function AgentBridgeClient() {
       setError(caught instanceof Error ? caught.message : 'Could not start the activation');
     } finally {
       setStarting(false);
+    }
+  };
+
+  // The trustee's exact question, asked on demand: which agent acts for MY
+  // wallet, and does AgentBook say a verified human stands behind it?
+  const [check, setCheck] = useState<{ loading: boolean; result?: BackingCheck; error?: string } | null>(null);
+  const verifyMine = async () => {
+    if (!owner) return;
+    setCheck({ loading: true });
+    try {
+      const j = await responseJson<{ agents: BackingCheck[] }>(
+        await fetch('/api/agent/verify-backing', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ wallets: [owner] }),
+        }),
+      );
+      setCheck({ loading: false, result: j.agents[0] });
+    } catch (caught) {
+      setCheck({ loading: false, error: caught instanceof Error ? caught.message : String(caught) });
     }
   };
 
@@ -195,6 +234,15 @@ export function AgentBridgeClient() {
             </span>
           </div>
 
+          {owner && (
+            <div className="mt-5">
+              <p className="font-mono text-[10px] uppercase tracking-widest text-[#8f8372]">
+                Acting for (your wallet)
+              </p>
+              <p className="mt-1 break-all font-mono text-xs">{owner}</p>
+            </div>
+          )}
+
           {(start?.agentAddress || status?.agentAddress) && (
             <div className="mt-5">
               <p className="font-mono text-[10px] uppercase tracking-widest text-[#8f8372]">Agent address</p>
@@ -216,6 +264,32 @@ export function AgentBridgeClient() {
           {(error || status?.error) && (
             <p className="mt-5 break-words text-sm text-red-400">{error ?? status?.error}</p>
           )}
+
+          <div className="mt-6 border-t border-white/10 pt-5">
+            <p className="font-mono text-[10px] uppercase tracking-widest text-[#8f8372]">
+              Trustee check · wallet → agent → AgentBook
+            </p>
+            <button
+              onClick={verifyMine}
+              disabled={!owner || check?.loading}
+              className="mt-3 w-full rounded-full border border-amber-400/40 px-5 py-3 text-xs font-bold uppercase tracking-[0.18em] text-amber-300 disabled:opacity-40"
+            >
+              {check?.loading ? 'asking AgentBook…' : 'Verify my agent'}
+            </button>
+            {check?.error && <p className="mt-3 break-words text-sm text-red-400">{check.error}</p>}
+            {check?.result && (
+              <div className="mt-3 space-y-2 font-mono text-xs">
+                <p className="break-all text-[#b9ad9b]">
+                  agent: {check.result.address ?? '— none registered for this wallet'}
+                </p>
+                <p className={check.result.backed ? 'text-emerald-300' : 'text-red-400'}>
+                  {check.result.backed
+                    ? `✓ human-backed — humanId ${check.result.humanId?.slice(0, 12)}…`
+                    : '✗ not human-backed'}
+                </p>
+              </div>
+            )}
+          </div>
 
           <ol className="mt-6 space-y-2 border-t border-white/10 pt-5">
             {!status?.events?.length ? (

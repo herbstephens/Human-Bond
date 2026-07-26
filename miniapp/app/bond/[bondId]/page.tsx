@@ -55,7 +55,7 @@ export default function BondProfilePage() {
   useLiveBondSync();
   // Live money view: Franco's working vault card (balance · address · send),
   // backed by the same react-query key the sync uses — one chain read.
-  const { dashboard: liveDash, marriageView } = useMarriage();
+  const { dashboard: liveDash, marriageView, address: myWallet } = useMarriage();
   const livePartnerAddr = (liveDash?.partner ?? null) as `0x${string}` | null;
   const lPartnerA = (marriageView?.partnerA ?? null) as `0x${string}` | null;
   const lPartnerB = (marriageView?.partnerB ?? null) as `0x${string}` | null;
@@ -212,25 +212,33 @@ export default function BondProfilePage() {
     }
     // LIVE World AgentKit check: both personal agents must be human-backed in
     // AgentBook (World Chain) before anything reaches the release track.
+    // With real wallets on hand we check the agents each partner actually
+    // registered (wallet → agent via the activation link); the mock flow keeps
+    // its demo seeds.
     const myName = answers.name?.text?.replace(/^just call me /i, '') || 'Ben';
-    const seeds = [myName.toLowerCase(), bond.partner.toLowerCase()];
+    const body =
+      !USE_MOCKS && myWallet && livePartnerAddr
+        ? { wallets: [myWallet, livePartnerAddr] }
+        : { seeds: [myName.toLowerCase(), bond.partner.toLowerCase()] };
     setBusy(true);
     fetch('/api/agent/verify-backing', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ seeds }),
+      body: JSON.stringify(body),
     })
       .then(async (res) => {
         const j = await res.json();
         if (!res.ok) throw new Error(j.error ?? `verify-backing ${res.status}`);
         setBusy(false);
-        const [mine, theirs] = j.agents as { seed: string; address: string; backed: boolean }[];
+        const [mine, theirs] = j.agents as { address: string | null; backed: boolean }[];
         if (!mine.backed || !theirs.backed) {
-          const failed = [!mine.backed ? `${myName}’s agent (${mine.address.slice(0, 6)}…)` : null, !theirs.backed ? `${bond.partner}’s agent (${theirs.address.slice(0, 6)}…)` : null]
+          const describe = (a: { address: string | null }) =>
+            a.address ? `agent ${a.address.slice(0, 6)}… carries no verified human` : 'has no registered agent yet';
+          const failed = [!mine.backed ? `${myName}’s ${describe(mine)}` : null, !theirs.backed ? `${bond.partner}’s ${describe(theirs)}` : null]
             .filter(Boolean)
             .join(' and ');
           pushTrustee(
-            `AgentBook check failed: ${failed} carries no verified human. I don’t put unbacked proposals on the release track — register the agent wallet with World AgentKit first.`,
+            `AgentBook check failed: ${failed}. I don’t put unbacked proposals on the release track — register the agent with World AgentKit first.`,
           );
           return;
         }
