@@ -93,9 +93,18 @@ export default function Home() {
   // runs the authoritative check; here the label is cosmetic.
   const ctaLabel = isMounted && isVerified ? "Enter HumanBond" : "Create a bond";
 
+  // MiniKit only exists at runtime, so the check must wait for hydration —
+  // the server always renders the outside-World-App nav.
+  const inWorldApp = isMounted && isInWorldApp();
+
   return (
     <div className="hb-landing">
-      <LandingNav onOpenWorldApp={() => setShowWorldAppDialog(true)} />
+      <LandingNav
+        onOpenWorldApp={() => setShowWorldAppDialog(true)}
+        inWorldApp={inWorldApp}
+        connectLabel={isVerifying ? "Connecting…" : isMounted && isVerified ? "Enter" : "Connect"}
+        onConnect={handleCreateBond}
+      />
 
       <LandingHero
         ctaLabel={ctaLabel}

@@ -222,10 +222,11 @@ export default function AgentCreatePage() {
         throw new Error(`World ID verification failed: ${finalPayload.error_code}`);
       }
 
-      if (
-        process.env.NODE_ENV !== 'production' &&
-        process.env.NEXT_PUBLIC_BYPASS_AGENTBOOK_REGISTRATION === '1'
-      ) {
+      // AgentBook only accepts proofs minted under AgentKit's own app_id — a
+      // MiniKit proof from our app reverts with ProofInvalid() (verified on
+      // 2026-07-26). The bridge path is the real fix; for the demo the env var
+      // skips global registration after the human's World ID check passed.
+      if (process.env.NEXT_PUBLIC_BYPASS_AGENTBOOK_REGISTRATION === '1') {
         setActivationState('complete');
         completeInterview();
         return;

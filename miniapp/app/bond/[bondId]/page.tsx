@@ -539,10 +539,10 @@ export default function BondProfilePage() {
         <div className="flex-1">
           {/* Live: the registered name, or plain "YOU & PARTNER" while unnamed —
               never a made-up ENS. Mock keeps the playground name. */}
-          <h1 className="text-4xl font-anton text-black tracking-wide truncate">
+          <h1 className="text-2xl font-anton text-black tracking-wide truncate">
             {(USE_MOCKS || ensLabel ? bondName : `You & ${bond.partner}`).toUpperCase()}
             {(USE_MOCKS || ensLabel) && (
-              <span className="text-base text-gray-400">.{ENS_PARENT.toUpperCase()}</span>
+              <span className="text-sm text-gray-400">.{ENS_PARENT.toUpperCase()}</span>
             )}
           </h1>
         </div>
@@ -596,7 +596,7 @@ export default function BondProfilePage() {
 
         {/* Receive popup — the bond's ENS name and raw address, both one tap to copy. */}
         <Dialog open={receiveOpen} onOpenChange={setReceiveOpen}>
-          <DialogContent className="max-w-sm rounded-3xl">
+          <DialogContent className="w-[calc(100%-2rem)] max-w-sm rounded-3xl">
             <DialogHeader>
               <DialogTitle>Receive USDC</DialogTitle>
               <DialogDescription>
@@ -617,7 +617,7 @@ export default function BondProfilePage() {
                     <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-0.5">
                       {copiedField === 'ens' ? 'Copied!' : 'ENS name'}
                     </p>
-                    <p className="text-sm font-mono font-semibold text-gray-800 truncate">
+                    <p className="text-xs font-mono font-semibold text-gray-800 truncate">
                       {ensLabel}.{ENS_PARENT}
                     </p>
                   </div>

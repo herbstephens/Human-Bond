@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import { Providers } from "./components/Providers";
@@ -19,6 +19,16 @@ const anton = localFont({
   src: "./fonts/Anton-Regular.ttf",
   variable: "--font-anton-loaded",
 });
+
+// iOS zooms the page when a focused input renders under 16px and never zooms
+// back — inside World App there is no pinch-out to recover. Pinning the scale
+// kills that zoom entirely.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
 
 export const metadata: Metadata = {
   title: "HumanBond",
