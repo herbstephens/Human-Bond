@@ -1,7 +1,17 @@
+/**
+ * The bond's memory — its VowNFT certificate and every anniversary milestone.
+ *
+ * Reached from the bond dashboard (`/bond/[bondId]` → MEMORY), which is what
+ * makes these soulbound tokens part of the product instead of orphaned code.
+ * Back goes to the bond, not to /home: this page belongs to a bond.
+ *
+ * Design CI (docs/design-system.md): borderless cards, two Anton type roles,
+ * black CTAs without glow, no amber.
+ */
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useVowNFT } from "@/lib/hooks/useVowNFT";
 import { useMilestoneNFTs } from "@/lib/hooks/useMilestoneNFTs";
@@ -11,21 +21,37 @@ import { MiniKit } from "@worldcoin/minikit-js";
 import { CONTRACT_ADDRESSES, HUMAN_BOND_ABI } from "@/lib/contracts";
 import { USE_MOCKS } from "@/lib/config";
 import { simulateTx } from "@/lib/mocks/mockTx";
-import {
-    ChevronLeft,
-    Sparkles,
-    Trophy,
-    Heart,
-    Calendar,
-    ArrowRight
-} from "lucide-react";
+import { META } from "@/lib/design";
+import { ChevronLeft } from "lucide-react";
 
+/** `useSearchParams` opts the tree into client rendering, so it needs its own
+ *  Suspense boundary — otherwise the whole route refuses to prerender. */
 export default function GalleryPage() {
+    return (
+        <Suspense
+            fallback={
+                <main className="min-h-screen bg-[#E8E8E8] flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-4 border-black/5 border-t-black" />
+                </main>
+            }
+        >
+            <GalleryContent />
+        </Suspense>
+    );
+}
+
+function GalleryContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const queryClient = useQueryClient();
     const { vowNFTs, isLoading: loadingVow, error: vowError } = useVowNFT();
     const { milestones, isLoading: loadingMilestones, error: milestonesError } = useMilestoneNFTs();
     const { dashboard } = useMarriage();
+
+    // The bond that sent us here, so Back returns to it instead of dumping the
+    // user on /home. Absent (deep link) → the dashboard surface.
+    const fromBond = searchParams.get("bond");
+    const back = fromBond ? `/bond/${fromBond}` : "/profile";
 
     const [mintingState, setMintingState] = useState<"idle" | "sending" | "success" | "error">("idle");
     const [showNotAvailableModal, setShowNotAvailableModal] = useState(false);
@@ -45,7 +71,7 @@ export default function GalleryPage() {
             setMintingState("sending");
 
             if (USE_MOCKS) {
-                await simulateTx();
+                await simulateTx(undefined, "Check & mint milestones");
                 setMintingState("success");
                 setShowSuccessModal(true);
                 return;
@@ -82,54 +108,52 @@ export default function GalleryPage() {
 
     return (
         <main className="min-h-screen bg-[#E8E8E8] pb-24">
-            {/* Slim back row */}
             <div className="px-5 pt-3 pb-1 flex items-center gap-3">
                 <button
-                    onClick={() => router.push('/home')}
-                    className="w-9 h-9 flex items-center justify-center rounded-full bg-white shadow-sm border border-gray-100 text-gray-600 hover:text-black active:scale-95 transition-all"
+                    onClick={() => router.push(back)}
+                    className="w-9 h-9 flex items-center justify-center rounded-full bg-white text-gray-500 hover:text-black active:scale-95 transition-all"
+                    aria-label="Back to the bond"
                 >
                     <ChevronLeft size={18} />
                 </button>
-                <span className="font-black text-base text-gray-900 tracking-tight">Gallery</span>
+                <span className="font-anton text-xl text-black tracking-wide">MEMORY</span>
             </div>
 
             <div className="max-w-2xl mx-auto px-6 pt-3 pb-5 space-y-8">
-
-                {/* Loading State */}
                 {isLoading ? (
                     <div className="flex flex-col items-center justify-center py-16 space-y-4">
-                        <div className="animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-black"></div>
-                        <p className="text-sm text-gray-600">Loading your memories...</p>
+                        <div className="animate-spin rounded-full h-12 w-12 border-4 border-black/5 border-t-black" />
+                        <p className={META}>Loading your memories</p>
                     </div>
                 ) : (
                     <>
-                        {/* Errors */}
                         {(vowError || milestonesError) && (
-                            <div className="bg-white rounded-2xl p-4 shadow-lg border border-red-300">
-                                <div className="font-bold mb-2 text-sm text-black">Error Loading NFTs</div>
-                                {vowError && <div className="text-sm text-gray-600">Bond NFT: {vowError}</div>}
-                                {milestonesError && <div className="text-sm text-gray-600">Milestones: {milestonesError}</div>}
+                            <div className="bg-white rounded-2xl px-5 py-4 space-y-1">
+                                <p className="font-anton text-[11px] text-red-600 uppercase tracking-wide">
+                                    Could not load the certificates
+                                </p>
+                                {vowError && <p className="text-[12px] text-gray-500 font-medium">Bond NFT: {vowError}</p>}
+                                {milestonesError && (
+                                    <p className="text-[12px] text-gray-500 font-medium">Milestones: {milestonesError}</p>
+                                )}
                             </div>
                         )}
 
-                        {/* Vow NFT Section */}
-                        <section className="space-y-6">
-                            <div className="flex items-center gap-2 px-1">
-                                <Heart size={20} className="text-pink-500 fill-pink-500" />
-                                <h2 className="text-xl font-black text-gray-900 tracking-tight">Bond Certificates</h2>
+                        <section className="space-y-3">
+                            <div>
+                                <h2 className="text-2xl font-anton text-black tracking-wide">THE CERTIFICATE</h2>
+                                <p className={`${META} mt-0.5`}>Proof the two of you bonded, signed by the chain</p>
                             </div>
 
                             {vowNFTs.length > 0 ? (
-                                <div className="flex overflow-x-auto snap-x snap-mandatory pb-8 -mx-6 px-6 space-x-5 no-scrollbar">
+                                <div className="flex overflow-x-auto snap-x snap-mandatory pb-4 -mx-6 px-6 space-x-5 no-scrollbar">
                                     {vowNFTs.map((nft, index) => {
-                                        // Extract marriage details from attributes
                                         const attrs = nft.metadata?.attributes || [];
                                         const partnerA = attrs.find((a) => a.trait_type === 'partnerA')?.value?.toString();
                                         const partnerB = attrs.find((a) => a.trait_type === 'partnerB')?.value?.toString();
                                         const bondDate = attrs.find((a) => a.trait_type === 'bondDate' || a.trait_type === 'marriageDate')?.value?.toString();
                                         const bondId = attrs.find((a) => a.trait_type === 'bondId' || a.trait_type === 'marriageId')?.value?.toString();
 
-                                        // Format date if available
                                         let formattedDate = '';
                                         if (bondDate) {
                                             const date = new Date(parseInt(bondDate) * 1000);
@@ -140,29 +164,28 @@ export default function GalleryPage() {
                                             });
                                         }
 
-                                        // Create custom description
                                         const customDescription = formattedDate
-                                            ? `Sacred bond verified on ${formattedDate}. Perpetual proof of human commitment.`
+                                            ? `Verified on ${formattedDate}. Perpetual proof of human commitment.`
                                             : nft.metadata?.description;
 
-                                        // Mock image for demo purposes
                                         const MOCK_IMAGE_URL = "https://ipfs.io/ipfs/bafkreigg2jeevy3rhgzgnhk22vsbclszceos3jlzg4otuqal62vwokzwai";
 
-                                        // Add a visual indicator for the latest marriage
+                                        // A dissolved bond keeps its certificate — the past is not deleted,
+                                        // it is just no longer the current one.
                                         const isLatest = index === 0;
 
                                         return (
-                                            <div key={nft.tokenId.toString()} className="min-w-[85%] sm:min-w-[400px] snap-center relative">
+                                            <div key={nft.tokenId.toString()} className="min-w-[85%] sm:min-w-[400px] snap-center">
                                                 <NFTCard
                                                     image={MOCK_IMAGE_URL}
-                                                    name={isLatest ? "Current Bond Certificate" : "Past Bond Evidence"}
+                                                    name={isLatest ? "Current bond" : "A bond that ended"}
                                                     description={customDescription}
                                                     tokenId={nft.tokenId.toString()}
                                                     customMetadata={{
                                                         partnerA,
                                                         partnerB,
                                                         bondDate: formattedDate,
-                                                        bondId: bondId ? bondId.substring(0, 12) + '...' : undefined
+                                                        bondId: bondId ? bondId.substring(0, 12) + '…' : undefined
                                                     }}
                                                 />
                                             </div>
@@ -170,84 +193,49 @@ export default function GalleryPage() {
                                     })}
                                 </div>
                             ) : (
-                                <div className="p-10 bg-white rounded-[2rem] border border-gray-100 shadow-sm text-center space-y-4">
-                                    <div className="w-16 h-16 bg-pink-50 rounded-full flex items-center justify-center mx-auto">
-                                        <Heart size={32} className="text-pink-200" />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <p className="font-black text-gray-900">No Vows Yet</p>
-                                        <p className="text-xs text-gray-400 font-medium">Your first bond will grant you<br />an eternal digital certificate.</p>
-                                    </div>
+                                <div className="bg-white rounded-2xl px-5 py-6">
+                                    <p className="font-anton text-lg text-black tracking-wide">NOTHING HERE YET</p>
+                                    <p className={`${META} mt-0.5`}>
+                                        Your first bond mints the certificate — it cannot be sold or moved
+                                    </p>
                                 </div>
                             )}
                         </section>
 
-                        {/* Milestones Section */}
-                        <section className="space-y-6">
-                            <div className="flex items-center justify-between px-1">
-                                <div className="flex items-center gap-2">
-                                    <Trophy size={20} className="text-amber-500" />
-                                    <h2 className="text-xl font-black text-gray-900 tracking-tight">Milestones</h2>
+                        <section className="space-y-3">
+                            <div className="flex items-end justify-between gap-4">
+                                <div>
+                                    <h2 className="text-2xl font-anton text-black tracking-wide">ANNIVERSARIES</h2>
+                                    <p className={`${META} mt-0.5`}>One for every year you stayed</p>
                                 </div>
                                 <button
                                     onClick={handleMintMilestones}
                                     disabled={mintingState === "sending"}
-                                    className="flex items-center gap-2 px-6 py-2.5 text-xs font-black text-white bg-gray-900 hover:bg-black rounded-full transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-gray-200"
+                                    className="shrink-0 px-5 py-2.5 rounded-xl bg-black text-white font-anton text-[11px] uppercase tracking-[0.15em] hover:bg-gray-900 transition-colors active:scale-[0.98] disabled:opacity-50"
                                 >
-                                    {mintingState === "sending" ? (
-                                        <>
-                                            <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                            <span>CHECKING...</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Sparkles size={14} />
-                                            <span>CHECK & MINT</span>
-                                        </>
-                                    )}
+                                    {mintingState === "sending" ? "Checking…" : "Check & mint"}
                                 </button>
                             </div>
 
-
                             {milestones.length > 0 ? (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                    {milestones.map((nft) => {
-                                        // Custom name and description
-                                        const customName = `Anniversary Year ${nft.year}`;
-                                        const customDesc = `Celebrating year ${nft.year} of verified human partnership.`;
-
-                                        return (
-                                            <NFTCard
-                                                key={nft.tokenId.toString()}
-                                                image={nft.metadata?.image?.replace('ipfs://', 'https://ipfs.io/ipfs/') || ''}
-                                                name={customName}
-                                                description={customDesc}
-                                                tokenId={nft.tokenId.toString()}
-                                                year={nft.year.toString()}
-                                            />
-                                        );
-                                    })}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                                    {milestones.map((nft) => (
+                                        <NFTCard
+                                            key={nft.tokenId.toString()}
+                                            image={nft.metadata?.image?.replace('ipfs://', 'https://ipfs.io/ipfs/') || ''}
+                                            name={`Year ${nft.year}`}
+                                            description={`Celebrating year ${nft.year} of verified human partnership.`}
+                                            tokenId={nft.tokenId.toString()}
+                                            year={nft.year.toString()}
+                                        />
+                                    ))}
                                 </div>
                             ) : (
-                                <div className="p-16 bg-[#1A1A1A] rounded-[2.5rem] text-center space-y-6 relative overflow-hidden">
-                                    {/* Background Glow */}
-                                    <div className="absolute -top-24 -right-24 w-48 h-48 bg-amber-500/10 blur-[60px]" />
-
-                                    <div className="w-20 h-20 bg-white/5 border border-white/10 rounded-3xl flex items-center justify-center mx-auto rotate-12">
-                                        <Trophy size={40} className="text-amber-400 opacity-50" />
-                                    </div>
-                                    <div className="space-y-2 relative">
-                                        <p className="font-black text-white text-lg">No Achievements Yet</p>
-                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] leading-relaxed px-8">
-                                            Milestones are earned on every anniversary of your shared life.
-                                        </p>
-                                    </div>
-                                    <button
-                                        onClick={handleMintMilestones}
-                                        className="relative z-10 mx-auto flex items-center gap-2 text-[10px] font-black text-amber-500 bg-amber-500/10 py-3 px-6 rounded-full border border-amber-500/20 hover:bg-amber-500/20 transition-all uppercase tracking-widest"
-                                    >
-                                        Check Eligibility <ArrowRight size={12} />
-                                    </button>
+                                <div className="bg-white rounded-2xl px-5 py-6">
+                                    <p className="font-anton text-lg text-black tracking-wide">NO ANNIVERSARIES YET</p>
+                                    <p className={`${META} mt-0.5`}>
+                                        The first one mints on the anniversary of the day you bonded
+                                    </p>
                                 </div>
                             )}
                         </section>
@@ -255,84 +243,53 @@ export default function GalleryPage() {
                 )}
             </div>
 
-            {/* Not Available Modal */}
             {showNotAvailableModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    {/* Overlay */}
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
                     <div
-                        className="absolute inset-0 bg-black/40 backdrop-blur-md transition-opacity"
+                        className="absolute inset-0 bg-black/40 backdrop-blur-md"
                         onClick={() => setShowNotAvailableModal(false)}
                     />
-
-                    {/* Modal */}
-                    <div className="relative bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl space-y-6 animate-in fade-in zoom-in duration-300">
-                        {/* Status Icon */}
-                        <div className="flex justify-center">
-                            <div className="w-20 h-20 rounded-full bg-gray-50 flex items-center justify-center text-gray-400">
-                                <Calendar size={40} />
-                            </div>
-                        </div>
-
-                        {/* Text Content */}
+                    <div className="relative bg-white rounded-[2rem] p-7 max-w-sm w-full shadow-2xl space-y-5 animate-in fade-in zoom-in duration-300">
                         <div className="text-center space-y-2">
-                            <h3 className="text-2xl font-black text-gray-900 tracking-tight">Not Yet Available</h3>
+                            <h3 className="text-xl font-black text-gray-900 tracking-tight">Not yet</h3>
                             <p className="text-sm text-gray-500 font-medium leading-relaxed">
-                                Milestone NFTs are unlocked on each anniversary of your bond. Come back after your next anniversary to claim your reward!
+                                Anniversary NFTs unlock on each anniversary of your bond. Come back after the next one
+                                and this button will mint it.
                             </p>
                         </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex flex-col gap-3 pt-2">
-                            <button
-                                onClick={() => setShowNotAvailableModal(false)}
-                                className="w-full py-4 px-6 rounded-2xl text-sm font-black text-white bg-gray-900 hover:bg-black transition-all active:scale-95 shadow-lg shadow-gray-200"
-                            >
-                                Got it
-                            </button>
-                        </div>
+                        <button
+                            onClick={() => setShowNotAvailableModal(false)}
+                            className="w-full py-4 px-6 rounded-xl bg-black text-white font-anton text-[11px] uppercase tracking-[0.15em] hover:bg-gray-900 transition-colors active:scale-[0.98]"
+                        >
+                            Got it
+                        </button>
                     </div>
                 </div>
             )}
 
-            {/* Success Modal */}
             {showSuccessModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    {/* Overlay */}
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
                     <div
-                        className="absolute inset-0 bg-black/40 backdrop-blur-md transition-opacity"
+                        className="absolute inset-0 bg-black/40 backdrop-blur-md"
                         onClick={() => setShowSuccessModal(false)}
                     />
-
-                    {/* Modal */}
-                    <div className="relative bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl space-y-6 animate-in fade-in zoom-in duration-300">
-                        {/* Status Icon */}
-                        <div className="flex justify-center">
-                            <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-500">
-                                <Sparkles size={40} />
-                            </div>
-                        </div>
-
-                        {/* Text Content */}
+                    <div className="relative bg-white rounded-[2rem] p-7 max-w-sm w-full shadow-2xl space-y-5 animate-in fade-in zoom-in duration-300">
                         <div className="text-center space-y-2">
-                            <h3 className="text-2xl font-black text-gray-900 tracking-tight">Milestone Unlocked!</h3>
-                            <p className="text-sm text-emerald-600 font-bold leading-relaxed px-4">
-                                Your milestone NFT is being minted. It represents another year of certified human bond.
+                            <h3 className="text-xl font-black text-gray-900 tracking-tight">Another year, on-chain</h3>
+                            <p className="text-sm text-gray-500 font-medium leading-relaxed">
+                                Your anniversary NFT is being minted. Soulbound, like the bond itself.
                             </p>
                         </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex flex-col gap-3 pt-2">
-                            <button
-                                onClick={() => {
-                                    setShowSuccessModal(false);
-                                    queryClient.invalidateQueries({ queryKey: ['milestoneNFTs'] });
-                                    queryClient.invalidateQueries({ queryKey: ['bondNFTs'] });
-                                }}
-                                className="w-full py-4 px-6 rounded-2xl text-sm font-black text-white bg-gray-900 hover:bg-black transition-all active:scale-95 shadow-lg shadow-gray-200"
-                            >
-                                Refresh Gallery
-                            </button>
-                        </div>
+                        <button
+                            onClick={() => {
+                                setShowSuccessModal(false);
+                                queryClient.invalidateQueries({ queryKey: ['milestoneNFTs'] });
+                                queryClient.invalidateQueries({ queryKey: ['bondNFTs'] });
+                            }}
+                            className="w-full py-4 px-6 rounded-xl bg-black text-white font-anton text-[11px] uppercase tracking-[0.15em] hover:bg-gray-900 transition-colors active:scale-[0.98]"
+                        >
+                            Refresh
+                        </button>
                     </div>
                 </div>
             )}

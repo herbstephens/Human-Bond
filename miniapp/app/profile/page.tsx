@@ -19,6 +19,8 @@ import { useWorldProfile } from '@/lib/worldcoin/useWorldProfile';
 import { USE_MOCKS } from '@/lib/config';
 import { META } from '@/lib/design';
 import { useRouteGuard } from '@/lib/hooks/useLiveStage';
+import { useAgentHydrated } from '@/lib/agent/useAgentHydrated';
+import { StageLoading } from '@/app/components/StageLoading';
 import { ENS_PARENT } from '@/lib/contracts/registrar';
 import { SelfieCheckOverlay } from '@/app/components/agent/SelfieCheck';
 import {
@@ -110,11 +112,16 @@ export default function ProfilePage() {
   // anyone below the dashboard stage back to /home — and /home, reading the SAME
   // contract, will not bounce them here again. Mock keeps its local agent gate.
   const stage = useRouteGuard('/profile');
+  // Hold until the persisted store has landed: `agentReady` reads false on the
+  // first render, and redirecting on that bounced every reload back to /home.
+  const agentHydrated = useAgentHydrated();
   useEffect(() => {
+    if (!agentHydrated) return;
     if (USE_MOCKS && !agentReady) router.replace('/home');
-  }, [agentReady, router]);
+  }, [agentHydrated, agentReady, router]);
 
-  if (USE_MOCKS ? !agentReady : stage !== 'dashboard') return null;
+  if (!agentHydrated) return <StageLoading />;
+  if (USE_MOCKS ? !agentReady : stage !== 'dashboard') return <StageLoading />;
   if (showSelfie)
     return (
       <SelfieCheckOverlay
@@ -265,6 +272,23 @@ export default function ProfilePage() {
           {bonds.map((b) => {
             const pending = b.status === 'awaiting-partner';
             const typeLabel = b.type.charAt(0).toUpperCase() + b.type.slice(1);
+            // A dissolved bond stays on the list as a headstone — it happened,
+            // it is over, and there is nothing left to open. Never a link: the
+            // vault is settled and the page behind it no longer has a subject.
+            if (b.status === 'dissolved')
+              return (
+                <div key={b.id} className="w-full bg-white/50 rounded-2xl px-5 py-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-xl font-anton text-gray-400 tracking-wide truncate min-w-0 line-through">
+                      YOU &amp; {b.partner.toUpperCase()}
+                    </h3>
+                    <span className={`${META} shrink-0`}>Dissolved</span>
+                  </div>
+                  <p className="mt-3 pt-3 border-t border-gray-100 text-[11px] font-medium text-gray-400">
+                    Settled 50/50. You can bond again in 30 days — the cooldown is on-chain.
+                  </p>
+                </div>
+              );
             if (pending)
               return (
                 <div

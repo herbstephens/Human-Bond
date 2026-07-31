@@ -30,6 +30,7 @@ import { USE_MOCKS } from '@/lib/config';
 import { useMarriage } from '@/lib/marriage/context';
 import { useBondVault } from '@/lib/hooks/useBondVault';
 import { useAgentStore } from '@/lib/agent/agentStore';
+import { useAgentHydrated } from '@/lib/agent/useAgentHydrated';
 
 export type LiveStage =
   | 'loading'
@@ -52,6 +53,10 @@ export function useLiveStage(): LiveStage {
     (marriageView?.bondId ?? null) as `0x${string}` | null,
   );
   const agentReady = useAgentStore((s) => s.agentReady);
+  // `agentReady` is persisted, so before rehydration it reads false and this
+  // hook would answer 'create-agent' for a couple who has an agent — sending
+  // them back to /home on every reload. No opinion until the store has landed.
+  const agentHydrated = useAgentHydrated();
 
   // Read once per mount — BondedOnboarding writes it when the vault is born,
   // and every navigation remounts the calling page, so the value stays honest.
@@ -59,6 +64,7 @@ export function useLiveStage(): LiveStage {
     () => typeof window !== 'undefined' && localStorage.getItem(CEREMONY_KEY) === '1',
   );
 
+  if (!agentHydrated) return 'loading';
   if (!isConnected || isDashboardLoading) return 'loading';
   if (!dashboard?.isBonded) return 'unbonded';
   if (isVaultLoading) return 'loading';

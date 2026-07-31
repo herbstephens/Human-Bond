@@ -15,21 +15,22 @@ import type { CooldownStatus } from "@/lib/hooks/useCooldownStatus";
 import type { MilestoneNFTData } from "@/lib/hooks/useMilestoneNFTs";
 import type { VowNFTData } from "@/lib/hooks/useVowNFT";
 
+/** Dissolution is deliberately NOT a scenario: it is a live state driven from
+ *  the agent store by the panel's "End" tab, so mock and live share one shape
+ *  through useDissolution. A snapshot here would be a second, silent source. */
 export type Scenario =
   | "single"
   | "proposalReceived"
   | "proposalSent"
   | "married"
-  | "cooldown"
-  | "dissolutionPending";
+  | "cooldown";
 
 export const SCENARIOS: { id: Scenario; label: string }[] = [
   { id: "single", label: "Fresh start · no bond" },
   { id: "proposalReceived", label: "Bond invite received" },
   { id: "proposalSent", label: "Bond invite sent" },
   { id: "married", label: "Bonded · you & Alice" },
-  { id: "cooldown", label: "Cooldown" },
-  { id: "dissolutionPending", label: "Dissolution pending" },
+  { id: "cooldown", label: "Cooldown · after a dissolution" },
 ];
 
 // Demo starts EMPTY: login → 'Create your first bond' → bond creation → bonded.
@@ -228,32 +229,5 @@ export function getScenarioData(scenario: Scenario): ScenarioData {
       };
     }
 
-    case "dissolutionPending":
-      return {
-        dashboard: emptyDashboard({
-          isBonded: true,
-          partner,
-          pendingYield: TIME(8),
-          timeBalance: TIME(500),
-        }),
-        incomingProposals: [],
-        outgoingProposal: null,
-        hasPendingProposal: false,
-        marriageView: {
-          partnerA: self,
-          partnerB: partner,
-          bondStart: now - B(420 * DAY),
-          lastClaim: now - B(3 * DAY),
-          lastMilestoneYear: B(1),
-          active: true,
-          pendingYield: TIME(8),
-          bondId: "0xbond000000000000000000000000000000000000000000000000000000000003" as `0x${string}`,
-        },
-        dissolutionRequest: { requester: self, requestedAt: now, active: true },
-        cooldown: inactiveCooldown(),
-        activeBondCount,
-        milestones: milestoneNFTs().slice(1),
-        vowNFTs: [bondNFT()],
-      };
   }
 }

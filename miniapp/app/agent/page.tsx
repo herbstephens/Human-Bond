@@ -22,6 +22,8 @@ import { useMarriage } from '@/lib/marriage/context';
 import { useVaultActions } from '@/lib/hooks/useVaultActions';
 import { parseUsdc } from '@/lib/vault/usdc';
 import { useLiveBondSync } from '@/lib/agent/useLiveBondSync';
+import { useAgentHydrated } from '@/lib/agent/useAgentHydrated';
+import { StageLoading } from '@/app/components/StageLoading';
 
 // ---------------------------------------------------------------------------
 
@@ -264,6 +266,7 @@ export default function AgentChatPage() {
     heartbeatChecked,
     clearPendingAgentSpend,
   } = useAgentStore();
+  const agentHydrated = useAgentHydrated();
   const { dashboard, marriageView } = useMarriage();
   useLiveBondSync();
   const {
@@ -297,14 +300,17 @@ export default function AgentChatPage() {
   }, [agentReady, bornPending, lifePingDone, messages.length, lifePing]);
 
   useEffect(() => {
+    // Before rehydration agentReady is false for everyone, which sent an
+    // existing agent to /create — which then bounced it back here. Wait.
+    if (!agentHydrated) return;
     if (!agentReady) router.replace('/agent/create');
-  }, [agentReady, router]);
+  }, [agentHydrated, agentReady, router]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, payments]);
 
-  if (!agentReady) return null;
+  if (!agentHydrated || !agentReady) return <StageLoading />;
   if (bornPending) return <BornOverlay onHello={celebrateBorn} />;
   if (showSelfie)
     return (

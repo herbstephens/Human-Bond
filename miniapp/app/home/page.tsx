@@ -20,19 +20,15 @@ import {
   Copy,
   Check,
   Sparkles,
-  Users,
   Clock,
   ArrowRight,
   Coins,
-  Image as ImageIcon,
   AlertTriangle,
   Timer,
-  Link2,
   MessageCircle,
   Bell,
 } from "lucide-react";
 import Image from "next/image";
-import dynamic from "next/dynamic";
 import { useWorldProfile, displayName, triggerDirectChat } from "@/lib/worldcoin/useWorldProfile";
 import { isInWorldApp } from "@/lib/worldcoin/initMiniKit";
 import { CONTRACT_ADDRESSES, HUMAN_BOND_ABI } from "@/lib/contracts";
@@ -40,15 +36,9 @@ import { MiniKit } from "@worldcoin/minikit-js";
 import { USE_MOCKS } from "@/lib/config";
 import { simulateTx } from "@/lib/mocks/mockTx";
 
-const MarriageDashboard = dynamic(
-  () => import("../components/marriage/MarriageDashboard").then(m => m.MarriageDashboard),
-  { ssr: false }
-);
-
 import { BondedOnboarding } from "../components/bond/BondedOnboarding";
 import { useBondVault } from "@/lib/hooks/useBondVault";
 import { useRouteGuard } from "@/lib/hooks/useLiveStage";
-import { BondDissolutionOverlay } from "../components/marriage/BondDissolutionOverlay";
 
 import { AliveCta } from "../components/agent/AliveCta";
 
@@ -68,22 +58,19 @@ export default function HomePage() {
     isProposalsLoading,
     refetchProposals,
     marriageView,
-    dissolutionRequest,
     isMarriageLoading,
-    activeBondCount,
     cooldown,
   } = useMarriage();
   const { status: notifStatus, requestPermission } = useNotificationPermission();
 
-  // Which post-bond screen to show is decided on-chain: until the Safe exists the
-  // couple is still onboarding (and naming it is what creates it); once it does,
-  // the full dashboard — wallet, dissolve, gallery, milestones, TIME — takes over.
-  const { vault: bondVault, isLoading: isVaultLoading } = useBondVault(
+  // Read only to know whether the vault answer has landed — /home must not flash
+  // "name your wallet" at a couple who already has one. WHICH screen they belong
+  // to is useRouteGuard's call, never this page's.
+  const { isLoading: isVaultLoading } = useBondVault(
     (marriageView?.partnerA ?? null) as `0x${string}` | null,
     (marriageView?.partnerB ?? null) as `0x${string}` | null,
     (marriageView?.bondId ?? null) as `0x${string}` | null,
   );
-  const vaultCreated = Boolean(bondVault?.isCreated);
 
   const [isLoading, setIsLoading] = useState(true);
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
@@ -94,26 +81,9 @@ export default function HomePage() {
   const [awaitingBond, setAwaitingBond] = useState(
     () => typeof window !== "undefined" && peekBondCelebrationFlag()
   );
-  const [dissolutionOverlay, setDissolutionOverlay] = useState<{ partnerName?: string } | null>(null);
-  const showDissolution = dissolutionOverlay !== null;
-
   const handleBondArrived = useCallback(() => {
     consumeBondCelebrationFlag();
     setAwaitingBond(false);
-  }, []);
-
-  const handleDissolutionComplete = useCallback(() => {
-    setDissolutionOverlay(null);
-  }, []);
-
-  const handleDissolved = useCallback((partnerName?: string) => {
-    setDissolutionOverlay({ partnerName });
-    void refetch();
-    void refetchProposals();
-  }, [refetch, refetchProposals]);
-
-  const handleDissolutionFailed = useCallback(() => {
-    setDissolutionOverlay(null);
   }, []);
 
   // Live countdown for cooldown
@@ -222,20 +192,6 @@ export default function HomePage() {
     };
   }, [awaitingBond, isBonded, refetch, handleBondArrived]);
 
-  // Poll dashboard while waiting for on-chain dissolution confirmation
-  useEffect(() => {
-    if (!showDissolution || !isBonded) return;
-    const pollId = setInterval(() => {
-      void refetch();
-      void refetchProposals();
-    }, 1500);
-    const timeoutId = setTimeout(handleDissolutionComplete, 20000);
-    return () => {
-      clearInterval(pollId);
-      clearTimeout(timeoutId);
-    };
-  }, [showDissolution, isBonded, refetch, refetchProposals, handleDissolutionComplete]);
-
   /**
    * Check if user is verified before showing content
    * Redirect to landing page if not verified
@@ -260,7 +216,7 @@ export default function HomePage() {
   // landing before it resolves would flash "name your wallet" at a couple who has one.
   const isDataLoading = isConnected && (isDashboardLoading || isProposalsLoading || (dashboard?.isBonded && (isMarriageLoading || isVaultLoading)));
 
-  if ((isLoading || isDataLoading || awaitingBond) && !showDissolution) {
+  if (isLoading || isDataLoading || awaitingBond) {
     return (
       <div className="min-h-screen bg-[#E8E8E8] flex flex-col items-center justify-center p-6">
         <div className="relative">
@@ -275,20 +231,6 @@ export default function HomePage() {
     );
   }
 
-  // Overlay active — render nothing but the background + overlay.
-  // This prevents any flash of home content while the animation plays.
-  if (showDissolution) {
-    return (
-      <div className="min-h-screen bg-[#E8E8E8]">
-        <BondDissolutionOverlay
-          isReady={!isBonded}
-          partnerName={dissolutionOverlay.partnerName}
-          onComplete={handleDissolutionComplete}
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-[#E8E8E8] flex flex-col">
       {/* Main content - centered by default, top-aligned when married for 20px gap */}
@@ -296,7 +238,7 @@ export default function HomePage() {
         !isBonded && hasIncomingProposals ? "justify-start pt-4" : "justify-center py-8"
       }`}>
         {!isBonded ? (
-          <div className={`flex flex-col items-center text-center space-y-4 max-w-lg w-full ${showDissolution ? "" : "animate-in fade-in zoom-in duration-700"}`}>
+          <div className="flex flex-col items-center text-center space-y-4 max-w-lg w-full animate-in fade-in zoom-in duration-700">
             {/* Incoming Proposals — compact notification card */}
             {hasIncomingProposals && (
               <Link

@@ -154,8 +154,21 @@ export type Bond = {
   id: string;
   partner: string;
   type: 'inheritance' | 'business' | 'friends';
-  status: 'active' | 'awaiting-partner';
+  status: 'active' | 'awaiting-partner' | 'dissolved';
 };
+
+/** An open dissolution request. Mirrors `HumanBond.dissolutionRequests`: one per
+ *  bond, started by ONE partner alone (the other has no veto), cancellable only
+ *  by the requester and only inside the delay, then executable by anyone. */
+export type Dissolution = {
+  /** Who pulled the trigger. The partner cannot cancel — that is contract truth. */
+  requester: 'you' | 'partner';
+  /** Epoch ms. The panel back-dates this to walk the timer without waiting. */
+  requestedAt: number;
+};
+
+/** `dissolutionDelay()` on mainnet = 3 days between requesting and executing. */
+export const DISSOLUTION_DELAY_MS = 3 * 24 * 60 * 60 * 1000;
 
 /** Playground fixtures. In live mode (USE_MOCKS=0) every fixture below is
  *  EMPTY: the chain seeds the store via useLiveBondSync, never these demo
@@ -280,6 +293,8 @@ type AgentState = {
   standingOrders: Record<string, number>;
   /** Money the agents put to work, per bond — visible where the money lives. */
   investments: Record<string, { amount: number; apr: number }>;
+  /** Open dissolution requests, per bond. Absent = the bond is not ending. */
+  dissolutions: Record<string, Dissolution>;
   /** Proof of life: has the agent pinged you, and did you check in? */
   lifePingDone: boolean;
   heartbeatOk: boolean;
@@ -332,6 +347,12 @@ type AgentState = {
   invest: (bondId: string, amount: number, apr: number) => void;
   /** Take money OUT of the invested package, back to liquid. Fails hard beyond the invested amount. */
   divest: (bondId: string, amount: number) => void;
+  /** Start the 3-day clock. Either partner alone — `by` is who tapped. */
+  requestDissolution: (bondId: string, by?: 'you' | 'partner') => void;
+  /** Only the requester, only inside the delay. */
+  cancelDissolution: (bondId: string) => void;
+  /** Past the delay: the bond ends, the vault splits 50/50, your half stays yours. */
+  executeDissolution: (bondId: string) => void;
   /** The agent writes YOU first: proof-of-life reminder + trustee heads-up. */
   lifePing: () => void;
   heartbeatChecked: () => void;
@@ -406,6 +427,7 @@ export const useAgentStore = create<AgentState>()(
         deposits: [],
         standingOrders: { ...STANDING_ORDERS },
         investments: {},
+        dissolutions: {},
         lifePingDone: false,
         heartbeatOk: false,
         heartbeatDaysLeft: HEARTBEAT_START_DAYS_LEFT,
@@ -866,6 +888,60 @@ export const useAgentStore = create<AgentState>()(
             return { investments };
           }),
 
+        requestDissolution: (bondId, by = 'you') =>
+          set((s) => {
+            if (s.dissolutions[bondId]) throw new Error(`dissolution already open on ${bondId}`);
+            return {
+              dissolutions: { ...s.dissolutions, [bondId]: { requester: by, requestedAt: Date.now() } },
+            };
+          }),
+
+        cancelDissolution: (bondId) =>
+          set((s) => {
+            const open = s.dissolutions[bondId];
+            if (!open) throw new Error(`no dissolution request on ${bondId}`);
+            // Contract truth: the partner has no cancel, and the window shuts
+            // the moment the delay elapses. Offering it here would only revert.
+            if (open.requester !== 'you') throw new Error(`only the requester can cancel ${bondId}`);
+            if (Date.now() - open.requestedAt >= DISSOLUTION_DELAY_MS) {
+              throw new Error(`cancel window closed on ${bondId}`);
+            }
+            const dissolutions = { ...s.dissolutions };
+            delete dissolutions[bondId];
+            return { dissolutions };
+          }),
+
+        executeDissolution: (bondId) => {
+          const state = get();
+          const open = state.dissolutions[bondId];
+          if (!open) throw new Error(`no dissolution request on ${bondId}`);
+          if (Date.now() - open.requestedAt < DISSOLUTION_DELAY_MS) {
+            throw new Error(`dissolution delay not met on ${bondId}`);
+          }
+          const partner = state.bonds.find((b) => b.id === bondId)?.partner ?? 'your partner';
+          const share = Math.round((state.vaultBalances[bondId] ?? 0) / 2);
+          set((s) => {
+            const dissolutions = { ...s.dissolutions };
+            delete dissolutions[bondId];
+            const investments = { ...s.investments };
+            delete investments[bondId];
+            return {
+              dissolutions,
+              investments,
+              // The vault settles: everything leaves it, half to each human.
+              vaultBalances: { ...s.vaultBalances, [bondId]: 0 },
+              standingOrders: { ...s.standingOrders, [bondId]: 0 },
+              bonds: s.bonds.map((b) => (b.id === bondId ? { ...b, status: 'dissolved' as const } : b)),
+            };
+          });
+          get()._enqueue([
+            {
+              type: 'text',
+              text: `It's done. The bond with ${partner} is closed on-chain and the vault settled 50/50 — ${share} USDC landed in your own wallet. The name and the will went with it. I keep everything I learned about you; that part was never theirs.`,
+            },
+          ]);
+        },
+
         lifePing: () => {
           if (get().lifePingDone) return;
           const days = get().heartbeatDaysLeft;
@@ -933,6 +1009,7 @@ export const useAgentStore = create<AgentState>()(
             deposits: [],
             standingOrders: { ...STANDING_ORDERS },
             investments: {},
+            dissolutions: {},
             lifePingDone: false,
             heartbeatOk: false,
             heartbeatDaysLeft: HEARTBEAT_START_DAYS_LEFT,
@@ -962,6 +1039,7 @@ export const useAgentStore = create<AgentState>()(
         deposits: s.deposits,
         standingOrders: s.standingOrders,
         investments: s.investments,
+        dissolutions: s.dissolutions,
         lifePingDone: s.lifePingDone,
         heartbeatOk: s.heartbeatOk,
         heartbeatDaysLeft: s.heartbeatDaysLeft,

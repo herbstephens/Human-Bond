@@ -26,6 +26,11 @@ import { useBondVault } from '@/lib/hooks/useBondVault';
 import { useVaultActions } from '@/lib/hooks/useVaultActions';
 import { useVaultTransfers } from '@/lib/hooks/useVaultTransfers';
 import { SendFundsForm } from '@/app/components/vault/SendFundsForm';
+import { DissolveBond } from '@/app/components/bond/DissolveBond';
+import { useDissolution } from '@/lib/hooks/useDissolution';
+import { useAgentHydrated } from '@/lib/agent/useAgentHydrated';
+import { StageLoading } from '@/app/components/StageLoading';
+import { BondDissolutionOverlay } from '@/app/components/marriage/BondDissolutionOverlay';
 
 // --- tiny self-contained chat for the trustee room ------------------------
 
@@ -99,6 +104,7 @@ export default function BondProfilePage() {
     });
     return proposeSpend(to, amount, willExecuteImmediately);
   };
+  const agentHydrated = useAgentHydrated();
   const params = useParams<{ bondId: string }>();
   const {
     agentReady, answers, payments, heirs, addHeir, requestRemoveHeir,
@@ -148,6 +154,16 @@ export default function BondProfilePage() {
   const [heirShare, setHeirShare] = useState(100);
   const [confirmRemove, setConfirmRemove] = useState<Heir | null>(null);
   const [ruleDraft, setRuleDraft] = useState('');
+  // The closing ceremony. It must be claimed BEFORE the write lands: executing
+  // flips the bond to 'dissolved', and the guard below would otherwise redirect
+  // out from under the overlay — the goodbye would never play.
+  const [ceremony, setCeremony] = useState<'off' | 'confirming' | 'done'>('off');
+  // Ending the bond: chain in live, agent store in mock — one shape either way.
+  const {
+    dissolution, delayMs: dissolutionDelayMs, state: dissolutionTxState,
+    error: dissolutionError, request: requestDissolution,
+    cancel: cancelDissolution, execute: executeDissolution,
+  } = useDissolution(bond.id);
   const endRef = useRef<HTMLDivElement>(null);
   const greeted = useRef(false);
   const rogueShown = useRef(false);
@@ -160,9 +176,19 @@ export default function BondProfilePage() {
   // Live routing belongs to the contract (lib/hooks/useLiveStage.ts) — /bond/*
   // lives on the dashboard surface. Mock keeps its local agent gate.
   useRouteGuard('/bond');
+  // Both gates below read PERSISTED state (agentReady, bond.status). Acting on
+  // it before rehydration is what made every deep link to a bond land on /home.
   useEffect(() => {
+    if (!agentHydrated) return;
     if (USE_MOCKS && !agentReady) router.replace('/home');
-  }, [agentReady, router]);
+  }, [agentHydrated, agentReady, router]);
+
+  // A dissolved bond has no dashboard. The ceremony owns the exit when it is
+  // running; this only catches a direct visit (deep link, back button).
+  useEffect(() => {
+    if (!agentHydrated) return;
+    if (bond.status === 'dissolved' && ceremony === 'off') router.replace('/profile');
+  }, [agentHydrated, bond.status, ceremony, router]);
 
   // PROACTIVE: the trustee consulted both agents overnight — the humans get
   // an opportunity, not a question. Intro line, then the push-style card.
@@ -215,7 +241,7 @@ export default function BondProfilePage() {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [msgs, yieldState, liveAction, busy]);
 
-  if (!agentReady) return null;
+  if (!agentHydrated || !agentReady) return <StageLoading />;
 
   const threshold = answers.threshold?.id === 't50' ? '€50' : answers.threshold?.id === 'unusual' ? 'unusual only' : '€200';
 
@@ -799,6 +825,26 @@ export default function BondProfilePage() {
           </div>
         </section>
 
+        {/* Memory — the bond's soulbound certificates. Tap the card, no chevron. */}
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-2xl font-anton text-black tracking-wide">MEMORY</h2>
+            <p className={`${META} mt-0.5`}>What the chain keeps of you two</p>
+          </div>
+          <button
+            onClick={() => router.push(`/marriage/gallery?bond=${bond.id}`)}
+            className="w-full bg-white rounded-2xl px-5 py-4 text-left transition-all hover:shadow-md active:scale-[0.99]"
+          >
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="font-anton text-lg text-black tracking-wide">CERTIFICATE &amp; ANNIVERSARIES</p>
+                <p className={`${META} mt-0.5`}>Soulbound — they outlive the bond itself</p>
+              </div>
+              <p className={`${META} shrink-0`}>Open</p>
+            </div>
+          </button>
+        </section>
+
         {/* Rules — settings, at the bottom where settings belong */}
         <section className="space-y-3">
           <div>
@@ -977,6 +1023,26 @@ export default function BondProfilePage() {
             </div>
           </section>
         )}
+
+        {/* The exit, last on the page — reachable, never inviting. */}
+        <DissolveBond
+          partner={bond.partner}
+          balance={balance}
+          dissolution={dissolution}
+          delayMs={dissolutionDelayMs}
+          busy={dissolutionTxState === 'sending'}
+          error={dissolutionError}
+          onRequest={requestDissolution}
+          onCancel={cancelDissolution}
+          onExecute={async () => {
+            // 'confirming' first: it both claims the ceremony ahead of the store
+            // flip and gives the overlay its waiting phase while the tx is mined.
+            setCeremony('confirming');
+            const ok = await executeDissolution();
+            setCeremony(ok ? 'done' : 'off');
+            return ok;
+          }}
+        />
       </main>
 
       {/* Floating hand-off to YOUR OWN agent — Claude-app-style pill, only while
@@ -990,6 +1056,16 @@ export default function BondProfilePage() {
           <MessageCircle size={14} />
           <span className="text-[11px] font-bold">Your agent</span>
         </button>
+      )}
+
+      {/* Spinner while the write settles, then the goodbye, then home — where an
+          unbonded human belongs (useLiveStage sends them there anyway). */}
+      {ceremony !== 'off' && (
+        <BondDissolutionOverlay
+          isReady={ceremony === 'done'}
+          partnerName={bond.partner}
+          onComplete={() => router.replace('/home')}
+        />
       )}
 
       {/* ACHTUNG: removing someone from the will is a two-person decision */}

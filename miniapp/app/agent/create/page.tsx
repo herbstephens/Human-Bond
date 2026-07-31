@@ -19,6 +19,7 @@ import {
   INTERVIEW_QUESTIONS,
   useAgentStore,
 } from '@/lib/agent/agentStore';
+import { useAgentHydrated } from '@/lib/agent/useAgentHydrated';
 
 /** Simulated voice answers per question — the dummy's stand-in for real STT. */
 const VOICE_SAMPLES: Record<string, string> = {
@@ -66,6 +67,7 @@ export default function AgentCreatePage() {
   const router = useRouter();
   const { answers, askedIds, importedSources, agentReady, bonds, answer, connectSources, completeInterview, resetAgent } =
     useAgentStore();
+  const agentHydrated = useAgentHydrated();
   const [draft, setDraft] = useState('');
   const [listening, setListening] = useState(false);
   const [selectedSources, setSelectedSources] = useState<string[]>(['linkedin', 'chatgpt']);
@@ -160,8 +162,11 @@ export default function AgentCreatePage() {
   // Once the agent exists — whether the interview just finished or one existed
   // all along — the onboarding continues on the bond itself, not in the chat.
   useEffect(() => {
+    // `bonds` is persisted too — redirecting before rehydration would pick the
+    // wrong destination as well as the wrong moment.
+    if (!agentHydrated) return;
     if (agentReady) router.replace(bonds[0] ? `/bond/${bonds[0].id}` : '/agent');
-  }, [agentReady, bonds, router]);
+  }, [agentHydrated, agentReady, bonds, router]);
 
   const runImport = () => {
     setImportState('importing');
