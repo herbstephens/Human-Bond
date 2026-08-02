@@ -9,7 +9,7 @@
  * a live simulation. The "acting as" toggle is what makes the two-partner
  * approval flow testable by one person.
  */
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMockStore } from "./mockStore";
@@ -17,6 +17,7 @@ import { SCENARIOS, type Scenario } from "./scenarios";
 import { useMockVaultStore, MOCK_VAULT } from "./vaultStore";
 import { formatUsdc, shortAddress } from "@/lib/vault/usdc";
 import { useAgentStore, DISSOLUTION_DELAY_MS } from "@/lib/agent/agentStore";
+import { useNow } from "@/lib/hooks/useNow";
 
 export function MockScenarioPanel() {
   const router = useRouter();
@@ -38,11 +39,7 @@ export function MockScenarioPanel() {
   const endDissolution = endBond ? dissolutions[endBond.id] : undefined;
   // The panel has to know whether the delay elapsed, and that answer changes
   // with the clock — so it ticks instead of reading Date.now() during render.
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
+  const now = useNow(Boolean(endDissolution));
   const endReady = Boolean(endDissolution) && now - endDissolution!.requestedAt >= DISSOLUTION_DELAY_MS;
 
   // --- personal agent -------------------------------------------------------
@@ -97,10 +94,12 @@ export function MockScenarioPanel() {
       delete next[endBond.id];
       return {
         dissolutions: next,
-        vaultBalances: { ...s.vaultBalances, [endBond.id]: s.vaultBalances[endBond.id] || 1000 },
         bonds: s.bonds.map((b) => (b.id === endBond.id ? { ...b, status: "active" as const } : b)),
       };
     });
+    // The vault sim is the source the dashboard mirrors — refill THAT, not the
+    // mirrored copy, or the balance would snap back to 0 on the next tick.
+    vault.reset();
     select("married");
   };
 
@@ -115,7 +114,7 @@ export function MockScenarioPanel() {
 
   const openAsApprover = (spendId: `0x${string}`) => {
     // The notification lands on the *other* partner. Switch identity first so
-    // the pending page shows Approve / Decline instead of "waiting".
+    // the list shows Approve / Decline instead of "waiting".
     const spend = vault.spends.find((s) => s.spendId === spendId);
     if (spend) {
       const approver =
@@ -124,8 +123,9 @@ export function MockScenarioPanel() {
           : MOCK_VAULT.SELF;
       vault.setActingAs(approver);
     }
-    setTab("vault");
-    router.push(`/vault/pending/${spendId}`);
+    // The bond dashboard is where pending money lives now — not the legacy
+    // /vault screen, which nothing in the current flow links to.
+    router.push(`/bond/${useAgentStore.getState().defaultBondId}`);
   };
 
   return (
@@ -364,6 +364,27 @@ export function MockScenarioPanel() {
                   >
                     → Open the agent chat
                   </button>
+                  {agentReady && (
+                    <button
+                      onClick={() => {
+                        // The agents negotiate a shared spend and hand it to the
+                        // humans — it must surface on the bond, not only in chat.
+                        const s = useAgentStore.getState();
+                        const b = s.bonds.find((x) => x.id === s.defaultBondId);
+                        s.proposeShared(
+                          "Anniversary dinner",
+                          "restaurant.eth",
+                          120,
+                          "Both calendars were free — table for two, Saturday",
+                          b ? { id: b.id, partner: b.partner } : undefined,
+                        );
+                        router.push(`/bond/${s.defaultBondId}`);
+                      }}
+                      className="text-left text-[11px] font-bold px-3 py-2 rounded-lg bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 transition-colors"
+                    >
+                      → Agent proposes a shared spend
+                    </button>
+                  )}
                 </div>
 
                 <p className="text-[9px] text-white/30 px-1 leading-relaxed">
@@ -431,7 +452,13 @@ export function MockScenarioPanel() {
                       Skip the 3 days → finalize state
                     </button>
                     <button
-                      onClick={() => endBond && useAgentStore.getState().executeDissolution(endBond.id)}
+                      onClick={() => {
+                        if (!endBond) return;
+                        // Same two steps as useDissolution: settle the vault sim
+                        // FIRST, or the mirror puts the money back a tick later.
+                        vault.settle();
+                        useAgentStore.getState().executeDissolution(endBond.id);
+                      }}
                       disabled={!endReady}
                       className="text-left text-[11px] font-bold px-3 py-2 rounded-lg bg-red-500/20 text-red-300 hover:bg-red-500/30 disabled:opacity-30 disabled:hover:bg-red-500/20 transition-colors"
                     >

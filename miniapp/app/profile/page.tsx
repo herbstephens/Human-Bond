@@ -18,6 +18,7 @@ import { useLiveBondSync } from '@/lib/agent/useLiveBondSync';
 import { useWorldProfile } from '@/lib/worldcoin/useWorldProfile';
 import { USE_MOCKS } from '@/lib/config';
 import { META } from '@/lib/design';
+import { formatMoney } from '@/lib/vault/usdc';
 import { useRouteGuard } from '@/lib/hooks/useLiveStage';
 import { useAgentHydrated } from '@/lib/agent/useAgentHydrated';
 import { StageLoading } from '@/app/components/StageLoading';
@@ -337,7 +338,7 @@ export default function ProfilePage() {
                     )}
                   </h3>
                   <p className="text-2xl font-anton text-black tracking-wide tabular-nums shrink-0">
-                    {Math.round(vaultBalances[b.id] ?? 0).toLocaleString('en-US')}
+                    {formatMoney(vaultBalances[b.id] ?? 0)}
                     <span className={`${META} ml-1`}>USDC</span>
                   </p>
                 </div>

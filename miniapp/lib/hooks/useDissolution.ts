@@ -16,6 +16,9 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { readContract } from '@wagmi/core';
+import { wagmiConfig } from '@/lib/wagmi/config';
 import { MiniKit } from '@worldcoin/minikit-js';
 import { USE_MOCKS } from '@/lib/config';
 import { simulateTx } from '@/lib/mocks/mockTx';
@@ -23,6 +26,7 @@ import { CONTRACT_ADDRESSES, HUMAN_BOND_ABI } from '@/lib/contracts';
 import { sendNotification } from '@/lib/hooks/useNotify';
 import { useMarriage } from '@/lib/marriage/context';
 import { useAgentStore, DISSOLUTION_DELAY_MS, type Dissolution } from '@/lib/agent/agentStore';
+import { useMockVaultStore } from '@/lib/mocks/vaultStore';
 import { explainTxError, type FriendlyTxError } from '@/lib/worldcoin/txErrors';
 
 export type TxState = 'idle' | 'sending' | 'success' | 'error';
@@ -35,10 +39,32 @@ class MiniKitError extends Error {
   }
 }
 
+/**
+ * `dissolutionDelay()` straight from the proxy. Verified 2026-07-31 as 259200s
+ * (3 days), matching the initializer — but it is `onlyOwner`-settable, so a
+ * hardcoded constant would silently desync the countdown the day someone
+ * shortens it for a demo. The constant stays as the pre-read fallback.
+ */
+function useDissolutionDelayMs(): number {
+  const { data } = useQuery({
+    queryKey: ['dissolutionDelay'],
+    queryFn: async () =>
+      (await readContract(wagmiConfig, {
+        address: CONTRACT_ADDRESSES.HUMAN_BOND as `0x${string}`,
+        abi: HUMAN_BOND_ABI,
+        functionName: 'dissolutionDelay',
+      })) as bigint,
+    enabled: !USE_MOCKS,
+    staleTime: 60 * 60 * 1000,
+  });
+  return data ? Number(data) * 1000 : DISSOLUTION_DELAY_MS;
+}
+
 export function useDissolution(bondId: string, onDone?: () => void) {
   const [state, setState] = useState<TxState>('idle');
   const [error, setError] = useState<string | null>(null);
   const [txError, setTxError] = useState<FriendlyTxError | null>(null);
+  const delayMs = useDissolutionDelayMs();
 
   const { address: myWallet, dashboard, dissolutionRequest, refetchDashboard } = useMarriage();
   const partnerAddress = (dashboard?.partner ?? null) as `0x${string}` | null;
@@ -149,6 +175,9 @@ export function useDissolution(bondId: string, onDone?: () => void) {
           // so an ex-partner is unbonded AND barred from re-bonding for 30 days.
           // Landing on 'single' would show a fresh user who can propose again.
           await simulateTx('cooldown', 'Dissolve the bond');
+          // Settle the simulated Safe too, or the vault mirror would restore the
+          // pre-dissolution balance a tick later and the money would come back.
+          useMockVaultStore.getState().settle();
           mockExecute(bondId);
           return;
         }
@@ -179,5 +208,5 @@ export function useDissolution(bondId: string, onDone?: () => void) {
     setTxError(null);
   }, []);
 
-  return { dissolution, delayMs: DISSOLUTION_DELAY_MS, state, error, txError, request, cancel, execute, reset };
+  return { dissolution, delayMs, state, error, txError, request, cancel, execute, reset };
 }

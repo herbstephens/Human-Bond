@@ -9,11 +9,15 @@
  * The module never holds funds itself — the money always lives in the couple's Safe.
  */
 
-// Worldchain mainnet (chain 480) — V5. Defaults are PRODUCTION; NEXT_PUBLIC_* env vars override
-// them for the TEST environment (see .env.local). Safe canonical + USDC are the same across envs.
+// Worldchain mainnet (chain 480). Defaults are the LIVE, whitelisted deployment
+// (see lib/contracts/index.ts for how they were verified); NEXT_PUBLIC_* still
+// overrides. Safe canonical + USDC are the same across every environment.
 export const VAULT_ADDRESSES = {
   /** Our Safe module. The only vault contract the mini app calls directly. */
-  BOND_VAULT_MODULE: (process.env.NEXT_PUBLIC_BOND_VAULT_MODULE ?? '0x59443F69cfa8553DAF1C488033B8707f87966B0c') as `0x${string}`,
+  // The module the LIVE proxy is wired to and the Developer Portal whitelists.
+  // Verified on-chain 2026-08-02: humanBond() -> the proxy, token() -> USDC,
+  // smallSpendThreshold() = 10 USDC, dailyFreeLimit() = 25 USDC.
+  BOND_VAULT_MODULE: (process.env.NEXT_PUBLIC_BOND_VAULT_MODULE ?? '0x86a2b943c17A9d1EA8C86ec45C2e7650BDdE1617') as `0x${string}`,
   /** Delegatecall helper that enables the module during the Safe's setup(). Never called from the app. */
   MODULE_SETUP: (process.env.NEXT_PUBLIC_MODULE_SETUP ?? '0x0786ab6d36308d1E2f456ee9fb3Cf42b4cc27349') as `0x${string}`,
   /** Canonical Safe v1.4.1 deployments (deployed by Safe, not by us). */

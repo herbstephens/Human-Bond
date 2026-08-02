@@ -12,9 +12,11 @@
  */
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { AlertTriangle, Check } from 'lucide-react';
 import { META } from '@/lib/design';
+import { formatMoney } from '@/lib/vault/usdc';
+import { useNow } from '@/lib/hooks/useNow';
 import { type Dissolution } from '@/lib/agent/agentStore';
 
 /** "2D 14H 09M" — the wait, in the same Anton uppercase as every other number. */
@@ -55,19 +57,16 @@ export function DissolveBond({
   onExecute: () => Promise<boolean>;
 }) {
   const [confirm, setConfirm] = useState<Confirm | null>(null);
-  // Re-render once a second so the countdown is alive rather than a snapshot.
-  // Unconditional: gating the timer on `dissolution` leaves `now` stale from
-  // mount, so the first second after a request would show the wrong remainder.
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
+  // Ticks ONLY while a dissolution is open — no clock, no re-render, the rest
+  // of the time. Never stale: the snapshot is read at render (lib/hooks/useNow).
+  const now = useNow(Boolean(dissolution));
 
   const remaining = dissolution ? dissolution.requestedAt + delayMs - now : 0;
   const canExecute = Boolean(dissolution) && remaining <= 0;
   const youRequested = dissolution?.requester === 'you';
-  const half = Math.round(balance / 2);
+  // Truncated, not rounded: promising each side more than half of a small
+  // vault is exactly the number a leaving partner will check.
+  const half = formatMoney(balance / 2);
 
   return (
     <section className="space-y-3">
@@ -138,7 +137,7 @@ export function DissolveBond({
               onClick={() => setConfirm('execute')}
               className="w-full py-3.5 px-6 rounded-xl font-anton text-[11px] text-white bg-black uppercase tracking-[0.15em] hover:bg-gray-900 transition-colors active:scale-[0.98]"
             >
-              Finalize · split {balance} USDC
+              Finalize · split {formatMoney(balance)} USDC
             </button>
           ) : youRequested ? (
             <button
@@ -187,7 +186,7 @@ export function DissolveBond({
                   </>
                 ) : (
                   <>
-                    This is the irreversible one. The bond closes on Worldchain, the {balance} USDC in
+                    This is the irreversible one. The bond closes on Worldchain, the {formatMoney(balance)} USDC in
                     the vault splits 50/50, and the will dies with it. Neither of you can bond again
                     for 30 days.
                   </>

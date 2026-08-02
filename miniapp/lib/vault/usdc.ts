@@ -16,16 +16,55 @@ export function formatUsdc(amount: bigint, maxFractionDigits = 2): string {
   const whole = abs / UNIT;
   const fraction = abs % UNIT;
 
-  const fractionStr = fraction.toString().padStart(USDC_DECIMALS, '0').slice(0, maxFractionDigits);
+  const padded = fraction.toString().padStart(USDC_DECIMALS, '0');
+  // Dust guard: 4000n is 0.004 USDC, which at 2 digits renders "0.00" — a real
+  // balance displayed as empty. Widen just enough to keep it visible.
+  const digits =
+    whole === BigInt(0) && fraction > BigInt(0) && padded.slice(0, maxFractionDigits) === '0'.repeat(maxFractionDigits)
+      ? padded.replace(/0+$/, '').length
+      : maxFractionDigits;
+
+  const fractionStr = padded.slice(0, digits);
   const wholeStr = whole.toLocaleString('en-US');
 
   const sign = negative ? '-' : '';
-  return maxFractionDigits > 0 ? `${sign}${wholeStr}.${fractionStr}` : `${sign}${wholeStr}`;
+  return digits > 0 ? `${sign}${wholeStr}.${fractionStr}` : `${sign}${wholeStr}`;
 }
 
 /** Format with the ticker, e.g. "8.50 USDC". */
 export function formatUsdcWithSymbol(amount: bigint): string {
   return `${formatUsdc(amount)} USDC`;
+}
+
+/**
+ * A balance for a dashboard, from human units (not base units).
+ *
+ * "Clean whole numbers on dashboards" (docs/design-system.md §4) is the right
+ * default and stays the default — but it was implemented as `Math.round`, which
+ * lies about small real balances: `Math.round(0.98)` reads 1, and
+ * `Math.round(0.4)` reads 0 — a funded multisig showing empty. On a money screen
+ * that is the worst possible rounding direction.
+ *
+ * So: whole amounts stay whole, and a fraction that exists is never hidden.
+ * Truncated rather than rounded, because a balance must never claim more than
+ * the Safe actually holds. Sub-cent dust keeps enough digits to stay visible.
+ */
+export function formatMoney(amount: number): string {
+  if (!Number.isFinite(amount)) return '0';
+  const negative = amount < 0;
+  const abs = Math.abs(amount);
+  const truncate = (digits: number) => Math.floor(abs * 10 ** digits) / 10 ** digits;
+
+  let out: string;
+  if (Number.isInteger(abs)) {
+    out = abs.toLocaleString('en-US');
+  } else if (truncate(2) >= 0.01) {
+    out = truncate(2).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  } else {
+    // Below a cent but not zero — show it rather than round it out of existence.
+    out = truncate(USDC_DECIMALS).toLocaleString('en-US', { maximumFractionDigits: USDC_DECIMALS });
+  }
+  return negative ? `-${out}` : out;
 }
 
 /**

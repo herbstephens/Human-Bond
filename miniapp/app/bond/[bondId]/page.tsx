@@ -12,7 +12,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, ArrowDownToLine, ArrowUp, Bell, Check, Copy, MessageCircle, Send, X } from 'lucide-react';
 import { AliveCta } from '@/app/components/agent/AliveCta';
-import { formatUsdc, shortAddress } from '@/lib/vault/usdc';
+import { formatUsdc, formatMoney, shortAddress } from '@/lib/vault/usdc';
 import { VAULT_ADDRESSES, VAULT_RULES } from '@/lib/contracts/vault';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAgentStore, type Heir } from '@/lib/agent/agentStore';
@@ -29,6 +29,9 @@ import { SendFundsForm } from '@/app/components/vault/SendFundsForm';
 import { DissolveBond } from '@/app/components/bond/DissolveBond';
 import { useDissolution } from '@/lib/hooks/useDissolution';
 import { useAgentHydrated } from '@/lib/agent/useAgentHydrated';
+import { PendingMoney } from '@/app/components/bond/PendingMoney';
+import { useVaultSpends } from '@/lib/hooks/useVaultSpends';
+import { useMockVaultStore } from '@/lib/mocks/vaultStore';
 import { StageLoading } from '@/app/components/StageLoading';
 import { BondDissolutionOverlay } from '@/app/components/marriage/BondDissolutionOverlay';
 
@@ -78,6 +81,7 @@ export default function BondProfilePage() {
   const [sendOpen, setSendOpen] = useState(false);
   const {
     state: spendState, error: spendError, txError: spendTxError, proposeSpend, reset: resetSpend,
+    approveSpend, cancelSpend,
   } = useVaultActions({
     bondId: lBondId,
     partnerA: lPartnerA,
@@ -139,6 +143,14 @@ export default function BondProfilePage() {
     refetch: refetchTransfers,
   } = useVaultTransfers(liveVault?.address ?? null);
   const [shownTransfers, setShownTransfers] = useState(5);
+  // Pending money: manual sends waiting for a signature (module/sim) plus the
+  // agent proposals waiting for a human release. Both belong on this account.
+  const { spends, refetch: refetchSpends } = useVaultSpends(lBondId, lPartnerA, lPartnerB);
+  const mockActingAs = useMockVaultStore((s) => s.actingAs);
+  const viewer = USE_MOCKS ? mockActingAs : myWallet;
+  const agentProposals = Object.values(payments).filter(
+    (p) => p.stage === 'proposed' && !p.personal && (p.bondId ?? bond.id) === bond.id,
+  );
   const copyToClipboard = async (text: string, field: 'ens' | 'addr') => {
     await navigator.clipboard.writeText(text);
     setCopiedField(field);
@@ -581,14 +593,14 @@ export default function BondProfilePage() {
         <section className="bg-[#1A1A1A] rounded-[2rem] p-6 relative overflow-hidden">
           <p className={`${META} relative z-10`}>Parked in the vault</p>
           <p className="text-4xl font-anton text-white tracking-wide mt-1 relative z-10">
-            {Math.round(balance).toLocaleString('en-US')}
+            {formatMoney(balance)}
             <span className="text-gray-500 ml-2">USDC</span>
           </p>
           {/* Where the money lives — simple and unmissable */}
           <div className="mt-3 flex gap-2 relative z-10">
             <div className="flex-1 bg-white/5 rounded-xl px-4 py-2.5">
               <p className={META}>Ready to spend</p>
-              <p className="text-lg font-anton text-white tracking-wide">{Math.round(liquid).toLocaleString('en-US')}</p>
+              <p className="text-lg font-anton text-white tracking-wide">{formatMoney(liquid)}</p>
             </div>
             <div className="flex-1 bg-emerald-500/10 rounded-xl px-4 py-2.5">
               <p className="font-anton text-[11px] text-emerald-400/80 uppercase tracking-wide flex items-center gap-1">
@@ -596,7 +608,7 @@ export default function BondProfilePage() {
                 Earning
               </p>
               <p className="text-lg font-anton text-emerald-300 tracking-wide">
-                {Math.round(invested?.amount ?? 0).toLocaleString('en-US')}
+                {formatMoney(invested?.amount ?? 0)}
               </p>
             </div>
           </div>
@@ -686,6 +698,16 @@ export default function BondProfilePage() {
             onReset={resetSpend}
           />
         )}
+
+        <PendingMoney
+          spends={spends}
+          proposals={agentProposals}
+          viewer={viewer}
+          partnerName={bond.partner}
+          txState={spendState}
+          onApprove={async (id) => { await approveSpend(id); void refetchSpends(); }}
+          onCancel={async (id) => { await cancelSpend(id); void refetchSpends(); }}
+        />
 
         {/* Trustee room */}
         <section className="space-y-3">

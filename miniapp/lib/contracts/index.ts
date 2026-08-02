@@ -1,22 +1,38 @@
-// Contract Addresses on Worldchain Mainnet (Chain ID: 480) — V5
+// Contract Addresses on Worldchain Mainnet (Chain ID: 480)
 //
-// Defaults below are PRODUCTION (app_bfc…, humanbond.eth). Any NEXT_PUBLIC_* env var overrides
-// them, which is how the TEST environment is selected — see .env.local (app_925d0aaa…,
-// humandbond.eth). Keeping prod as the default means this file is safe to move to the official
-// repo: the test addresses live only in the gitignored .env.local and never travel with the code.
+// These defaults are THE LIVE DEPLOYMENT: the contracts whitelisted for
+// HumanBondMultisig (app_925d0aaa…), which serves humanbond-lisbon-nu.vercel.app.
+// Every one of them was read back off the chain on 2026-08-02, not copied from a doc:
+//
+//   HumanBond proxy   activeBondCount() = 2, dissolutionDelay() = 259200 (3d)
+//   BondVaultModule   humanBond() -> the proxy, and proxy.bondVaultModule() -> it
+//   BondNFT/Milestone proxy.bondNft() / proxy.milestoneNft()
+//   TIME              proxy.timeToken()
+//   Registrar         humanBond() -> the proxy, baseNode = namehash('humandbond.eth')
+//
+// WHY THIS CHANGED: the previous defaults pointed at a different, abandoned set
+// (activeBondCount = 0) whose BondVaultModule entry was in fact a Gnosis Safe
+// proxy. None of those addresses are whitelisted, and MiniKit rejects any call to
+// a non-whitelisted contract with `invalid_contract` — so in production every
+// transaction would have failed. It was never noticed because .env.local runs
+// with USE_MOCKS=1, so no real transaction was ever sent against this config.
+//
+// Anything here is still overridable by the matching NEXT_PUBLIC_* var. Keep the
+// defaults and the Developer Portal whitelist in sync — they are one unit.
 export const CONTRACT_ADDRESSES = {
-  HUMAN_BOND: (process.env.NEXT_PUBLIC_HUMAN_BOND ?? '0x7822e66B3597424424AA62d765E29eC89b9fD541') as `0x${string}`, // Proxy (always use this)
-  BOND_NFT: (process.env.NEXT_PUBLIC_BOND_NFT ?? '0x95deecB32F60B8b5BE45cd9F2c3D44ED8579Ad3e') as `0x${string}`,
-  MILESTONE_NFT: (process.env.NEXT_PUBLIC_MILESTONE_NFT ?? '0xe308AdC4bb0a39A6266D79f25Ac0BCbDA252cDBE') as `0x${string}`,
-  TIME_TOKEN: (process.env.NEXT_PUBLIC_TIME_TOKEN ?? '0x8d292a670a41923CE99Ac9bc11EF8FFB87a04E84') as `0x${string}`,
+  HUMAN_BOND: (process.env.NEXT_PUBLIC_HUMAN_BOND ?? '0x7A9cE44218EFe38E9a98c9a01453aAa3A05bFC82') as `0x${string}`, // Proxy (always use this)
+  BOND_NFT: (process.env.NEXT_PUBLIC_BOND_NFT ?? '0xb3E3B17f7c820F742935f26956474252390c369b') as `0x${string}`,
+  MILESTONE_NFT: (process.env.NEXT_PUBLIC_MILESTONE_NFT ?? '0x676db63968F70A952d08dC321CAB020a96Ab178c') as `0x${string}`,
+  TIME_TOKEN: (process.env.NEXT_PUBLIC_TIME_TOKEN ?? '0x5A2beFadd1541e2133b96CcFf4136093047A1aE9') as `0x${string}`,
   // ENS subname registrar — the third call in the vault-creation batch.
-  BOND_REGISTRAR: (process.env.NEXT_PUBLIC_BOND_REGISTRAR ?? '0xEea00940991d31b7a39c0A24BD8fcf259aAC839A') as `0x${string}`,
+  BOND_REGISTRAR: (process.env.NEXT_PUBLIC_BOND_REGISTRAR ?? '0x32daDB84eA905396e0FD3329D44965c4A09a1944') as `0x${string}`,
 } as const
 
-// World App Configuration — nullifiers derive from this app_id (immutable per deploy). Default is
-// the production app; NEXT_PUBLIC_WORLD_APP_ID overrides it for the test app.
+// World App Configuration — nullifiers derive from this app_id (immutable per deploy).
+// This is the app the contracts above are whitelisted under; the old default
+// (app_bfc32618…) is not even on this Developer Portal team.
 export const WORLD_APP_CONFIG = {
-  APP_ID: (process.env.NEXT_PUBLIC_WORLD_APP_ID ?? 'app_bfc3261816aeadc589f9c6f80a98f5df') as `app_${string}`,
+  APP_ID: (process.env.NEXT_PUBLIC_WORLD_APP_ID ?? 'app_925d0aaa3d9464e5d61690d94a68b401') as `app_${string}`,
   ACTIONS: {
     PROPOSE_BOND: 'propose-bond',
     ACCEPT_BOND: 'accept-bond',

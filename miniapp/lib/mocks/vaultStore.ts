@@ -58,6 +58,8 @@ type MockVaultState = {
   setActingAs: (who: `0x${string}`) => void;
   fund: (amount: bigint) => void;
   toggleForeignAsset: () => void;
+  /** Dissolution settled the vault: emptied 50/50, open requests gone. */
+  settle: () => void;
   reset: () => void;
 };
 
@@ -147,6 +149,12 @@ export const useMockVaultStore = create<MockVaultState>((set, get) => ({
     set((state) => ({
       foreignAssets: state.foreignAssets.length > 0 ? [] : [SAMPLE_FOREIGN_ASSET],
     })),
+
+  settle: () => {
+    // What `executeDissolution` does on chain: the Safe is emptied 50/50 and
+    // every open request dies with the bond. The vault itself stays deployed.
+    set({ balance: BigInt(0), spends: [], freeWindowSpent: BigInt(0) });
+  },
 
   reset: () => {
     spendCounter = 0;

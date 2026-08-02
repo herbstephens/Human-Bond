@@ -14,6 +14,8 @@ import type { BondVault } from "@/lib/vault/types";
 import type { TxState } from "@/lib/hooks/useVaultActions";
 import { TxErrorNotice } from "@/app/components/TxErrorNotice";
 import type { FriendlyTxError } from "@/lib/worldcoin/txErrors";
+import { useResolveRecipient } from "@/lib/hooks/useResolveRecipient";
+import { ENS_PARENT } from "@/lib/contracts/registrar";
 
 interface SendFundsFormProps {
     open: boolean;
@@ -33,8 +35,6 @@ interface SendFundsFormProps {
     onReset?: () => void;
 }
 
-const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
-
 export function SendFundsForm({
     open,
     onOpenChange,
@@ -50,7 +50,9 @@ export function SendFundsForm({
     const [amountInput, setAmountInput] = useState("");
 
     const amount = useMemo(() => parseUsdc(amountInput), [amountInput]);
-    const recipientValid = ADDRESS_RE.test(recipient.trim());
+    // A bond has a name people can be told — the field takes it, not just 0x.
+    const resolved = useResolveRecipient(recipient);
+    const recipientValid = resolved.address !== null;
 
     const preview = useMemo(() => {
         if (amount === null) return null;
@@ -67,11 +69,7 @@ export function SendFundsForm({
     // response to the send finishing, not synchronization with external state.
     const handleSubmit = async () => {
         if (!canSubmit || amount === null) return;
-        const sent = await onSend(
-            recipient.trim() as `0x${string}`,
-            amount,
-            preview === "instant",
-        );
+        const sent = await onSend(resolved.address!, amount, preview === "instant");
         if (!sent) return; // keep the form filled so they can retry
         setRecipient("");
         setAmountInput("");
@@ -118,19 +116,32 @@ export function SendFundsForm({
                     <div className="space-y-3">
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 px-1">
-                                Recipient address
+                                Recipient — address or bond name
                             </label>
                             <input
                                 value={recipient}
                                 onChange={(e) => setRecipient(e.target.value)}
-                                placeholder="0x…"
+                                placeholder={`0x… or alice-ben.${ENS_PARENT}`}
                                 spellCheck={false}
                                 disabled={isSending}
                                 className="w-full px-4 py-3.5 rounded-2xl bg-gray-50 border-2 border-gray-100 text-sm font-mono text-gray-800 placeholder:text-gray-300 focus:outline-none focus:border-gray-300 transition-colors disabled:opacity-60"
                             />
-                            {recipient.length > 0 && !recipientValid ? (
+                            {/* Say WHICH of the three failure modes it is: a typo in an
+                                address, a name nobody registered, and "still checking"
+                                are different problems with different fixes. */}
+                            {resolved.state === "resolving" ? (
+                                <p className="text-[10px] font-medium text-gray-400 px-1">Looking up {resolved.name}…</p>
+                            ) : resolved.state === "resolved" ? (
+                                <p className="text-[10px] font-medium text-emerald-600 px-1">
+                                    {resolved.name} → {resolved.address!.slice(0, 6)}…{resolved.address!.slice(-4)}
+                                </p>
+                            ) : resolved.state === "unregistered" ? (
                                 <p className="text-[10px] font-medium text-red-500 px-1">
-                                    That doesn&apos;t look like a valid address.
+                                    Nobody owns {resolved.name} — check the spelling.
+                                </p>
+                            ) : resolved.state === "invalid" ? (
+                                <p className="text-[10px] font-medium text-red-500 px-1">
+                                    Not an address, and not a valid bond name.
                                 </p>
                             ) : null}
                         </div>
@@ -184,7 +195,7 @@ export function SendFundsForm({
                     </div>
 
                     {preview === "instant" ? (
-                        <div className="rounded-2xl p-4 bg-gray-50 border border-gray-100 flex items-start gap-3">
+                        <div className="rounded-2xl p-4 bg-gray-50 flex items-start gap-3">
                             <Zap size={16} className="text-gray-500 mt-0.5 shrink-0" />
                             <div>
                                 <p className="text-[11px] font-bold text-gray-800">Sends instantly</p>
@@ -197,11 +208,11 @@ export function SendFundsForm({
                     ) : null}
 
                     {preview === "needs_approval" ? (
-                        <div className="rounded-2xl p-4 bg-amber-50 border border-amber-100 flex items-start gap-3">
-                            <Users size={16} className="text-amber-500 mt-0.5 shrink-0" />
+                        <div className="rounded-2xl p-4 bg-gray-50 flex items-start gap-3">
+                            <Users size={16} className="text-gray-500 mt-0.5 shrink-0" />
                             <div>
-                                <p className="text-[11px] font-bold text-amber-800">Needs {partnerName}&apos;s approval</p>
-                                <p className="text-[11px] font-medium text-amber-700 leading-relaxed mt-0.5">
+                                <p className="text-[11px] font-bold text-gray-800">Needs {partnerName}&apos;s approval</p>
+                                <p className="text-[11px] font-medium text-gray-500 leading-relaxed mt-0.5">
                                     Above the instant threshold or today&apos;s free budget. We&apos;ll notify them — money
                                     moves when they sign.
                                 </p>
@@ -210,7 +221,7 @@ export function SendFundsForm({
                     ) : null}
 
                     {preview === "insufficient" ? (
-                        <div className="rounded-2xl p-4 bg-red-50 border border-red-100 flex items-start gap-3">
+                        <div className="rounded-2xl p-4 bg-red-50 flex items-start gap-3">
                             <AlertCircle size={16} className="text-red-400 mt-0.5 shrink-0" />
                             <p className="text-[11px] font-semibold text-red-600 leading-relaxed">
                                 Not enough USDC in the shared wallet.

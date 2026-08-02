@@ -233,10 +233,8 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-[#E8E8E8] flex flex-col">
-      {/* Main content - centered by default, top-aligned when married for 20px gap */}
-      <main className={`flex-1 flex flex-col items-center px-6 pb-8 ${
-        !isBonded && hasIncomingProposals ? "justify-start pt-4" : "justify-center py-8"
-      }`}>
+      {/* Same outer rhythm as /marriage/create + /marriage/proposals: top-aligned, px-6, pt-3 */}
+      <main className="flex-1 flex flex-col items-center justify-start px-6 pt-6 pb-8">
         {!isBonded ? (
           <div className="flex flex-col items-center text-center space-y-4 max-w-lg w-full animate-in fade-in zoom-in duration-700">
             {/* Incoming Proposals — compact notification card */}

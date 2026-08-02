@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { NotificationParams, NotificationType } from '@/lib/notifications/types';
+import { LIVE_BOND_ID } from '@/lib/agent/liveBond';
 
 const APP_ID = 'app_925d0aaa3d9464e5d61690d94a68b401';
 const WORLD_NOTIFY_URL = 'https://developer.world.org/api/v2/minikit/send-notification';
@@ -12,16 +13,21 @@ type NotificationContent = {
 };
 
 const NOTIFICATIONS: Record<NotificationType, NotificationContent> = {
+    // The first two land ON the bond: that is where the countdown, the "nothing
+    // you can do to stop it" state and the cancel button live. Sending them to
+    // /home cost a tap on the one notification that is time-boxed to 3 days.
     dissolution_requested: {
         title: '⚠️ Dissolution Requested',
-        message: () => 'Your partner requested to dissolve the bond. Open HumanBond to review.',
-        path: () => '/home',
+        message: () => 'Your partner started dissolving the bond. You have 3 days before it settles.',
+        path: () => `/bond/${LIVE_BOND_ID}`,
     },
     dissolution_cancelled: {
         title: '✋ Dissolution Cancelled',
         message: () => 'Your partner cancelled the dissolution request. The bond remains active.',
-        path: () => '/home',
+        path: () => `/bond/${LIVE_BOND_ID}`,
     },
+    // Executed is different: the bond no longer exists, so /bond/* would only
+    // bounce. /home is where an unbonded human belongs — and shows the cooldown.
     dissolution_executed: {
         title: '💔 Bond Dissolved',
         message: () => 'The bond has been dissolved. Your shared wallet was split 50/50.',
