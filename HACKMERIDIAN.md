@@ -1,10 +1,40 @@
 # HumanBond on Stellar — HackMeridian Lisbon 2026
 
-**Path:** Scale (Prototype → Product) · **Event:** 25–26 Oct 2026, Warehouse ONE16, Lisbon
+**Path:** Genesis (Idea → MVP) · **Tracks:** Stellar Unlocked **and** Stellar Composed · **Event:** 25–26 Oct 2026, Warehouse ONE16, Lisbon
 **Status:** working on Stellar **testnet**. Contract not audited. Details on what is real and what is not are at the end.
 
 > **A couple's shared money, with rules both of them wrote — now on Stellar.**
-> Small things, either of you. Big things, both of you. If it ends, half each.
+> Small things, either of you. Big things, both of you. If it ends, half each. And a will that runs itself.
+
+**What is new at this event:** the whole Stellar product — a Soroban vault per couple, paying in from any asset, and on-chain inheritance — is an MVP built during HackMeridian (see [Built during the event](#built-during-the-event)). It reuses the bond (who the two partners are) from HumanBond's existing World Chain app.
+
+## Track alignment
+
+**Stellar Unlocked — what Stellar's core protocol makes possible here**
+
+| Core feature | What it gives a couple |
+|---|---|
+| **Built-in exchange (order books + AMM pools), path payments** | A friend holding only XLM pays the couple; the couple receives *exactly* the USDC asked for. Measured on testnet: 45.76 XLM in → 40.00 USDC out, one conversion, no bridge or swap app. |
+| **Native assets + Stellar Asset Contract** | The vault holds Circle's native USDC through its SAC — no wrapped token. Trustline rules are handled explicitly: a partner without a trustline can only delay their own half, never the other's. |
+| **Soroban multi-party authorization** | One transaction carries both partners' signatures (`require_auth` on two addresses, address-credential auth entries) — the basis for the co-signed will and the both-partner rescue. |
+| **Ledger time** | Proof-of-life windows, dissolution delays and heirs' unlock dates are enforced by the ledger clock, with nobody to trust. |
+
+**Stellar Composed — ecosystem pieces combined into something new**
+
+| Piece | Role |
+|---|---|
+| **Soroban** (`BondVault` contract) | Spend rules, dissolution, inheritance |
+| **Circle USDC** on Stellar | The couple's money |
+| **Stellar Wallets Kit** (Freighter, xBull, Lobstr, Albedo…) | Partners, payers and heirs sign with whatever wallet they have |
+| **Stellar RPC + Horizon** | Contract simulation and submission; path finding and balances |
+| **World ID + ENS (World Chain)** | Who the couple is: the bond, and a name that only resolves when both chains point at each other |
+
+## Genesis criteria, in short
+
+- **Problem clarity:** shared lives, separate money — nothing between "two accounts" and "one either of you can empty", and nothing that executes a couple's will.
+- **MVP quality:** 20 contract unit tests; one command runs the whole lifecycle on testnet (spending, dissolution, death, heirs); every rule above has a passing test and a passing testnet run. Honest gaps listed at the end.
+- **Stellar integration:** the tables above — native USDC, the SAC, the built-in exchange, Soroban multi-party auth.
+- **Continued development:** clear next steps (World ID proof-of-life relay, writing the ENS link from the couple's Safe, audit, mainnet) on top of a product with existing users on World Chain.
 
 ---
 
@@ -12,7 +42,7 @@
 
 When two people share a life, their money lives in systems that don't know the relationship exists: two separate accounts, or one joint account where either person can empty it. Nothing in between. The partner who does the unpaid work — care, the home — has no standing in either.
 
-## What HumanBond is (before this weekend)
+## What HumanBond already is (on World Chain, before this event)
 
 A proof-of-humanity partnership protocol, **live on World Chain mainnet** and in the World App store. Two World ID–verified humans form an on-chain bond. Each bond gets a **shared wallet** (a 2-of-2 Safe plus our `BondVaultModule`) and an ENS name like `alice-ben.humanbond.eth`:
 
