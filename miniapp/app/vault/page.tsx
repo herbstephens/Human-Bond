@@ -24,6 +24,7 @@ import { SendFundsForm } from "@/app/components/vault/SendFundsForm";
 import { SpendCard } from "@/app/components/vault/SpendCard";
 import { CreateVaultOnboarding } from "@/app/components/vault/CreateVaultOnboarding";
 import { ForeignAssetsNotice } from "@/app/components/vault/ForeignAssetsNotice";
+import { StellarVaultCard } from "@/app/components/vault/StellarVaultCard";
 
 export default function VaultPage() {
     const router = useRouter();
@@ -183,6 +184,8 @@ export default function VaultPage() {
                         />
 
                         <ForeignAssetsNotice assets={vault.foreignAssets} vaultAddress={vault.address} />
+
+                        <StellarVaultCard ensLabel={vault.ensLabel} />
 
                         <SendFundsForm
                             open={sendOpen}

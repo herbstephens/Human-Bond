@@ -10,7 +10,8 @@
     "agents:demo": "tsx scripts/agents-demo.ts",
     "agents:live": "tsx scripts/agents-live.ts",
     "agents:bus": "tsx scripts/agents-bus.ts",
-    "stellar:smoke": "tsx scripts/stellar-smoke.ts"
+    "stellar:smoke": "tsx scripts/stellar-smoke.ts",
+    "stellar:demo-seed": "tsx scripts/stellar-demo-seed.ts"
   },
   "dependencies": {
     "@0gfoundation/0g-storage-ts-sdk": "^1.2.10",
