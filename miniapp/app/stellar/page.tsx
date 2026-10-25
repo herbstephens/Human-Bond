@@ -1,28 +1,28 @@
 'use client'
 
 /**
- * Create a bond's joint account on Stellar.
+ * Create a bond's vault on Stellar: deploys a BondVault contract for the two partners.
  *
- * Standalone web page, not a World App screen: the partners sign with a Stellar wallet
- * (Freighter, xBull, Lobstr… via Stellar Wallets Kit), which World App does not host. The
- * bond itself is read from World Chain by id, so the link written to Stellar is the real one.
+ * Standalone web page, not a World App screen: partners sign with a Stellar wallet (Freighter,
+ * xBull, Lobstr… via Stellar Wallets Kit), which World App does not host. The bond is read from
+ * World Chain by id, so the link written into the vault is the real one.
  */
 import { useState } from 'react';
 import type { Hex } from 'viem';
 import { HEADING, META } from '@/lib/design';
 import { ENS_PARENT } from '@/lib/contracts/registrar';
-import { STELLAR, STELLAR_NETWORK, federationAddress } from '@/lib/stellar/config';
+import { STELLAR, STELLAR_NETWORK } from '@/lib/stellar/config';
 import { fetchBondLink, type BondLink } from '@/lib/stellar/bondLink';
-import { buildCreateJointAccountTx, submitSignedTx, JOINT_ACCOUNT_STARTING_XLM } from '@/lib/stellar/jointAccount';
+import { buildDeployVaultTx, submitSoroban, DEFAULT_VAULT_RULES } from '@/lib/stellar/vault';
 import { ENS_STELLAR_TEXT_KEY } from '@/lib/stellar/directory';
 import { loadKit } from '@/lib/stellar/walletKit';
 
-type Created = { accountId: string; hash: string };
+type Created = { vaultId: string; hash: string };
 
 const input = 'w-full rounded-xl bg-gray-100 px-4 py-3 font-mono text-sm outline-none';
 const cta = 'rounded-full bg-black px-6 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white disabled:opacity-40';
 
-export default function StellarJointAccountPage() {
+export default function StellarVaultCreatePage() {
   const [wallet, setWallet] = useState<string | null>(null);
   const [bondId, setBondId] = useState('');
   const [link, setLink] = useState<BondLink | null>(null);
@@ -64,30 +64,30 @@ export default function StellarJointAccountPage() {
     });
 
   const create = () =>
-    run('Creating the joint account', async () => {
+    run('Creating the vault', async () => {
       if (!wallet || !link) throw new Error('Connect a wallet and load the bond first');
       const kit = await loadKit();
-      const { xdr, accountId } = await buildCreateJointAccountTx({
-        funder: wallet,
+      const { xdr, vaultId } = await buildDeployVaultTx({
+        deployer: wallet,
         partnerA: partnerA.trim(),
         partnerB: partnerB.trim(),
         link,
       });
-      const { signedTxXdr } = await kit.signTransaction(xdr, {
-        networkPassphrase: STELLAR.passphrase,
-        address: wallet,
-      });
-      const hash = await submitSignedTx(signedTxXdr);
-      setCreated({ accountId, hash });
+      const { signedTxXdr } = await kit.signTransaction(xdr, { networkPassphrase: STELLAR.passphrase, address: wallet });
+      setCreated({ vaultId, hash: await submitSoroban(signedTxXdr) });
     });
 
   return (
     <main className="mx-auto max-w-xl space-y-8 px-4 py-10">
       <header className="space-y-2">
         <p className={META}>Stellar · {STELLAR_NETWORK}</p>
-        <h1 className={`${HEADING} text-3xl uppercase`}>Joint account</h1>
+        <h1 className={`${HEADING} text-3xl uppercase`}>Bond vault</h1>
         <p className="font-serif italic text-gray-600">
-          One account, two keys. Anyone can pay in. Only the two of you, together, can move it.
+          Small things, either of you. Big things, both of you. If it ends, half each.
+        </p>
+        <p className={META}>
+          {DEFAULT_VAULT_RULES.smallSpendThreshold} USDC per spend alone · {DEFAULT_VAULT_RULES.dailyFreeLimit} USDC per day ·{' '}
+          {DEFAULT_VAULT_RULES.dissolutionDelaySeconds / 86400}-day dissolution delay
         </p>
       </header>
 
@@ -103,7 +103,7 @@ export default function StellarJointAccountPage() {
             Fund this wallet with testnet XLM
           </button>
         )}
-        <p className={META}>This wallet pays the fee and {JOINT_ACCOUNT_STARTING_XLM} XLM starting balance</p>
+        <p className={META}>This wallet pays the deploy fee (about 5 XLM)</p>
       </section>
 
       <section className="space-y-3">
@@ -119,11 +119,12 @@ export default function StellarJointAccountPage() {
       </section>
 
       <section className="space-y-3">
-        <h2 className={`${HEADING} text-xl uppercase`}>3 · The two signers</h2>
+        <h2 className={`${HEADING} text-xl uppercase`}>3 · The two partners</h2>
         <input className={input} placeholder="Partner A Stellar account (G…)" value={partnerA} onChange={(e) => setPartnerA(e.target.value)} />
         <input className={input} placeholder="Partner B Stellar account (G…)" value={partnerB} onChange={(e) => setPartnerB(e.target.value)} />
+        <p className={META}>Both need a USDC trustline to receive their half if the bond ends</p>
         <button className={cta} onClick={create} disabled={!!busy || !wallet || !link || !partnerA || !partnerB}>
-          Create joint account
+          Create vault
         </button>
       </section>
 
@@ -133,15 +134,15 @@ export default function StellarJointAccountPage() {
       {created && link && (
         <section className="space-y-3 rounded-2xl bg-gray-50 p-5">
           <h2 className={`${HEADING} text-xl uppercase`}>Created</h2>
-          <div><p className={META}>Pay this address</p><p className="font-mono text-sm">{federationAddress(link.label)}</p></div>
-          <div><p className={META}>Account</p><p className="break-all font-mono text-sm">{created.accountId}</p></div>
+          <div><p className={META}>Vault</p><p className="break-all font-mono text-sm">{created.vaultId}</p></div>
           <a className="text-xs underline" href={`${STELLAR.explorerUrl}/tx/${created.hash}`} target="_blank" rel="noreferrer">
             View the transaction
           </a>
-          <a className="block text-xs underline" href={`/pay/${link.label}`}>Open the pay page</a>
           <p className="text-xs text-gray-600">
-            The name resolves once the bond Safe sets the ENS text record <code>{ENS_STELLAR_TEXT_KEY}</code> to this
-            account{STELLAR_NETWORK === 'testnet' && <> — or, on testnet, once it is added to <code>STELLAR_TESTNET_DIRECTORY</code></>}.
+            The name {link.label} resolves once the bond Safe sets the ENS text record <code>{ENS_STELLAR_TEXT_KEY}</code> to
+            this vault{STELLAR_NETWORK === 'testnet' && <> — or, on testnet, once it is added to <code>STELLAR_TESTNET_DIRECTORY</code></>}.
+            Then: <a className="underline" href={`/pay/${link.label}`}>pay page</a> ·{' '}
+            <a className="underline" href={`/stellar/${link.label}`}>vault page</a>
           </p>
         </section>
       )}

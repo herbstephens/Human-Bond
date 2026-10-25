@@ -1,17 +1,17 @@
 /**
- * Paying into a bond's joint account.
+ * Paying into a bond's vault.
  *
- * Two ways in, both landing as USDC in the joint account:
- *   1. A SEP-7 pay link (and its QR code) — any SEP-7 wallet opens it pre-filled.
- *   2. A path payment from a connected browser wallet — the payer sends whatever they hold
- *      (XLM, EURC, …), Stellar's built-in exchange converts on the way, and the couple receives
- *      exactly the USDC amount asked for. One transaction, no bridge, no swap step.
+ * The vault is a contract, and classic Stellar payments cannot target a contract address, so
+ * paying in is a USDC transfer on the USDC token contract (vault.ts, buildDepositTx).
  *
- * Receiving needs no signature from the couple. Nothing here ever splits or forwards — funds
- * accrue in the joint account and the partners claim later (see the vault rules in CLAUDE.md).
+ * A payer without enough USDC converts first: a strict-receive path payment to THEMSELVES turns
+ * what they hold (XLM, EURC, …) into exactly the USDC needed, through Stellar's built-in exchange.
+ * Then they transfer. Two signatures instead of one — the price of a contract vault.
+ *
+ * Nothing here splits or forwards: funds accrue in the vault under its spend rules.
  */
 import { Asset, Operation, TransactionBuilder, BASE_FEE } from '@stellar/stellar-sdk';
-import { STELLAR, STELLAR_NETWORK, horizon } from './config';
+import { STELLAR, horizon } from './config';
 
 const STROOPS_PER_UNIT = BigInt(10_000_000);
 
@@ -28,22 +28,12 @@ export function fromStroops(stroops: bigint): string {
   return `${whole}.${fraction}`;
 }
 
-/**
- * SEP-7 `pay` URI for USDC into the joint account. Amount is optional: without it the payer's
- * wallet asks. Unsigned (no origin_domain/signature), so wallets may show it as unverified.
- */
-export function payUri(accountId: string, opts: { amount?: string; msg?: string } = {}): string {
-  const params: [string, string][] = [
-    ['destination', accountId],
-    ['asset_code', STELLAR.usdc.getCode()],
-    ['asset_issuer', STELLAR.usdc.getIssuer() as string],
-  ];
-  if (opts.amount) params.push(['amount', opts.amount]);
-  if (opts.msg) params.push(['msg', opts.msg.slice(0, 300)]);
-  // SEP-7: network_passphrase is only included off the public network.
-  if (STELLAR_NETWORK !== 'public') params.push(['network_passphrase', STELLAR.passphrase]);
-  // encodeURIComponent, not URLSearchParams: SEP-7 wants spaces as %20, and wallets read '+' literally.
-  return `web+stellar:pay?${params.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&')}`;
+export async function usdcBalanceOf(account: string): Promise<string> {
+  const loaded = await horizon.loadAccount(account);
+  const line = loaded.balances.find(
+    (b) => 'asset_code' in b && b.asset_code === STELLAR.usdc.getCode() && b.asset_issuer === STELLAR.usdc.getIssuer(),
+  );
+  return line ? line.balance : '0.0000000';
 }
 
 export type PayOption = {
@@ -57,13 +47,9 @@ function toAsset(record: { asset_type: string; asset_code?: string; asset_issuer
   return record.asset_type === 'native' ? Asset.native() : new Asset(record.asset_code as string, record.asset_issuer as string);
 }
 
-export function assetLabel(asset: Asset): string {
-  return asset.isNative() ? 'XLM' : asset.getCode();
-}
-
 /**
- * Every way the payer can deliver exactly `usdcAmount` USDC, using what is in their account.
- * Horizon searches the order books and AMM pools; cheapest first.
+ * Every way the payer can obtain exactly `usdcAmount` USDC from what is in their account,
+ * cheapest first. Horizon searches the order books and AMM pools.
  */
 export async function findPayOptions(payer: string, usdcAmount: string): Promise<PayOption[]> {
   const response = await horizon.strictReceivePaths(payer, STELLAR.usdc, usdcAmount).call();
@@ -73,6 +59,7 @@ export async function findPayOptions(payer: string, usdcAmount: string): Promise
       sourceAmount: r.source_amount,
       path: r.path.map(toAsset),
     }))
+    .filter((o) => !o.sourceAsset.startsWith(`${STELLAR.usdc.getCode()}:`))
     .sort((a, b) => (toStroops(a.sourceAmount) < toStroops(b.sourceAmount) ? -1 : 1));
 }
 
@@ -86,26 +73,26 @@ function parseAsset(label: string): Asset {
 export const SLIPPAGE_BPS = 100;
 
 /**
- * Build the path payment: the couple receives exactly `usdcAmount` USDC; the payer spends at
- * most the quoted amount plus slippage, or the transaction fails and nothing moves.
+ * Convert into exactly `usdcAmount` USDC in the payer's own account, spending at most the quote
+ * plus slippage. Adds the USDC trustline first if the payer has none.
  */
-export async function buildPayTx(params: {
-  payer: string;
-  jointAccountId: string;
-  usdcAmount: string;
-  option: PayOption;
-}): Promise<string> {
-  const { payer, jointAccountId, usdcAmount, option } = params;
+export async function buildConvertTx(params: { payer: string; usdcAmount: string; option: PayOption }): Promise<string> {
+  const { payer, usdcAmount, option } = params;
   const quoted = toStroops(option.sourceAmount);
   const sendMax = fromStroops(quoted + (quoted * BigInt(SLIPPAGE_BPS)) / BigInt(10_000));
 
   const account = await horizon.loadAccount(payer);
-  return new TransactionBuilder(account, { fee: BASE_FEE, networkPassphrase: STELLAR.passphrase })
+  const hasTrustline = account.balances.some(
+    (b) => 'asset_code' in b && b.asset_code === STELLAR.usdc.getCode() && b.asset_issuer === STELLAR.usdc.getIssuer(),
+  );
+  const builder = new TransactionBuilder(account, { fee: BASE_FEE, networkPassphrase: STELLAR.passphrase });
+  if (!hasTrustline) builder.addOperation(Operation.changeTrust({ asset: STELLAR.usdc }));
+  return builder
     .addOperation(
       Operation.pathPaymentStrictReceive({
         sendAsset: parseAsset(option.sourceAsset),
         sendMax,
-        destination: jointAccountId,
+        destination: payer,
         destAsset: STELLAR.usdc,
         destAmount: usdcAmount,
         path: option.path,
@@ -114,4 +101,10 @@ export async function buildPayTx(params: {
     .setTimeout(120)
     .build()
     .toXDR();
+}
+
+/** Submit a signed classic transaction. Horizon errors surface with their result codes. */
+export async function submitClassic(signedXdr: string): Promise<string> {
+  const result = await horizon.submitTransaction(TransactionBuilder.fromXDR(signedXdr, STELLAR.passphrase));
+  return result.hash;
 }

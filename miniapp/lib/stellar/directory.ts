@@ -1,20 +1,21 @@
 /**
- * Name → joint account resolution for the federation server. Server-side only.
+ * Name → vault resolution for /pay/<label> and /vault/<label>. Runs server-side.
  *
- * The Stellar account's own data entries are a claim anyone could write: a squatter could create
- * an account saying "I belong to alice-ben's Safe" and catch the couple's payments. So a name
- * only resolves when something the couple controls points at the account:
+ * A vault's config (bondId, Safe, label) is a claim anyone could make: a squatter could deploy a
+ * vault saying "I belong to alice-ben's Safe" with themselves as partners, and catch the couple's
+ * payments. So a name only resolves when something the couple controls points at the vault:
  *
  *   1. ENS (the real proof). The bond Safe owns `<label>.humanbond.eth`; only the two partners
  *      together can set its `com.humanbond.stellar` text record. If it is set, it wins, and the
- *      account's humanbond.safe entry must equal the name's address record.
- *   2. Testnet allowlist (a stand-in). STELLAR_TESTNET_DIRECTORY="label=G…,label=G…", for demos
+ *      vault's Safe must equal the name's address record.
+ *   2. Testnet allowlist (a stand-in). STELLAR_TESTNET_DIRECTORY="label=C…,label=C…", for demos
  *      until the Safe transaction that writes the text record exists. Refused on mainnet.
  *
- * Either way the account must also pass inspectJointAccount and carry the same label.
+ * Either way the vault must carry the same label.
  */
+import { StrKey } from '@stellar/stellar-sdk';
 import { STELLAR_NETWORK } from './config';
-import { inspectJointAccount, type JointAccount } from './jointAccount';
+import { readVaultConfig, type VaultConfig } from './vault';
 import { worldchainClient } from './bondLink';
 import { BOND_REGISTRAR_ADDRESS } from '@/lib/contracts/registrar';
 
@@ -50,7 +51,7 @@ const L2_REGISTRY_ABI = [
 ] as const;
 
 export type Resolution =
-  | { ok: true; account: JointAccount; proof: 'ens' | 'testnet-allowlist' }
+  | { ok: true; vaultId: string; config: VaultConfig; proof: 'ens' | 'testnet-allowlist' }
   | { ok: false; reason: string };
 
 async function readEnsRecords(label: string): Promise<{ stellar: string; safe: `0x${string}` }> {
@@ -79,9 +80,9 @@ function readAllowlist(): Map<string, string> {
   }
   return new Map(
     raw.split(',').map((pair) => {
-      const [label, accountId] = pair.trim().split('=');
-      if (!label || !accountId) throw new Error(`Malformed STELLAR_TESTNET_DIRECTORY entry: "${pair}"`);
-      return [label, accountId] as const;
+      const [label, vaultId] = pair.trim().split('=');
+      if (!label || !vaultId) throw new Error(`Malformed STELLAR_TESTNET_DIRECTORY entry: "${pair}"`);
+      return [label, vaultId] as const;
     }),
   );
 }
@@ -89,27 +90,25 @@ function readAllowlist(): Map<string, string> {
 export async function resolveLabel(label: string): Promise<Resolution> {
   const ens = await readEnsRecords(label);
 
-  let accountId: string;
+  let vaultId: string;
   let proof: 'ens' | 'testnet-allowlist';
   if (ens.stellar) {
-    accountId = ens.stellar;
+    vaultId = ens.stellar;
     proof = 'ens';
   } else {
     const listed = readAllowlist().get(label);
-    if (!listed) return { ok: false, reason: `no Stellar account recorded for "${label}"` };
-    accountId = listed;
+    if (!listed) return { ok: false, reason: `no Stellar vault recorded for "${label}"` };
+    vaultId = listed;
     proof = 'testnet-allowlist';
   }
+  if (!StrKey.isValidContract(vaultId)) return { ok: false, reason: `${vaultId} is not a contract address` };
 
-  const check = await inspectJointAccount(accountId);
-  if (!check.ok) return { ok: false, reason: `${accountId}: ${check.reason}` };
-  const { account } = check;
-
-  if (account.link.label !== label) {
-    return { ok: false, reason: `${accountId} is linked to "${account.link.label}", not "${label}"` };
+  const config = await readVaultConfig(vaultId);
+  if (config.link.label !== label) {
+    return { ok: false, reason: `${vaultId} is linked to "${config.link.label}", not "${label}"` };
   }
-  if (proof === 'ens' && account.link.safe.toLowerCase() !== ens.safe.toLowerCase()) {
-    return { ok: false, reason: `${accountId} points at Safe ${account.link.safe}, but the ENS name resolves to ${ens.safe}` };
+  if (proof === 'ens' && config.link.safe.toLowerCase() !== ens.safe.toLowerCase()) {
+    return { ok: false, reason: `${vaultId} points at Safe ${config.link.safe}, but the ENS name resolves to ${ens.safe}` };
   }
-  return { ok: true, account, proof };
+  return { ok: true, vaultId, config, proof };
 }
