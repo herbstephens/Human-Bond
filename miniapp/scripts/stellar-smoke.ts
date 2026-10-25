@@ -7,7 +7,9 @@
  * environments with no shared wallet registered yet; it tests the Stellar side only. Creates
  * three funded testnet keys (funder, partner A, partner B), creates the joint account in one
  * transaction, and checks its shape. Then proves the 2-of-2: a payment signed by one partner
- * alone is rejected, the same payment signed by both goes through.
+ * alone is rejected, the same payment signed by both goes through. Finally a fourth key pays
+ * 5 USDC by sending XLM — a path payment through Stellar's exchange — and the joint account
+ * must hold exactly 5 USDC afterwards.
  * Prints the env line to put the account on the testnet allowlist.
  */
 import { Keypair, Operation, TransactionBuilder, BASE_FEE, Asset } from '@stellar/stellar-sdk';
@@ -15,6 +17,7 @@ import type { Hex } from 'viem';
 import { STELLAR, STELLAR_NETWORK, horizon } from '@/lib/stellar/config';
 import { fetchBondLink, type BondLink } from '@/lib/stellar/bondLink';
 import { buildCreateJointAccountTx, inspectJointAccount } from '@/lib/stellar/jointAccount';
+import { buildPayTx, findPayOptions } from '@/lib/stellar/payment';
 
 // Clearly fake values: World Chain is not consulted, only the Stellar mechanics are tested.
 const SYNTHETIC_LINK: BondLink = {
@@ -51,7 +54,8 @@ async function main() {
   const funder = Keypair.random();
   const partnerA = Keypair.random();
   const partnerB = Keypair.random();
-  await Promise.all([funder, partnerA, partnerB].map((k) => friendbot(k.publicKey())));
+  const payer = Keypair.random();
+  await Promise.all([funder, partnerA, partnerB, payer].map((k) => friendbot(k.publicKey())));
 
   const { xdr, accountId } = await buildCreateJointAccountTx({
     funder: funder.publicKey(),
@@ -81,6 +85,20 @@ async function main() {
 
   const both = await paymentFromJoint(accountId, funder.publicKey(), [partnerA, partnerB]);
   console.log('2 signers accepted', both.hash);
+
+  const usdc = '5';
+  const options = await findPayOptions(payer.publicKey(), usdc);
+  const xlmOption = options.find((o) => o.sourceAsset === 'XLM');
+  if (!xlmOption) throw new Error(`No XLM → USDC path on ${STELLAR_NETWORK}: ${JSON.stringify(options)}`);
+  const payXdr = await buildPayTx({ payer: payer.publicKey(), jointAccountId: accountId, usdcAmount: usdc, option: xlmOption });
+  const payTx = TransactionBuilder.fromXDR(payXdr, STELLAR.passphrase);
+  payTx.sign(payer);
+  const paid = await horizon.submitTransaction(payTx);
+  const after = await inspectJointAccount(accountId);
+  if (!after.ok) throw new Error(after.reason);
+  const usdcBalance = after.account.balances.find((b) => b.asset === 'USDC')?.amount;
+  if (usdcBalance !== '5.0000000') throw new Error(`Expected 5 USDC in the joint account, found ${usdcBalance}`);
+  console.log('path pay ', `${xlmOption.sourceAmount} XLM → ${usdcBalance} USDC`, `${STELLAR.explorerUrl}/tx/${paid.hash}`);
 
   console.log(`\nSTELLAR_TESTNET_DIRECTORY=${link.label}=${accountId}`);
 }

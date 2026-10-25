@@ -15,27 +15,7 @@ import { STELLAR, STELLAR_NETWORK, federationAddress } from '@/lib/stellar/confi
 import { fetchBondLink, type BondLink } from '@/lib/stellar/bondLink';
 import { buildCreateJointAccountTx, submitSignedTx, JOINT_ACCOUNT_STARTING_XLM } from '@/lib/stellar/jointAccount';
 import { ENS_STELLAR_TEXT_KEY } from '@/lib/stellar/directory';
-
-type Kit = typeof import('@creit.tech/stellar-wallets-kit/sdk').StellarWalletsKit;
-
-let kitPromise: Promise<Kit> | null = null;
-
-/** The kit touches `window`, so it is loaded on first use, never during SSR. */
-function loadKit(): Promise<Kit> {
-  kitPromise ??= (async () => {
-    const [{ StellarWalletsKit }, { defaultModules }, { Networks }] = await Promise.all([
-      import('@creit.tech/stellar-wallets-kit/sdk'),
-      import('@creit.tech/stellar-wallets-kit/modules/utils'),
-      import('@creit.tech/stellar-wallets-kit/types'),
-    ]);
-    StellarWalletsKit.init({
-      modules: defaultModules(),
-      network: STELLAR_NETWORK === 'testnet' ? Networks.TESTNET : Networks.PUBLIC,
-    });
-    return StellarWalletsKit;
-  })();
-  return kitPromise;
-}
+import { loadKit } from '@/lib/stellar/walletKit';
 
 type Created = { accountId: string; hash: string };
 
@@ -158,6 +138,7 @@ export default function StellarJointAccountPage() {
           <a className="text-xs underline" href={`${STELLAR.explorerUrl}/tx/${created.hash}`} target="_blank" rel="noreferrer">
             View the transaction
           </a>
+          <a className="block text-xs underline" href={`/pay/${link.label}`}>Open the pay page</a>
           <p className="text-xs text-gray-600">
             The name resolves once the bond Safe sets the ENS text record <code>{ENS_STELLAR_TEXT_KEY}</code> to this
             account{STELLAR_NETWORK === 'testnet' && <> — or, on testnet, once it is added to <code>STELLAR_TESTNET_DIRECTORY</code></>}.
