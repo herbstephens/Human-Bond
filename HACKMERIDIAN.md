@@ -1,6 +1,6 @@
 # HumanBond on Stellar — HackMeridian Lisbon 2026
 
-**Path:** Scale (Prototype → Product) · **Event:** 25–26 Oct 2026, Warehouse ONE16, Lisbon
+**Path:** Genesis (Prototype → Product) · **Event:** 25–26 Oct 2026, Warehouse ONE16, Lisbon
 **Status:** working on Stellar **testnet**. Contract not audited. Details on what is real and what is not are at the end.
 
 > **A couple's shared money, with rules both of them wrote — now on Stellar.**
