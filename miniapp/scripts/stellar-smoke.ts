@@ -10,11 +10,14 @@
  *   2. A payer converts XLM → 40 USDC and pays it into the vault.
  *   3. A spends 10 alone (immediate). A proposes 30 (waits); B approves (executes).
  *   4. B proposes 20: over the 25/day budget after A's 10, so it waits; A cancels it.
- *   5. A requests dissolution; executing early fails; after the delay anyone executes and the
- *      vault splits 50/50.
+ *   5. Someone sends the vault 5 XLM by mistake; it comes out only with BOTH partners signing
+ *      (rescue), and USDC can't be taken out that way.
+ *   6. A requests dissolution; executing early fails; after the delay anyone executes, which
+ *      books 14.5 / 14.5. B has NO USDC trustline: A's half is paid out anyway, B's claim fails
+ *      and stays booked, and once B adds a trustline B's half arrives (the C1 regression).
  * Prints the env line to put the vault on the testnet allowlist.
  */
-import { BASE_FEE, Keypair, Operation, TransactionBuilder } from '@stellar/stellar-sdk';
+import { Asset, BASE_FEE, Keypair, Operation, TransactionBuilder } from '@stellar/stellar-sdk';
 import type { Hex } from 'viem';
 import { STELLAR, STELLAR_NETWORK, horizon } from '@/lib/stellar/config';
 import { fetchBondLink, type BondLink } from '@/lib/stellar/bondLink';
@@ -22,6 +25,9 @@ import { buildConvertTx, findPayOptions, submitClassic, usdcBalanceOf } from '@/
 import {
   buildApproveSpendTx,
   buildCancelSpendTx,
+  buildClaimShareTx,
+  buildRescueTx,
+  buildTokenTransferTx,
   buildDeployVaultTx,
   buildDepositTx,
   buildExecuteDissolutionTx,
@@ -85,7 +91,8 @@ async function main() {
 
   const [a, b, payer, shop] = [Keypair.random(), Keypair.random(), Keypair.random(), Keypair.random()];
   await Promise.all([a, b, payer, shop].map((k) => friendbot(k.publicKey())));
-  await Promise.all([a, b, shop].map(addTrustline));
+  // B deliberately gets no USDC trustline: the dissolution must not depend on B.
+  await Promise.all([a, shop].map(addTrustline));
 
   // 1. Deploy (A pays the fee).
   const { xdr: deployXdr, vaultId } = await buildDeployVaultTx({
@@ -128,7 +135,19 @@ async function main() {
   expect(state.spends[2].status === 'Cancelled', "A should be able to cancel B's pending spend");
   console.log('budget     20 waited (over 25/day), A cancelled it');
 
-  // 5. Dissolution of the remaining 29 USDC.
+  // 5. A stray token: 5 XLM sent to the vault comes out only with both partners.
+  const xlmSac = Asset.native().contractId(STELLAR.passphrase);
+  await run(buildTokenTransferTx(xlmSac, payer.publicKey(), vaultId, '5'), payer);
+  const usdcRescue = await buildRescueTx({ vaultId, source: a.publicKey(), token: STELLAR.usdcContractId, to: a.publicKey(), amount: '1', otherSigner: b })
+    .then(() => 'built', (e: Error) => e.message);
+  expect(usdcRescue !== 'built', 'rescuing the vault token (USDC) must be refused');
+  const shopXlmBefore = (await horizon.loadAccount(shop.publicKey())).balances.find((x) => x.asset_type === 'native')!.balance;
+  await submitSoroban(sign(await buildRescueTx({ vaultId, source: a.publicKey(), token: xlmSac, to: shop.publicKey(), amount: '5', otherSigner: b }), a));
+  const shopXlmAfter = (await horizon.loadAccount(shop.publicKey())).balances.find((x) => x.asset_type === 'native')!.balance;
+  expect(Number(shopXlmAfter) - Number(shopXlmBefore) > 4.99, `shop should have received 5 XLM (${shopXlmBefore} → ${shopXlmAfter})`);
+  console.log('rescue     5 XLM out with A + B signing; USDC rescue refused');
+
+  // 6. Dissolution of the remaining 29 USDC.
   await run(buildRequestDissolutionTx(vaultId, a.publicKey()), a);
   const early = await run(buildExecuteDissolutionTx(vaultId, shop.publicKey()), shop).then(() => 'accepted', (e: Error) => e.message);
   expect(early !== 'accepted', 'executing before the delay must fail');
@@ -139,13 +158,28 @@ async function main() {
   console.log(`waiting    ${Math.ceil(waitMs / 1000)}s for the dissolution delay`);
   await new Promise((resolve) => setTimeout(resolve, waitMs));
 
-  // Anyone may execute — the shop does it here.
+  // Anyone may execute — the shop does it here. It books the halves and moves nothing.
   await run(buildExecuteDissolutionTx(vaultId, shop.publicKey()), shop);
   state = await readVaultState(vaultId);
-  const [aAfter, bAfter] = await Promise.all([usdcBalanceOf(a.publicKey()), usdcBalanceOf(b.publicKey())]);
-  expect(state.dissolved && state.balance === '0.0000000', 'vault should be dissolved and empty');
-  expect(aAfter === '14.5000000' && bAfter === '14.5000000', `expected 14.5 each, got A ${aAfter} B ${bAfter}`);
-  console.log('split      A', aAfter, '· B', bAfter);
+  expect(state.dissolved && state.owedA === '14.5000000' && state.owedB === '14.5000000', `expected 14.5 booked each, got A ${state.owedA} B ${state.owedB}`);
+  expect(state.balance === '29.0000000', 'booking must not move tokens');
+  console.log('booked     A', state.owedA, '· B', state.owedB);
+
+  // A's half goes out even though B can't receive.
+  await run(buildClaimShareTx(vaultId, shop.publicKey(), a.publicKey()), shop);
+  expect((await usdcBalanceOf(a.publicKey())) === '14.5000000', 'A should hold 14.5 USDC');
+  const bBlocked = await run(buildClaimShareTx(vaultId, shop.publicKey(), b.publicKey()), shop).then(() => 'paid', (e: Error) => e.message);
+  expect(bBlocked !== 'paid', "B's claim must fail while B has no USDC trustline");
+  state = await readVaultState(vaultId);
+  expect(state.owedB === '14.5000000', "a failed claim must leave B's half booked");
+  console.log('claims     A paid 14.5 · B without trustline refused, half still booked');
+
+  await addTrustline(b);
+  await run(buildClaimShareTx(vaultId, b.publicKey(), b.publicKey()), b);
+  state = await readVaultState(vaultId);
+  const bAfter = await usdcBalanceOf(b.publicKey());
+  expect(bAfter === '14.5000000' && state.balance === '0.0000000', `expected B 14.5 and an empty vault, got B ${bAfter}, vault ${state.balance}`);
+  console.log('claims     B adds trustline, claims 14.5 · vault empty');
 
   console.log(`\nSTELLAR_TESTNET_DIRECTORY=${link.label}=${vaultId}`);
 }

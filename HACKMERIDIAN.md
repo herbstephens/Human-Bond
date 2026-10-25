@@ -26,7 +26,7 @@ We brought the shared wallet to Stellar, with the same rules, as a Soroban contr
 
 | | Built this weekend |
 |---|---|
-| **BondVault** Soroban contract | One instance per bond. Same rules as the EVM module: solo small spends inside a rolling daily budget, two-partner approval above it, cancel by either, dissolution with a 3-day delay then a permissionless 50/50 split. 9 unit tests. |
+| **BondVault** Soroban contract | One instance per bond. Same rules as the EVM module: solo small spends inside a rolling daily budget, two-partner approval above it, cancel by either, dissolution with a 3-day delay then a permissionless 50/50 split. 12 unit tests. |
 | **Pay page** `/pay/<label>` | Anyone pays the couple's vault. Has USDC → one transfer. Has XLM or another asset → Stellar's built-in exchange converts to the exact USDC amount, then transfers. |
 | **Vault page** `/stellar/<label>` | Partners spend, approve, decline, request or cancel dissolution, and split, with any Stellar wallet (Stellar Wallets Kit: Freighter, xBull, Lobstr, Albedo…). |
 | **Create page** `/stellar` | Reads the real bond from World Chain (Safe address, ENS label) and deploys the couple's vault with that link baked into the contract. |
@@ -63,8 +63,10 @@ flowchart LR
 | `cancel_spend(caller, id)` | either partner | "No, and stop asking." |
 | `request_dissolution(requester)` | a partner | Starts the delay. Spending still works meanwhile, as on World Chain. |
 | `cancel_dissolution(requester)` | requester only | Only while the delay runs. After it, the outcome is fixed. |
-| `execute_dissolution()` | **anyone** | After the delay: splits the balance 50/50 (odd unit to B), closes the vault. Callable again later to split late arrivals, so money is never trapped. |
-| `config / balance / remaining_free_allowance / get_spend / spend_count / dissolution / is_dissolved` | anyone | Views. |
+| `execute_dissolution()` | **anyone** | After the delay: closes the vault and **books** each partner's half (odd unit to B). Moves no tokens. Callable again later to book late arrivals, so money is never trapped. |
+| `claim_share(partner)` | **anyone** | Pays a partner their booked half. Can only ever pay that partner. If one partner can't receive (no USDC trustline, frozen), only their own claim fails — the other's half still goes out. |
+| `rescue(token, to, amount)` | **both partners** | Moves any token *other than* USDC out of the vault (e.g. XLM sent by mistake). Refuses USDC, which only leaves by the spend rules or the split. |
+| `config / balance / remaining_free_allowance / get_spend / spend_count / dissolution / is_dissolved / owed` | anyone | Views. |
 
 Paying in needs no contract function: it is a plain transfer on the USDC Stellar Asset Contract to the vault's address.
 
@@ -80,9 +82,9 @@ Paying in needs no contract function: it is a plain transfer on the USDC Stellar
 
 | | |
 |---|---|
-| Vault wasm (testnet) | `0fb2bb5f4d3d97dab6430f2ed413b098f3b555e8b328a2982d550ff6b743a017` |
-| Demo vault `demo-bond` | `CDOIEH5GDUUDWZ4DEA7PENDNC4UVBYFN6P2HOQIQ4QYFBT6STRH3TGYV` |
-| Full lifecycle run (example) | vault `CCEWJLTWEOM6Y2RPTKX232KZHASVLH56BD6USTOWLNY46JIXQYGXS53E` on [stellar.expert](https://stellar.expert/explorer/testnet/contract/CCEWJLTWEOM6Y2RPTKX232KZHASVLH56BD6USTOWLNY46JIXQYGXS53E) |
+| Vault wasm (testnet) | `b19fcd27089a2128f2e7c99d314c01fa4c70371c703d48b8e9f59e72bacd2a53` |
+| Demo vault `demo-bond` | re-seed with `npm run stellar:demo-seed` (the earlier demo vault runs the previous wasm) |
+| Full lifecycle run (example) | vault `CBC7HPCMKTJUEWAJN2MQHDFN7P5G63GIRPURRWNRZCD3RZ45L7KX2VCW` on [stellar.expert](https://stellar.expert/explorer/testnet/contract/CBC7HPCMKTJUEWAJN2MQHDFN7P5G63GIRPURRWNRZCD3RZ45L7KX2VCW) |
 
 ```bash
 # contract
@@ -93,7 +95,8 @@ cd miniapp && npm install
 STELLAR_TESTNET_DIRECTORY=demo-bond=<vault id> npm run dev   # then /pay/demo-bond, /stellar/demo-bond
 
 # end-to-end on testnet, headless: deploy → pay in from XLM → solo spend → approved spend
-# → over-budget spend held and cancelled → dissolution delay → 50/50 split
+# → over-budget spend held and cancelled → stray XLM rescued with both signatures
+# → dissolution delay → halves booked → A paid while B (no trustline) is refused → B adds trustline, claims
 npm run stellar:smoke synthetic
 
 # seed a live demo vault and print throwaway testnet keys for Freighter
@@ -111,7 +114,7 @@ npm run stellar:demo-seed demo-bond
 - **The ENS proof is read but not yet written.** Setting the `com.humanbond.stellar` text record needs a Safe transaction signed by both partners, which isn't built. Until then, names resolve through a testnet-only allowlist, and the pages say so.
 - **Dissolution is not synced with World Chain.** A Stellar contract can't see World Chain; the vault runs its own request → delay → split. A relay is roadmap.
 - **No contract-side TTL extension.** Extending storage from inside each call cost thousands of XLM in rent on testnet. Vault state lives the network default (~7 days on testnet today) and then must be restored through RPC; funds are never lost, but the app doesn't automate the restore yet.
-- **Recipients need a USDC trustline** — a shop being paid, and both partners for their half.
+- **Recipients need a USDC trustline** — a shop being paid, and each partner to claim their half (a partner without one only delays their own half).
 - **No federation address or SEP-7 pay link**: classic payments can't target a contract address, so payers use the pay page.
 - **Partner B is set by the deployer** without B signing on Stellar.
 

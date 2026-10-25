@@ -10,9 +10,16 @@
 //! - Anything larger is proposed by one partner and executes when the other approves. Either
 //!   partner can cancel a pending spend.
 //! - Dissolution mirrors HumanBond on World Chain: one partner requests, a delay runs (the
-//!   requester may cancel during it), then anyone can execute and the vault splits 50/50, with
-//!   the odd unit to partner B. After that, nothing can be spent; funds arriving later can be
-//!   split the same way by anyone, so money is never trapped.
+//!   requester may cancel during it), then anyone can execute and the vault is split 50/50,
+//!   with the odd unit to partner B. After that, nothing can be spent; funds arriving later can
+//!   be split the same way by anyone, so money is never trapped.
+//! - The split is PULL-based: executing books each partner's share, and each share is then
+//!   delivered on its own (`claim_share`, callable by anyone, always paying that partner). A
+//!   partner who has no USDC trustline, or whose trustline is frozen, can only hold up their own
+//!   half — never the other's. Pushing both halves in one call would let one partner block the
+//!   whole dissolution, which the EVM module rules out with try/catch.
+//! - Tokens other than the vault's token are never stuck: `rescue` moves them out when BOTH
+//!   partners sign, as the couple's 2-of-2 Safe can on World Chain.
 //!
 //! One instance per bond. Its contract address IS the couple's receiving address: anyone pays
 //! in with a plain token transfer, no signature from the couple needed.
@@ -59,6 +66,8 @@ pub enum VaultError {
     DissolutionDelayNotMet = 11,
     DissolutionDelayOver = 12,
     SpendNotFound = 13,
+    NothingToClaim = 14,
+    VaultTokenNotRescuable = 15,
 }
 
 #[contracttype]
@@ -120,6 +129,8 @@ enum DataKey {
     Spend(u64),
     Dissolution,
     Dissolved,
+    /// A partner's booked, not yet delivered share after dissolution.
+    Owed(Address),
 }
 
 #[contractevent]
@@ -171,11 +182,29 @@ pub struct DissolutionCancelled {
     pub requester: Address,
 }
 
+/// Shares booked at dissolution (or for funds that arrived after it). Delivered by `claim_share`.
 #[contractevent]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VaultSplit {
     pub amount_a: i128,
     pub amount_b: i128,
+}
+
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ShareClaimed {
+    #[topic]
+    pub partner: Address,
+    pub amount: i128,
+}
+
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Rescued {
+    #[topic]
+    pub token: Address,
+    pub to: Address,
+    pub amount: i128,
 }
 
 #[contract]
@@ -242,19 +271,24 @@ fn execute(env: &Env, cfg: &Config, id: u64, spend: &mut Spend, was_free_spend: 
     SpendExecuted { id, to: spend.to.clone(), amount: spend.amount, was_free_spend }.publish(env);
 }
 
-fn split_balance(env: &Env, cfg: &Config) {
-    let client = token::TokenClient::new(env, &cfg.token);
-    let vault = env.current_contract_address();
-    let balance = client.balance(&vault);
-    // Odd amounts leave one unit; partner B takes it, as in the EVM module.
-    let amount_a = balance / 2;
-    let amount_b = balance - amount_a;
-    if amount_a > 0 {
-        client.transfer(&vault, &cfg.partner_a, &amount_a);
+fn owed(env: &Env, partner: &Address) -> i128 {
+    env.storage().instance().get(&DataKey::Owed(partner.clone())).unwrap_or(0)
+}
+
+/// Book whatever is in the vault and not yet owed to anyone: half to A, the rest (the odd unit
+/// included, as in the EVM module) to B. Moves no tokens.
+fn book_split(env: &Env, cfg: &Config) {
+    let balance = token::TokenClient::new(env, &cfg.token).balance(&env.current_contract_address());
+    let owed_a = owed(env, &cfg.partner_a);
+    let owed_b = owed(env, &cfg.partner_b);
+    let unallocated = balance - owed_a - owed_b;
+    if unallocated <= 0 {
+        return;
     }
-    if amount_b > 0 {
-        client.transfer(&vault, &cfg.partner_b, &amount_b);
-    }
+    let amount_a = unallocated / 2;
+    let amount_b = unallocated - amount_a;
+    env.storage().instance().set(&DataKey::Owed(cfg.partner_a.clone()), &(owed_a + amount_a));
+    env.storage().instance().set(&DataKey::Owed(cfg.partner_b.clone()), &(owed_b + amount_b));
     VaultSplit { amount_a, amount_b }.publish(env);
 }
 
@@ -415,8 +449,9 @@ impl BondVault {
         DissolutionCancelled { requester }.publish(&env);
     }
 
-    /// Permissionless once the delay has elapsed: split the vault 50/50 and close it. After
-    /// dissolution, anyone may call this again to split funds that arrived later.
+    /// Permissionless once the delay has elapsed: close the vault and book a 50/50 split. After
+    /// dissolution, anyone may call this again to book funds that arrived later. Moves no
+    /// tokens — each share is delivered by `claim_share`.
     pub fn execute_dissolution(env: Env) {
         let cfg = config(&env);
         if !is_dissolved(&env) {
@@ -429,8 +464,41 @@ impl BondVault {
                 panic_with_error!(&env, VaultError::DissolutionDelayNotMet);
             }
             env.storage().instance().set(&DataKey::Dissolved, &true);
+            env.storage().instance().remove(&DataKey::Dissolution);
         }
-        split_balance(&env, &cfg);
+        book_split(&env, &cfg);
+    }
+
+    /// Deliver a partner's booked share to that partner. Anyone may call it — the money can only
+    /// ever go to the partner it is owed to — so a keeper or the other partner can finish a split.
+    /// If this partner cannot receive (no trustline, frozen), only this call fails.
+    pub fn claim_share(env: Env, partner: Address) -> i128 {
+        let cfg = config(&env);
+        require_partner(&env, &cfg, &partner);
+        let amount = owed(&env, &partner);
+        if amount <= 0 {
+            panic_with_error!(&env, VaultError::NothingToClaim);
+        }
+        env.storage().instance().set(&DataKey::Owed(partner.clone()), &0i128); // before the transfer
+        token::TokenClient::new(&env, &cfg.token).transfer(&env.current_contract_address(), &partner, &amount);
+        ShareClaimed { partner, amount }.publish(&env);
+        amount
+    }
+
+    /// Move a token other than the vault's own out of the vault. Needs BOTH partners' signatures.
+    /// The vault's token is refused: it only leaves through the spend rules or the split.
+    pub fn rescue(env: Env, token: Address, to: Address, amount: i128) {
+        let cfg = config(&env);
+        cfg.partner_a.require_auth();
+        cfg.partner_b.require_auth();
+        if token == cfg.token {
+            panic_with_error!(&env, VaultError::VaultTokenNotRescuable);
+        }
+        if amount <= 0 {
+            panic_with_error!(&env, VaultError::ZeroAmount);
+        }
+        token::TokenClient::new(&env, &token).transfer(&env.current_contract_address(), &to, &amount);
+        Rescued { token, to, amount }.publish(&env);
     }
 
     /* ------------------------------- views ------------------------------- */
@@ -467,6 +535,11 @@ impl BondVault {
 
     pub fn is_dissolved(env: Env) -> bool {
         is_dissolved(&env)
+    }
+
+    /// A partner's booked share not yet delivered (0 before dissolution).
+    pub fn owed(env: Env, partner: Address) -> i128 {
+        owed(&env, &partner)
     }
 }
 

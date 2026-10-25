@@ -8,6 +8,7 @@ import {
   buildApproveSpendTx,
   buildCancelDissolutionTx,
   buildCancelSpendTx,
+  buildClaimShareTx,
   buildExecuteDissolutionTx,
   buildProposeSpendTx,
   buildRequestDissolutionTx,
@@ -39,9 +40,17 @@ export function VaultClient({ label, vaultId }: Props) {
 
   const refresh = useCallback(async () => setState(await readVaultState(vaultId)), [vaultId]);
 
+  // Initial read. State is set only from the promise, and ignored once the page moves on.
   useEffect(() => {
-    refresh().catch((e: Error) => setError(e.message));
-  }, [refresh]);
+    let live = true;
+    readVaultState(vaultId).then(
+      (s) => live && setState(s),
+      (e: Error) => live && setError(e.message),
+    );
+    return () => {
+      live = false;
+    };
+  }, [vaultId]);
 
   // Errors are shown, not swallowed: the full message goes on screen and to the console.
   async function run(what: string, step: () => Promise<void>) {
@@ -104,7 +113,9 @@ export function VaultClient({ label, vaultId }: Props) {
           Alone: up to {config.smallSpendThreshold} per spend · {state.remainingFreeAllowance} of {config.dailyFreeLimit} left today
         </p>
         <p className="break-all font-mono text-xs text-gray-500">{vaultId}</p>
-        {state.dissolved && <p className="text-sm font-semibold">This vault is dissolved. It was split 50/50.</p>}
+        {state.dissolved && (
+          <p className="text-sm font-semibold">This vault is dissolved. Each partner’s half is set aside to claim.</p>
+        )}
       </header>
 
       <section className="space-y-2">
@@ -196,8 +207,8 @@ export function VaultClient({ label, vaultId }: Props) {
                 </button>
               )}
               {wallet && matured && (
-                <button className={cta} disabled={!!busy} onClick={() => run('Splitting', () => act('Vault split 50/50', (me) => buildExecuteDissolutionTx(vaultId, me)))}>
-                  Split 50/50
+                <button className={cta} disabled={!!busy} onClick={() => run('Closing', () => act('Vault closed, halves set aside', (me) => buildExecuteDissolutionTx(vaultId, me)))}>
+                  Close and split 50/50
                 </button>
               )}
             </>
@@ -217,10 +228,37 @@ export function VaultClient({ label, vaultId }: Props) {
         </section>
       )}
 
-      {state.dissolved && wallet && toStroops(state.balance) > BigInt(0) && (
-        <button className={cta} disabled={!!busy} onClick={() => run('Splitting', () => act('Late arrivals split 50/50', (me) => buildExecuteDissolutionTx(vaultId, me)))}>
-          Split what arrived since
-        </button>
+      {state.dissolved && (
+        <section className="space-y-3">
+          <h2 className={`${HEADING} text-xl uppercase`}>Halves</h2>
+          <p className="text-sm text-gray-600">
+            Each half is paid out on its own, so one of you can’t hold up the other. Anyone can send a half on its
+            way — it only ever goes to the partner it belongs to. Receiving needs a USDC trustline.
+          </p>
+          <ul className="space-y-2">
+            {[
+              { who: config.partnerA, owed: state.owedA, name: 'Partner A' },
+              { who: config.partnerB, owed: state.owedB, name: 'Partner B' },
+            ].map((h) => (
+              <li key={h.who} className="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
+                <span className="font-mono text-sm">
+                  {h.owed} USDC
+                  <span className={`${META} ml-2`}>{h.name} · {short(h.who)}{wallet === h.who ? ' · you' : ''}</span>
+                </span>
+                {wallet && toStroops(h.owed) > BigInt(0) && (
+                  <button className={cta} disabled={!!busy} onClick={() => run('Paying out', () => act(`${h.owed} USDC paid to ${short(h.who)}`, (me) => buildClaimShareTx(vaultId, me, h.who)))}>
+                    {wallet === h.who ? 'Claim' : 'Send'}
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+          {wallet && toStroops(state.balance) > toStroops(state.owedA) + toStroops(state.owedB) && (
+            <button className={secondary} disabled={!!busy} onClick={() => run('Splitting', () => act('Late arrivals split 50/50', (me) => buildExecuteDissolutionTx(vaultId, me)))}>
+              Split what arrived since
+            </button>
+          )}
+        </section>
       )}
 
       {busy && <p className={META}>{busy}…</p>}

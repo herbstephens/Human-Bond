@@ -96,7 +96,9 @@ export function StellarVaultCard({ ensLabel }: StellarVaultCardProps) {
             </div>
 
             {summary.dissolved ? (
-                <p className="text-xs font-bold text-gray-700">This vault was dissolved and split 50/50.</p>
+                <p className="text-xs font-bold text-gray-700">
+                    This vault was dissolved. Each of you claims your half on the vault page.
+                </p>
             ) : null}
 
             {summary.dissolution && !summary.dissolved ? (

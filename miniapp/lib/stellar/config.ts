@@ -19,8 +19,8 @@ const NETWORKS = {
     explorerUrl: 'https://stellar.expert/explorer/testnet',
     // Circle's testnet USDC.
     usdc: new Asset('USDC', 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5'),
-    // contracts-stellar/contracts/bond-vault, uploaded 2026-10-25.
-    vaultWasmHash: '0fb2bb5f4d3d97dab6430f2ed413b098f3b555e8b328a2982d550ff6b743a017',
+    // contracts-stellar/contracts/bond-vault, uploaded 2026-10-25 (pull-based split + rescue).
+    vaultWasmHash: 'b19fcd27089a2128f2e7c99d314c01fa4c70371c703d48b8e9f59e72bacd2a53',
   },
   public: {
     passphrase: Networks.PUBLIC,

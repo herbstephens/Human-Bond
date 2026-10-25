@@ -4,16 +4,19 @@
  * Same rules as the EVM BondVaultModule: one partner alone for small spends (per-spend threshold
  * and a shared rolling 24h budget), both partners for anything larger, and a 50/50 split on
  * dissolution after a delay. One contract instance per bond; its address is where the couple
- * receives.
+ * receives. The split is pull-based: dissolution books each half, `claim_share` delivers it, so
+ * one partner who can't receive never holds up the other.
  *
  * Every write here is a transaction whose source is the acting partner, so the contract's
  * `require_auth` is satisfied by the ordinary transaction signature — the wallet signs once.
+ * The exception is `rescue`, which needs BOTH partners: see buildRescueTx.
  */
 import { Buffer } from 'buffer';
 import {
   Account,
   Address,
   BASE_FEE,
+  authorizeEntry,
   Contract,
   Keypair,
   Operation,
@@ -22,6 +25,7 @@ import {
   nativeToScVal,
   rpc,
   scValToNative,
+  type SigningCallback,
   type xdr,
 } from '@stellar/stellar-sdk';
 import { STELLAR, sorobanRpc } from './config';
@@ -66,6 +70,9 @@ export type VaultState = {
   spends: VaultSpend[];
   dissolution: { requester: string; requestedAt: Date; executableAt: Date } | null;
   dissolved: boolean;
+  /** Booked, not yet delivered shares after dissolution ("0.0000000" before). */
+  owedA: string;
+  owedB: string;
 };
 
 const addr = (a: string) => nativeToScVal(Address.fromString(a), { type: 'address' });
@@ -182,13 +189,69 @@ export const buildRequestDissolutionTx = (vaultId: string, requester: string) =>
 export const buildCancelDissolutionTx = (vaultId: string, requester: string) =>
   invokeTx(requester, vaultId, 'cancel_dissolution', [addr(requester)]);
 
-/** Permissionless: anyone may finalize a matured dissolution, or split late arrivals. */
+/** Permissionless: anyone may finalize a matured dissolution (booking the split), or book late arrivals. */
 export const buildExecuteDissolutionTx = (vaultId: string, caller: string) =>
   invokeTx(caller, vaultId, 'execute_dissolution', []);
 
+/** Permissionless: deliver `partner`'s booked share to `partner`. `caller` only pays the fee. */
+export const buildClaimShareTx = (vaultId: string, caller: string, partner: string) =>
+  invokeTx(caller, vaultId, 'claim_share', [addr(partner)]);
+
+/**
+ * Move a token other than USDC out of the vault — needs BOTH partners. `source` (one partner)
+ * signs the transaction itself; `otherSigner` (the other partner's key, or a wallet callback
+ * that signs the authorization payload) signs their authorization entry. The contract refuses
+ * the vault's own token.
+ */
+export async function buildRescueTx(params: {
+  vaultId: string;
+  source: string;
+  token: string;
+  to: string;
+  amount: string;
+  otherSigner: Keypair | SigningCallback;
+}): Promise<string> {
+  const { vaultId, source, token, to, amount, otherSigner } = params;
+  const account = await sorobanRpc.getAccount(source);
+  const tx = new TransactionBuilder(account, { fee: BASE_FEE, networkPassphrase: STELLAR.passphrase })
+    .addOperation(new Contract(vaultId).call('rescue', addr(token), addr(to), i128(amount)))
+    .setTimeout(300)
+    .build();
+  const sim = await sorobanRpc.simulateTransaction(tx);
+  if (!rpc.Api.isSimulationSuccess(sim)) {
+    throw new Error(`Simulation failed: ${'error' in sim ? sim.error : JSON.stringify(sim)}`);
+  }
+  const invoke = tx.operations[0];
+  if (invoke.type !== 'invokeHostFunction') throw new Error('expected an invokeHostFunction operation');
+
+  // The source partner is covered by the transaction signature; only address credentials need signing.
+  const { sequence } = await sorobanRpc.getLatestLedger();
+  const auth = await Promise.all(
+    (sim.result?.auth ?? []).map((entry) =>
+      // Sign every address-credential variant (protocol 29 simulation returns AddressV2).
+      entry.credentials.type === 'sorobanCredentialsSourceAccount'
+        ? entry
+        : authorizeEntry(entry, otherSigner, sequence + 1000, STELLAR.passphrase),
+    ),
+  );
+  // Simulate again WITH the signed entries: the first (recording) simulation did not include the
+  // cost of verifying the other partner's signature, and its resources fail on-chain
+  // (INVOKE_HOST_FUNCTION_RESOURCE_LIMIT_EXCEEDED, seen on testnet).
+  const fresh = await sorobanRpc.getAccount(source);
+  const signed = new TransactionBuilder(fresh, { fee: BASE_FEE, networkPassphrase: STELLAR.passphrase })
+    .addOperation(Operation.invokeHostFunction({ source: invoke.source, func: invoke.func, auth }))
+    .setTimeout(300)
+    .build();
+  return (await prepare(signed)).prepared.toXDR();
+}
+
+/** A transfer on any Stellar token contract (7-decimal amounts, as every classic asset has). */
+export const buildTokenTransferTx = (token: string, from: string, to: string, amount: string) =>
+  invokeTx(from, token, 'transfer', [addr(from), addr(to), i128(amount)]);
+
 /** Pay USDC into the vault: a plain transfer on the USDC token contract. */
 export const buildDepositTx = (vaultId: string, payer: string, amount: string) =>
-  invokeTx(payer, STELLAR.usdcContractId, 'transfer', [addr(payer), addr(vaultId), i128(amount)]);
+  buildTokenTransferTx(STELLAR.usdcContractId, payer, vaultId, amount);
 
 /* ---------------------------------- reads --------------------------------- */
 
@@ -240,6 +303,10 @@ export async function readVaultState(vaultId: string): Promise<VaultState> {
     view(vaultId, 'dissolution') as Promise<{ requester: string; requested_at: bigint } | undefined>,
     view(vaultId, 'is_dissolved') as Promise<boolean>,
   ]);
+  const [owedA, owedB] = (await Promise.all([
+    view(vaultId, 'owed', [addr(config.partnerA)]),
+    view(vaultId, 'owed', [addr(config.partnerB)]),
+  ])) as [bigint, bigint];
   const ids = Array.from({ length: Number(count) }, (_, i) => i);
   const rawSpends = (await Promise.all(ids.map((id) => view(vaultId, 'get_spend', [u64(id)])))) as RawSpend[];
   return {
@@ -265,5 +332,7 @@ export async function readVaultState(vaultId: string): Promise<VaultState> {
         }
       : null,
     dissolved,
+    owedA: fromStroops(owedA),
+    owedB: fromStroops(owedB),
   };
 }
