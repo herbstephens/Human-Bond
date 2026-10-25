@@ -18,8 +18,9 @@ import {
   type VaultState,
 } from '@/lib/stellar/vault';
 import { loadKit } from '@/lib/stellar/walletKit';
+import { EstatePanel } from './EstatePanel';
 
-type Props = { label: string; vaultId: string };
+type Props = { label: string; vaultId: string; pendingWill: string | null };
 
 const input = 'w-full rounded-xl bg-gray-100 px-4 py-3 font-mono text-sm outline-none';
 const cta = 'rounded-full bg-black px-6 py-3 text-xs font-semibold uppercase tracking-[0.2em] text-white disabled:opacity-40';
@@ -29,7 +30,7 @@ function short(key: string): string {
   return `${key.slice(0, 4)}…${key.slice(-4)}`;
 }
 
-export function VaultClient({ label, vaultId }: Props) {
+export function VaultClient({ label, vaultId, pendingWill }: Props) {
   const [state, setState] = useState<VaultState | null>(null);
   const [wallet, setWallet] = useState<string | null>(null);
   const [to, setTo] = useState('');
@@ -96,10 +97,14 @@ export function VaultClient({ label, vaultId }: Props) {
   const now = new Date();
   const matured = !!state.dissolution && state.dissolution.executableAt <= now;
 
+  const myLife = isA ? state.lifeA : state.lifeB;
+  const partnerLife = isA ? state.lifeB : state.lifeA;
+  const iAmSurvivor = isPartner && !myLife.deceased && partnerLife.deceased;
   const wouldExecuteNow =
     !!amount &&
-    toStroops(amount) <= toStroops(config.smallSpendThreshold) &&
-    toStroops(amount) <= toStroops(state.remainingFreeAllowance);
+    (iAmSurvivor ||
+      (toStroops(amount) <= toStroops(config.smallSpendThreshold) &&
+        toStroops(amount) <= toStroops(state.remainingFreeAllowance)));
 
   const myApproval = (s: VaultSpend) => (isA ? s.approvedA : s.approvedB);
 
@@ -128,7 +133,7 @@ export function VaultClient({ label, vaultId }: Props) {
         )}
       </section>
 
-      {isPartner && !state.dissolved && (
+      {isPartner && !myLife.deceased && !state.dissolved && (
         <section className="space-y-3">
           <h2 className={`${HEADING} text-xl uppercase`}>Spend</h2>
           <input className={input} placeholder="Recipient (G…)" value={to} onChange={(e) => setTo(e.target.value.trim())} />
@@ -137,7 +142,9 @@ export function VaultClient({ label, vaultId }: Props) {
             <span className={META}>USDC</span>
           </div>
           {amount && (
-            <p className={META}>{wouldExecuteNow ? 'Goes through now, on your signature alone' : 'Needs your partner to approve'}</p>
+            <p className={META}>
+              {iAmSurvivor ? 'Goes through now — the vault is yours' : wouldExecuteNow ? 'Goes through now, on your signature alone' : 'Needs your partner to approve'}
+            </p>
           )}
           <p className={META}>The recipient needs a USDC trustline</p>
           <button
@@ -192,6 +199,10 @@ export function VaultClient({ label, vaultId }: Props) {
       )}
 
       {!state.dissolved && (
+        <EstatePanel label={label} vaultId={vaultId} state={state} wallet={wallet} busy={busy} run={run} act={act} pendingWill={pendingWill} />
+      )}
+
+      {!state.dissolved && !state.lifeA.deceased && !state.lifeB.deceased && (
         <section className="space-y-3">
           <h2 className={`${HEADING} text-xl uppercase`}>Dissolution</h2>
           {state.dissolution ? (

@@ -21,6 +21,25 @@
 //! - Tokens other than the vault's token are never stuck: `rescue` moves them out when BOTH
 //!   partners sign, as the couple's 2-of-2 Safe can on World Chain.
 //!
+//! Inheritance — the bond's will, executed (a Berliner Testament as a contract):
+//! - Both partners together write the will: up to MAX_HEIRS heirs, each with a share in basis
+//!   points and an optional unlock time (a minor's share can wait for a date). An heir can be a
+//!   person's account or a contract — e.g. a child's own bond vault, which chains generations.
+//! - Proof of life: every authenticated action by a partner counts as a check-in (`heartbeat`
+//!   exists for when nothing else happens). Once a partner has not checked in for
+//!   `heartbeat_interval`, anyone may report the lapse; a challenge window opens in which ANY
+//!   check-in by that partner cancels it. After the window, anyone may confirm the death.
+//! - First death: the survivor owns the whole vault — spends of any size go through on the
+//!   survivor's signature alone. The will is locked: it needs both partners to change, so the
+//!   couple's intent for the heirs cannot be undone by one of them. A pending dissolution ends.
+//! - Second death: the whole balance is booked to the heirs by share; each heir's part is
+//!   delivered by `claim_inheritance` (anyone may call it; it only ever pays that heir) once its
+//!   unlock time has passed. Funds arriving later are booked the same way.
+//! - Heirs inherit claims, not keys: nobody ever needs a dead partner's key.
+//! Limits, said plainly: check-ins are key signatures (World ID check-ins relayed from World
+//! Chain are roadmap); a dissolved vault has no inheritance; with no will written, nothing is
+//! claimable after both deaths; this is not a legal will.
+//!
 //! One instance per bond. Its contract address IS the couple's receiving address: anyone pays
 //! in with a plain token transfer, no signature from the couple needed.
 //!
@@ -37,7 +56,7 @@
 
 use soroban_sdk::{
     contract, contracterror, contractevent, contractimpl, contracttype, panic_with_error, token,
-    Address, BytesN, Env, String,
+    Address, BytesN, Env, String, Vec,
 };
 
 /// USDC on Stellar has 7 decimals.
@@ -48,6 +67,11 @@ pub const MAX_DAILY_FREE_LIMIT: i128 = 250 * UNIT;
 pub const FREE_WINDOW: u64 = 24 * 60 * 60;
 /// Upper bound on the dissolution delay a vault can be created with.
 pub const MAX_DISSOLUTION_DELAY: u64 = 30 * 24 * 60 * 60;
+/// Bounds on proof-of-life timing set at creation.
+pub const MAX_HEARTBEAT_INTERVAL: u64 = 2 * 365 * 24 * 60 * 60;
+pub const MAX_CHALLENGE_WINDOW: u64 = 365 * 24 * 60 * 60;
+pub const MAX_HEIRS: u32 = 10;
+pub const TOTAL_BPS: u32 = 10_000;
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -68,6 +92,15 @@ pub enum VaultError {
     SpendNotFound = 13,
     NothingToClaim = 14,
     VaultTokenNotRescuable = 15,
+    PartnerDeceased = 16,
+    BadWill = 17,
+    NotLapsed = 18,
+    LapseAlreadyReported = 19,
+    NoLapse = 20,
+    ChallengeWindowOpen = 21,
+    NotAnHeir = 22,
+    InheritanceLocked = 23,
+    BothDeceased = 24,
 }
 
 #[contracttype]
@@ -85,6 +118,20 @@ pub struct Config {
     pub small_spend_threshold: i128,
     pub daily_free_limit: i128,
     pub dissolution_delay: u64,
+    /// A partner who has not checked in for this long can be reported as lapsed.
+    pub heartbeat_interval: u64,
+    /// After a lapse is reported, how long the partner has to check in before death can be confirmed.
+    pub challenge_window: u64,
+}
+
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Heir {
+    pub heir: Address,
+    /// Share of the estate in basis points; all heirs together make 10_000.
+    pub bps: u32,
+    /// Ledger timestamp before which this heir cannot claim (0 = no wait).
+    pub unlock_at: u64,
 }
 
 #[contracttype]
@@ -131,6 +178,13 @@ enum DataKey {
     Dissolved,
     /// A partner's booked, not yet delivered share after dissolution.
     Owed(Address),
+    Will,
+    LastSeen(Address),
+    /// When a partner's lapse was reported (challenge window running).
+    Lapse(Address),
+    Deceased(Address),
+    /// An heir's booked, not yet delivered part of the estate.
+    EstateOwed(Address),
 }
 
 #[contractevent]
@@ -200,6 +254,49 @@ pub struct ShareClaimed {
 
 #[contractevent]
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WillSet {
+    pub heirs: Vec<Heir>,
+}
+
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LapseReported {
+    #[topic]
+    pub partner: Address,
+    pub last_seen: u64,
+}
+
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LapseCancelled {
+    #[topic]
+    pub partner: Address,
+}
+
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DeathConfirmed {
+    #[topic]
+    pub partner: Address,
+    pub both_deceased: bool,
+}
+
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EstateBooked {
+    pub amount: i128,
+}
+
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct InheritanceClaimed {
+    #[topic]
+    pub heir: Address,
+    pub amount: i128,
+}
+
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Rescued {
     #[topic]
     pub token: Address,
@@ -222,6 +319,62 @@ fn require_partner(env: &Env, cfg: &Config, who: &Address) {
     if who != &cfg.partner_a && who != &cfg.partner_b {
         panic_with_error!(env, VaultError::NotPartner);
     }
+}
+
+fn other_partner(cfg: &Config, who: &Address) -> Address {
+    if who == &cfg.partner_a { cfg.partner_b.clone() } else { cfg.partner_a.clone() }
+}
+
+fn is_deceased(env: &Env, who: &Address) -> bool {
+    env.storage().instance().get(&DataKey::Deceased(who.clone())).unwrap_or(false)
+}
+
+/// A living partner acted with their signature: that is proof of life. Records the check-in and
+/// cancels a reported lapse. A partner confirmed dead cannot act.
+fn touch(env: &Env, who: &Address) {
+    if is_deceased(env, who) {
+        panic_with_error!(env, VaultError::PartnerDeceased);
+    }
+    env.storage().instance().set(&DataKey::LastSeen(who.clone()), &env.ledger().timestamp());
+    if env.storage().instance().has(&DataKey::Lapse(who.clone())) {
+        env.storage().instance().remove(&DataKey::Lapse(who.clone()));
+        LapseCancelled { partner: who.clone() }.publish(env);
+    }
+}
+
+fn will(env: &Env) -> Vec<Heir> {
+    env.storage().instance().get(&DataKey::Will).unwrap_or(Vec::new(env))
+}
+
+fn estate_owed(env: &Env, heir: &Address) -> i128 {
+    env.storage().instance().get(&DataKey::EstateOwed(heir.clone())).unwrap_or(0)
+}
+
+/// After both deaths: book whatever is in the vault and not yet owed to an heir, by share. The
+/// last heir takes the rounding dust. With no will, nothing is booked.
+fn book_estate(env: &Env, cfg: &Config) {
+    let heirs = will(env);
+    if heirs.is_empty() {
+        return;
+    }
+    let balance = token::TokenClient::new(env, &cfg.token).balance(&env.current_contract_address());
+    let mut owed_total: i128 = 0;
+    for h in heirs.iter() {
+        owed_total += estate_owed(env, &h.heir);
+    }
+    let unallocated = balance - owed_total;
+    if unallocated <= 0 {
+        return;
+    }
+    let mut booked: i128 = 0;
+    let last = heirs.len() - 1;
+    for (i, h) in heirs.iter().enumerate() {
+        let part = if i as u32 == last { unallocated - booked } else { unallocated * h.bps as i128 / TOTAL_BPS as i128 };
+        booked += part;
+        let key = DataKey::EstateOwed(h.heir.clone());
+        env.storage().instance().set(&key, &(estate_owed(env, &h.heir) + part));
+    }
+    EstateBooked { amount: unallocated }.publish(env);
 }
 
 fn load_spend(env: &Env, id: u64) -> Spend {
@@ -306,6 +459,8 @@ impl BondVault {
         small_spend_threshold: i128,
         daily_free_limit: i128,
         dissolution_delay: u64,
+        heartbeat_interval: u64,
+        challenge_window: u64,
     ) {
         if partner_a == partner_b {
             panic_with_error!(&env, VaultError::SamePartner);
@@ -314,6 +469,10 @@ impl BondVault {
             || !(0..=MAX_DAILY_FREE_LIMIT).contains(&daily_free_limit)
             || dissolution_delay == 0
             || dissolution_delay > MAX_DISSOLUTION_DELAY
+            || heartbeat_interval == 0
+            || heartbeat_interval > MAX_HEARTBEAT_INTERVAL
+            || challenge_window == 0
+            || challenge_window > MAX_CHALLENGE_WINDOW
         {
             panic_with_error!(&env, VaultError::ParamOutOfBounds);
         }
@@ -327,7 +486,12 @@ impl BondVault {
             small_spend_threshold,
             daily_free_limit,
             dissolution_delay,
+            heartbeat_interval,
+            challenge_window,
         };
+        let now = env.ledger().timestamp();
+        env.storage().instance().set(&DataKey::LastSeen(cfg.partner_a.clone()), &now);
+        env.storage().instance().set(&DataKey::LastSeen(cfg.partner_b.clone()), &now);
         env.storage().instance().set(&DataKey::Config, &cfg);
     }
 
@@ -337,6 +501,7 @@ impl BondVault {
         proposer.require_auth();
         let cfg = config(&env);
         require_partner(&env, &cfg, &proposer);
+        touch(&env, &proposer);
         if is_dissolved(&env) {
             panic_with_error!(&env, VaultError::Dissolved);
         }
@@ -357,9 +522,13 @@ impl BondVault {
             status: SpendStatus::Pending,
         };
         save_spend(&env, id, &spend);
+        let survivor = is_deceased(&env, &other_partner(&cfg, &proposer));
         SpendProposed { id, proposer, to, amount }.publish(&env);
 
-        if consume_free_allowance(&env, &cfg, amount) {
+        if survivor {
+            // The survivor owns the vault: no limits, no second signature.
+            execute(&env, &cfg, id, &mut spend, false);
+        } else if consume_free_allowance(&env, &cfg, amount) {
             execute(&env, &cfg, id, &mut spend, true);
         }
         id
@@ -370,6 +539,7 @@ impl BondVault {
         approver.require_auth();
         let cfg = config(&env);
         require_partner(&env, &cfg, &approver);
+        touch(&env, &approver);
         // After dissolution whatever is left belongs to the split.
         if is_dissolved(&env) {
             panic_with_error!(&env, VaultError::Dissolved);
@@ -379,6 +549,11 @@ impl BondVault {
             panic_with_error!(&env, VaultError::SpendNotPending);
         }
         let is_a = approver == cfg.partner_a;
+        // A survivor may push through a spend that was waiting for the deceased partner.
+        if is_deceased(&env, &other_partner(&cfg, &approver)) {
+            execute(&env, &cfg, id, &mut spend, false);
+            return;
+        }
         if (is_a && spend.approved_a) || (!is_a && spend.approved_b) {
             panic_with_error!(&env, VaultError::AlreadyApproved);
         }
@@ -401,6 +576,7 @@ impl BondVault {
         caller.require_auth();
         let cfg = config(&env);
         require_partner(&env, &cfg, &caller);
+        touch(&env, &caller);
         let mut spend = load_spend(&env, id);
         if spend.status != SpendStatus::Pending {
             panic_with_error!(&env, VaultError::SpendNotPending);
@@ -415,8 +591,12 @@ impl BondVault {
         requester.require_auth();
         let cfg = config(&env);
         require_partner(&env, &cfg, &requester);
+        touch(&env, &requester);
         if is_dissolved(&env) {
             panic_with_error!(&env, VaultError::Dissolved);
+        }
+        if is_deceased(&env, &other_partner(&cfg, &requester)) {
+            panic_with_error!(&env, VaultError::PartnerDeceased);
         }
         if env.storage().instance().has(&DataKey::Dissolution) {
             panic_with_error!(&env, VaultError::DissolutionAlreadyRequested);
@@ -434,6 +614,8 @@ impl BondVault {
     pub fn cancel_dissolution(env: Env, requester: Address) {
         requester.require_auth();
         let cfg = config(&env);
+        require_partner(&env, &cfg, &requester);
+        touch(&env, &requester);
         let req: DissolutionRequest = env
             .storage()
             .instance()
@@ -491,6 +673,8 @@ impl BondVault {
         let cfg = config(&env);
         cfg.partner_a.require_auth();
         cfg.partner_b.require_auth();
+        touch(&env, &cfg.partner_a);
+        touch(&env, &cfg.partner_b);
         if token == cfg.token {
             panic_with_error!(&env, VaultError::VaultTokenNotRescuable);
         }
@@ -499,6 +683,129 @@ impl BondVault {
         }
         token::TokenClient::new(&env, &token).transfer(&env.current_contract_address(), &to, &amount);
         Rescued { token, to, amount }.publish(&env);
+    }
+
+    /* ----------------------------- inheritance ----------------------------- */
+
+    /// Write or replace the will. Needs BOTH partners, alive, before dissolution — so after the
+    /// first death the will is locked, as in a Berliner Testament.
+    pub fn set_will(env: Env, heirs: Vec<Heir>) {
+        let cfg = config(&env);
+        cfg.partner_a.require_auth();
+        cfg.partner_b.require_auth();
+        touch(&env, &cfg.partner_a);
+        touch(&env, &cfg.partner_b);
+        if is_dissolved(&env) {
+            panic_with_error!(&env, VaultError::Dissolved);
+        }
+        if heirs.is_empty() || heirs.len() > MAX_HEIRS {
+            panic_with_error!(&env, VaultError::BadWill);
+        }
+        let mut total: u32 = 0;
+        for (i, h) in heirs.iter().enumerate() {
+            if h.bps == 0 || h.heir == cfg.partner_a || h.heir == cfg.partner_b || h.heir == env.current_contract_address() {
+                panic_with_error!(&env, VaultError::BadWill);
+            }
+            for other in heirs.iter().skip(i + 1) {
+                if other.heir == h.heir {
+                    panic_with_error!(&env, VaultError::BadWill);
+                }
+            }
+            total += h.bps;
+        }
+        if total != TOTAL_BPS {
+            panic_with_error!(&env, VaultError::BadWill);
+        }
+        env.storage().instance().set(&DataKey::Will, &heirs);
+        WillSet { heirs }.publish(&env);
+    }
+
+    /// Proof of life when nothing else is happening. Cancels a reported lapse.
+    pub fn heartbeat(env: Env, partner: Address) {
+        partner.require_auth();
+        let cfg = config(&env);
+        require_partner(&env, &cfg, &partner);
+        touch(&env, &partner);
+    }
+
+    /// Anyone may report a partner who has not checked in for `heartbeat_interval`. Opens the
+    /// challenge window; any check-in by that partner during it cancels the report.
+    pub fn report_lapse(env: Env, partner: Address) {
+        let cfg = config(&env);
+        require_partner(&env, &cfg, &partner);
+        if is_dissolved(&env) {
+            panic_with_error!(&env, VaultError::Dissolved);
+        }
+        if is_deceased(&env, &partner) {
+            panic_with_error!(&env, VaultError::PartnerDeceased);
+        }
+        if env.storage().instance().has(&DataKey::Lapse(partner.clone())) {
+            panic_with_error!(&env, VaultError::LapseAlreadyReported);
+        }
+        let last_seen: u64 = env.storage().instance().get(&DataKey::LastSeen(partner.clone())).unwrap_or(0);
+        let now = env.ledger().timestamp();
+        if now < last_seen + cfg.heartbeat_interval {
+            panic_with_error!(&env, VaultError::NotLapsed);
+        }
+        env.storage().instance().set(&DataKey::Lapse(partner.clone()), &now);
+        LapseReported { partner, last_seen }.publish(&env);
+    }
+
+    /// Anyone may confirm a death once the challenge window has passed without a check-in.
+    /// First death: the survivor owns the vault and a pending dissolution ends. Second death:
+    /// the estate is booked to the heirs.
+    pub fn confirm_death(env: Env, partner: Address) {
+        let cfg = config(&env);
+        require_partner(&env, &cfg, &partner);
+        if is_dissolved(&env) {
+            panic_with_error!(&env, VaultError::Dissolved);
+        }
+        let reported: u64 = env
+            .storage()
+            .instance()
+            .get(&DataKey::Lapse(partner.clone()))
+            .unwrap_or_else(|| panic_with_error!(&env, VaultError::NoLapse));
+        if env.ledger().timestamp() < reported + cfg.challenge_window {
+            panic_with_error!(&env, VaultError::ChallengeWindowOpen);
+        }
+        env.storage().instance().remove(&DataKey::Lapse(partner.clone()));
+        env.storage().instance().set(&DataKey::Deceased(partner.clone()), &true);
+        env.storage().instance().remove(&DataKey::Dissolution);
+        let both = is_deceased(&env, &other_partner(&cfg, &partner));
+        DeathConfirmed { partner, both_deceased: both }.publish(&env);
+        if both {
+            book_estate(&env, &cfg);
+        }
+    }
+
+    /// After both deaths, anyone may book funds that arrived later to the heirs.
+    pub fn book_late_estate(env: Env) {
+        let cfg = config(&env);
+        if !(is_deceased(&env, &cfg.partner_a) && is_deceased(&env, &cfg.partner_b)) {
+            panic_with_error!(&env, VaultError::NoLapse);
+        }
+        book_estate(&env, &cfg);
+    }
+
+    /// Deliver an heir's booked part of the estate to that heir, once its unlock time has
+    /// passed. Anyone may call it; it only ever pays that heir.
+    pub fn claim_inheritance(env: Env, heir: Address) -> i128 {
+        let cfg = config(&env);
+        let entry = will(&env)
+            .iter()
+            .find(|h| h.heir == heir)
+            .unwrap_or_else(|| panic_with_error!(&env, VaultError::NotAnHeir));
+        if env.ledger().timestamp() < entry.unlock_at {
+            panic_with_error!(&env, VaultError::InheritanceLocked);
+        }
+        let amount = estate_owed(&env, &heir);
+        if amount <= 0 {
+            panic_with_error!(&env, VaultError::NothingToClaim);
+        }
+        env.storage().instance().set(&DataKey::EstateOwed(heir.clone()), &0i128); // before the transfer
+        token::TokenClient::new(&env, &cfg.token).transfer(&env.current_contract_address(), &heir, &amount);
+        InheritanceClaimed { heir, amount }.publish(&env);
+        amount
     }
 
     /* ------------------------------- views ------------------------------- */
@@ -540,6 +847,28 @@ impl BondVault {
     /// A partner's booked share not yet delivered (0 before dissolution).
     pub fn owed(env: Env, partner: Address) -> i128 {
         owed(&env, &partner)
+    }
+
+    pub fn will(env: Env) -> Vec<Heir> {
+        will(&env)
+    }
+
+    pub fn last_seen(env: Env, partner: Address) -> u64 {
+        env.storage().instance().get(&DataKey::LastSeen(partner)).unwrap_or(0)
+    }
+
+    /// When a lapse was reported for this partner, if the challenge window is running.
+    pub fn lapse(env: Env, partner: Address) -> Option<u64> {
+        env.storage().instance().get(&DataKey::Lapse(partner))
+    }
+
+    pub fn is_deceased(env: Env, partner: Address) -> bool {
+        is_deceased(&env, &partner)
+    }
+
+    /// An heir's booked, not yet delivered part of the estate.
+    pub fn estate_owed(env: Env, heir: Address) -> i128 {
+        estate_owed(&env, &heir)
     }
 }
 

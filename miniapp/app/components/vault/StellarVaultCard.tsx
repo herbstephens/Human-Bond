@@ -138,6 +138,18 @@ export function StellarVaultCard({ ensLabel }: StellarVaultCardProps) {
                 </div>
             ) : null}
 
+            {!summary.dissolved ? (
+                <p className="text-xs font-semibold text-gray-700">
+                    {summary.deceased === 1
+                        ? "One partner has died. The survivor now owns this vault; the will is locked."
+                        : summary.deceased === 2
+                          ? "Both partners have died. The heirs claim their shares on the vault page."
+                          : summary.heirs > 0
+                            ? `Will: ${summary.heirs} ${summary.heirs === 1 ? "heir" : "heirs"}, set by both of you`
+                            : "No will yet — if both of you die, nobody can claim this vault."}
+                </p>
+            ) : null}
+
             {summary.pendingCount > 0 ? (
                 <div className="flex items-center gap-2 text-xs font-bold text-gray-700">
                     <Inbox size={15} className="text-gray-500" />
