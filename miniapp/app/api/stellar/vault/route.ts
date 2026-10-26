@@ -20,6 +20,8 @@ export type StellarVaultSummary = {
   pendingCount: number;
   dissolution: { requestedAt: string; executableAt: string } | null;
   dissolved: boolean;
+  heirs: number;
+  deceased: number;
 };
 
 export async function GET(request: NextRequest) {
@@ -44,6 +46,8 @@ export async function GET(request: NextRequest) {
       ? { requestedAt: state.dissolution.requestedAt.toISOString(), executableAt: state.dissolution.executableAt.toISOString() }
       : null,
     dissolved: state.dissolved,
+    heirs: state.will.length,
+    deceased: [state.lifeA, state.lifeB].filter((l) => l.deceased).length,
   };
   return NextResponse.json(summary);
 }

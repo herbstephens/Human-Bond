@@ -1,22 +1,24 @@
 ---
 date: 2026-10-25
 topic: demo-script
-event: HackMeridian Lisbon (Scale path)
+event: HackMeridian Lisbon (Genesis path — Stellar Unlocked + Stellar Composed)
 status: v1 draft — not yet rehearsed or timed
 input: HACKMERIDIAN.md
 ---
 
 # HumanBond on Stellar — Demo Video Script
 
-**Target length:** about 2:30. Judging is async from the video, deck, repo and answers, so the video must stand on its own.
+**Target length:** about 2:50. Judging is async from the video, deck, repo and answers, so the video must stand on its own.
 
 **The one sentence:** *Small things, either of you. Big things, both of you. If it ends, half each — now on Stellar.*
 
-**What the video must prove, in judging order:**
-1. A real problem and a product that already exists (User Value 20%).
-2. It is *Stellar-native*, not a port in name only: Soroban contract, Stellar Asset Contract, path payments through the built-in exchange (Ecosystem Alignment 20%).
-3. It works — real testnet transactions on screen (Technical Execution 15%).
-4. Honest about what is next (Production readiness for Scale).
+**What the video must prove, in judging order (Genesis):**
+1. Track alignment (20%): **Unlocked** — the built-in exchange converts XLM to exact USDC, native USDC via the Stellar Asset Contract, Soroban multi-party auth; **Composed** — Soroban + Circle USDC + Stellar Wallets Kit + RPC/Horizon, linked to World ID and ENS. Say both track names out loud.
+2. Problem clarity (User Value 20%): shared lives, separate money; nothing that executes a couple's will.
+3. MVP quality (Technical Execution 15%): real testnet transactions on screen; 20 tests; a one-command lifecycle run.
+4. Continued development: honest about what is next (World ID check-ins, ENS link from the Safe, audit).
+
+Framing: the Stellar vault, the pay flow and inheritance are the MVP built at this event; HumanBond's existing World Chain app supplies the bond (who the couple is). Don't present the World Chain app as weekend work.
 
 ## Before recording
 
@@ -62,24 +64,32 @@ input: HACKMERIDIAN.md
 > Forty dollars for a new chair is different. It waits — until Sam approves from her own wallet.
 > The rolling daily budget is shared, so ten small payments can't get around the rule.
 
-## Act 5 · If it ends (1:50–2:15)
+## Act 5 · If it ends (1:50–2:10)
 
-**On screen:** "Request dissolution" as partner A → banner "It can be executed from <date>". Cut to a pre-recorded vault with a 30-second delay (from `npm run stellar:smoke synthetic`) showing "Split 50/50" → 14.50 / 14.50 on stellar.expert.
-
-**Voice:**
-> If the relationship ends, either partner can start a dissolution. Three days to change your mind. Then anyone can finish it, and the vault splits exactly in half. Nobody can stall it, and nobody can run off with it.
-
-## Act 6 · What's real, what's next (2:15–2:30)
-
-**On screen:** `HACKMERIDIAN.md` "Honest status" section, then the repo.
+**On screen:** "Request dissolution" as partner A → banner "It can be executed from <date>". Cut to a pre-recorded vault with a 30-second delay (from `npm run stellar:smoke synthetic`): "Close and split 50/50" → the Halves list shows 14.50 / 14.50 → each partner claims.
 
 **Voice:**
-> All of this runs on Stellar testnet today, with tests. Next: write the vault into the couple's ENS name from their Safe, relay dissolutions from World Chain, an audit, then mainnet.
+> If the relationship ends, either partner can start a dissolution. Three days to change your mind. Then anyone can finish it: each half is set aside, and each of you takes your own. One of you can't hold up the other — we tested exactly that.
+
+## Act 6 · When you're gone (2:10–2:35)
+
+**On screen:** `/stellar/demo-bond` → **Proof of life** (both partners, "next check-in by …") and **Will** (70% / 30%, the second share "from" a date a year out). Then terminal clips from the smoke run's inheritance phase: `veto  lapse reported for A, cancelled by A checking in` → `death  A confirmed` → `survivor  B spent 15 USDC alone` → `estate  booked 3 · 2` → `heirs  minor refused (locked)` → `minor claimed 2 after the unlock date`.
+
+**Voice:**
+> And when you're gone, the will you wrote together runs itself. Every action you take proves you're alive. Go silent for ninety days and anyone can report it — then thirty days to answer. The survivor keeps everything, and the will can no longer be changed. When the second partner dies, the heirs claim — a child's share waits until its date. Heirs inherit claims, not keys.
+
+## Act 7 · What's real, what's next (2:35–2:50)
+
+**On screen:** `HACKMERIDIAN.md` "Track alignment" table, then "Honest status", then the repo.
+
+**Voice:**
+> Built this weekend for Stellar Unlocked and Stellar Composed: native USDC, the built-in exchange, Soroban multi-party signatures, Wallets Kit. All on testnet, with tests. Next: World ID check-ins as proof of life, the vault written into the couple's ENS name, an audit, then mainnet.
 > HumanBond. Shared money, with rules both of you wrote.
 
 ## Notes for editing
 
 - Do not claim mainnet, audited, or "automatic sync with World Chain". See the honest status list in `HACKMERIDIAN.md`.
-- Act 5 uses a different vault (30-second delay) than the rest. Say "here's one we ended earlier" or show it as a cut, so it isn't presented as the same vault.
+- Acts 5 and 6 use different vaults (short delays, from the smoke run) than the rest. Say "here's one we ran earlier" or show them as cuts, so they aren't presented as the same vault.
+- Act 6: don't say "World ID proves you're alive" — today check-ins are wallet signatures; World ID is the next step. Don't call it a legal will.
 - The pay page shows "Testnet allowlist — not yet verified through ENS". Leave it in shot; it's honest and judges will look.
 - Names in the voice-over ("Alex", "Sam") are personas, not real users.

@@ -83,11 +83,12 @@ export default function StellarVaultCreatePage() {
         <p className={META}>Stellar · {STELLAR_NETWORK}</p>
         <h1 className={`${HEADING} text-3xl uppercase`}>Bond vault</h1>
         <p className="font-serif italic text-gray-600">
-          Small things, either of you. Big things, both of you. If it ends, half each.
+          Small things, either of you. Big things, both of you. If it ends, half each. And a will you both wrote.
         </p>
         <p className={META}>
           {DEFAULT_VAULT_RULES.smallSpendThreshold} USDC per spend alone · {DEFAULT_VAULT_RULES.dailyFreeLimit} USDC per day ·{' '}
-          {DEFAULT_VAULT_RULES.dissolutionDelaySeconds / 86400}-day dissolution delay
+          {DEFAULT_VAULT_RULES.dissolutionDelaySeconds / 86400}-day dissolution delay ·{' '}
+          {DEFAULT_VAULT_RULES.heartbeatIntervalSeconds / 86400}-day check-in · {DEFAULT_VAULT_RULES.challengeWindowSeconds / 86400}-day challenge
         </p>
       </header>
 

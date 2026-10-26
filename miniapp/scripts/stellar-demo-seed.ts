@@ -3,9 +3,10 @@
  *
  *   npm run stellar:demo-seed [label]        (default label: demo-bond)
  *
- * Creates two funded partner keys, deploys a vault (3-day dissolution delay, like production),
- * pays in 40 USDC (converted from XLM), executes a 10 USDC spend by A alone and leaves a 30 USDC
- * spend waiting for B. Prints the allowlist line and the partners' TESTNET secret keys, so they
+ * Creates two funded partner keys, deploys a vault (production timings: 3-day dissolution delay,
+ * 90-day check-in, 30-day challenge), pays in 40 USDC (converted from XLM), executes a 10 USDC
+ * spend by A alone, leaves a 30 USDC spend waiting for B, and writes a co-signed will
+ * (two testnet heirs, one locked for a year). Prints the allowlist line and the partners' TESTNET secret keys, so they
  * can be imported into Freighter (set to testnet) to click through approve / dissolve.
  * The keys are throwaway testnet keys: never fund them on mainnet, never commit them.
  */
@@ -13,7 +14,15 @@ import { BASE_FEE, Keypair, Operation, TransactionBuilder } from '@stellar/stell
 import { STELLAR, STELLAR_NETWORK, horizon } from '@/lib/stellar/config';
 import type { BondLink } from '@/lib/stellar/bondLink';
 import { buildConvertTx, findPayOptions, submitClassic } from '@/lib/stellar/payment';
-import { buildDeployVaultTx, buildDepositTx, buildProposeSpendTx, submitSoroban } from '@/lib/stellar/vault';
+import {
+  buildDeployVaultTx,
+  buildDepositTx,
+  buildProposeSpendTx,
+  coSignFirst,
+  finishCoSignTx,
+  submitSoroban,
+  willArgs,
+} from '@/lib/stellar/vault';
 
 function sign(txXdr: string, signer: Keypair): string {
   const tx = TransactionBuilder.fromXDR(txXdr, STELLAR.passphrase);
@@ -57,8 +66,17 @@ async function main() {
   await submitSoroban(sign(await buildProposeSpendTx(vaultId, a.publicKey(), shop.publicKey(), '10'), a));
   await submitSoroban(sign(await buildProposeSpendTx(vaultId, a.publicKey(), shop.publicKey(), '30'), a));
 
+  const [heir1, heir2] = [Keypair.random(), Keypair.random()];
+  const heirs = [
+    { heir: heir1.publicKey(), bps: 7_000, unlockAt: 0 },
+    { heir: heir2.publicKey(), bps: 3_000, unlockAt: Math.floor(Date.now() / 1000) + 365 * 24 * 60 * 60 },
+  ];
+  const entries = await coSignFirst({ vaultId, method: 'set_will', args: willArgs(heirs), source: b.publicKey(), firstSigner: a });
+  await submitSoroban(sign(await finishCoSignTx({ vaultId, method: 'set_will', args: willArgs(heirs), source: b.publicKey(), signedEntries: entries }), b));
+
   console.log(`vault       ${vaultId}`);
   console.log(`state       30 USDC in the vault · 10 spent by A · 30 waiting for B`);
+  console.log(`will        70% ${heir1.publicKey()} · 30% ${heir2.publicKey()} (locked one year)`);
   console.log(`\nSTELLAR_TESTNET_DIRECTORY=${label}=${vaultId}`);
   console.log(`\nTESTNET ONLY — import into Freighter (testnet) to act as the partners:`);
   console.log(`partner A   ${a.publicKey()}  secret ${a.secret()}`);

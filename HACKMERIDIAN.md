@@ -1,10 +1,40 @@
 # HumanBond on Stellar — HackMeridian Lisbon 2026
 
-**Path:** Genesis (Prototype → Product) · **Event:** 25–26 Oct 2026, Warehouse ONE16, Lisbon
+**Path:** Genesis (Idea → MVP) · **Tracks:** Stellar Unlocked **and** Stellar Composed · **Event:** 25–26 Oct 2026, Warehouse ONE16, Lisbon
 **Status:** working on Stellar **testnet**. Contract not audited. Details on what is real and what is not are at the end.
 
 > **A couple's shared money, with rules both of them wrote — now on Stellar.**
-> Small things, either of you. Big things, both of you. If it ends, half each.
+> Small things, either of you. Big things, both of you. If it ends, half each. And a will that runs itself.
+
+**What is new at this event:** the whole Stellar product — a Soroban vault per couple, paying in from any asset, and on-chain inheritance — is an MVP built during HackMeridian (see [Built during the event](#built-during-the-event)). It reuses the bond (who the two partners are) from HumanBond's existing World Chain app.
+
+## Track alignment
+
+**Stellar Unlocked — what Stellar's core protocol makes possible here**
+
+| Core feature | What it gives a couple |
+|---|---|
+| **Built-in exchange (order books + AMM pools), path payments** | A friend holding only XLM pays the couple; the couple receives *exactly* the USDC asked for. Measured on testnet: 45.76 XLM in → 40.00 USDC out, one conversion, no bridge or swap app. |
+| **Native assets + Stellar Asset Contract** | The vault holds Circle's native USDC through its SAC — no wrapped token. Trustline rules are handled explicitly: a partner without a trustline can only delay their own half, never the other's. |
+| **Soroban multi-party authorization** | One transaction carries both partners' signatures (`require_auth` on two addresses, address-credential auth entries) — the basis for the co-signed will and the both-partner rescue. |
+| **Ledger time** | Proof-of-life windows, dissolution delays and heirs' unlock dates are enforced by the ledger clock, with nobody to trust. |
+
+**Stellar Composed — ecosystem pieces combined into something new**
+
+| Piece | Role |
+|---|---|
+| **Soroban** (`BondVault` contract) | Spend rules, dissolution, inheritance |
+| **Circle USDC** on Stellar | The couple's money |
+| **Stellar Wallets Kit** (Freighter, xBull, Lobstr, Albedo…) | Partners, payers and heirs sign with whatever wallet they have |
+| **Stellar RPC + Horizon** | Contract simulation and submission; path finding and balances |
+| **World ID + ENS (World Chain)** | Who the couple is: the bond, and a name that only resolves when both chains point at each other |
+
+## Genesis criteria, in short
+
+- **Problem clarity:** shared lives, separate money — nothing between "two accounts" and "one either of you can empty", and nothing that executes a couple's will.
+- **MVP quality:** 20 contract unit tests; one command runs the whole lifecycle on testnet (spending, dissolution, death, heirs); every rule above has a passing test and a passing testnet run. Honest gaps listed at the end.
+- **Stellar integration:** the tables above — native USDC, the SAC, the built-in exchange, Soroban multi-party auth.
+- **Continued development:** clear next steps (World ID proof-of-life relay, writing the ENS link from the couple's Safe, audit, mainnet) on top of a product with existing users on World Chain.
 
 ---
 
@@ -12,7 +42,7 @@
 
 When two people share a life, their money lives in systems that don't know the relationship exists: two separate accounts, or one joint account where either person can empty it. Nothing in between. The partner who does the unpaid work — care, the home — has no standing in either.
 
-## What HumanBond is (before this weekend)
+## What HumanBond already is (on World Chain, before this event)
 
 A proof-of-humanity partnership protocol, **live on World Chain mainnet** and in the World App store. Two World ID–verified humans form an on-chain bond. Each bond gets a **shared wallet** (a 2-of-2 Safe plus our `BondVaultModule`) and an ENS name like `alice-ben.humanbond.eth`:
 
@@ -26,11 +56,12 @@ We brought the shared wallet to Stellar, with the same rules, as a Soroban contr
 
 | | Built this weekend |
 |---|---|
-| **BondVault** Soroban contract | One instance per bond. Same rules as the EVM module: solo small spends inside a rolling daily budget, two-partner approval above it, cancel by either, dissolution with a 3-day delay then a permissionless 50/50 split. 9 unit tests. |
+| **BondVault** Soroban contract | One instance per bond. Same rules as the EVM module: solo small spends inside a rolling daily budget, two-partner approval above it, cancel by either, dissolution with a 3-day delay then a permissionless 50/50 split. 20 unit tests. |
 | **Pay page** `/pay/<label>` | Anyone pays the couple's vault. Has USDC → one transfer. Has XLM or another asset → Stellar's built-in exchange converts to the exact USDC amount, then transfers. |
 | **Vault page** `/stellar/<label>` | Partners spend, approve, decline, request or cancel dissolution, and split, with any Stellar wallet (Stellar Wallets Kit: Freighter, xBull, Lobstr, Albedo…). |
 | **Create page** `/stellar` | Reads the real bond from World Chain (Safe address, ENS label) and deploys the couple's vault with that link baked into the contract. |
 | **World App card** on `/vault` | Read-only view of the Stellar vault inside the existing mini app: balance, today's budget, pending approvals, pay link. |
+| **Inheritance** (will + proof of life) | Both partners co-sign a will (heirs, shares, optional unlock dates). Every signed action is a check-in; a missed check-in can be reported, a challenge window lets the partner answer, then anyone can confirm the death. First death: the survivor owns the vault and the will is locked. Second death: heirs claim their shares. |
 | **Name → vault trust** | A name only resolves to a vault if World Chain points back (ENS text record `com.humanbond.stellar`, plus the vault's stored Safe must match). Stops squatters from catching a couple's payments. |
 | **Testnet scripts** | `stellar:smoke` runs the whole lifecycle headless; `stellar:demo-seed` creates a live demo vault. |
 
@@ -63,8 +94,15 @@ flowchart LR
 | `cancel_spend(caller, id)` | either partner | "No, and stop asking." |
 | `request_dissolution(requester)` | a partner | Starts the delay. Spending still works meanwhile, as on World Chain. |
 | `cancel_dissolution(requester)` | requester only | Only while the delay runs. After it, the outcome is fixed. |
-| `execute_dissolution()` | **anyone** | After the delay: splits the balance 50/50 (odd unit to B), closes the vault. Callable again later to split late arrivals, so money is never trapped. |
-| `config / balance / remaining_free_allowance / get_spend / spend_count / dissolution / is_dissolved` | anyone | Views. |
+| `execute_dissolution()` | **anyone** | After the delay: closes the vault and **books** each partner's half (odd unit to B). Moves no tokens. Callable again later to book late arrivals, so money is never trapped. |
+| `claim_share(partner)` | **anyone** | Pays a partner their booked half. Can only ever pay that partner. If one partner can't receive (no USDC trustline, frozen), only their own claim fails — the other's half still goes out. |
+| `rescue(token, to, amount)` | **both partners** | Moves any token *other than* USDC out of the vault (e.g. XLM sent by mistake). Refuses USDC, which only leaves by the spend rules or the split. |
+| `set_will(heirs)` | **both partners** | Up to 10 heirs, shares in basis points summing to 100%, optional unlock time per heir (a minor's share can wait for a date). An heir can be an account or a contract — another bond's vault. Only while both are alive, so the will locks at the first death. |
+| `heartbeat(partner)` | that partner | Proof of life for quiet periods. Every other signed partner action counts as a check-in too. |
+| `report_lapse(partner)` | **anyone** | After `heartbeat_interval` (default 90 days) without a check-in. Opens the challenge window; any check-in by that partner cancels it. |
+| `confirm_death(partner)` | **anyone** | After the challenge window (default 30 days) passes unanswered. First death: survivor owns the vault (spends of any size on one signature), pending dissolution ends. Second death: the estate is booked to the heirs. |
+| `claim_inheritance(heir)` | **anyone** | Pays an heir their booked share once its unlock time has passed. Only ever pays that heir. `book_late_estate()` books later arrivals. |
+| `config / balance / remaining_free_allowance / get_spend / spend_count / dissolution / is_dissolved / owed / will / last_seen / lapse / is_deceased / estate_owed` | anyone | Views. |
 
 Paying in needs no contract function: it is a plain transfer on the USDC Stellar Asset Contract to the vault's address.
 
@@ -80,9 +118,9 @@ Paying in needs no contract function: it is a plain transfer on the USDC Stellar
 
 | | |
 |---|---|
-| Vault wasm (testnet) | `0fb2bb5f4d3d97dab6430f2ed413b098f3b555e8b328a2982d550ff6b743a017` |
-| Demo vault `demo-bond` | `CDOIEH5GDUUDWZ4DEA7PENDNC4UVBYFN6P2HOQIQ4QYFBT6STRH3TGYV` |
-| Full lifecycle run (example) | vault `CCEWJLTWEOM6Y2RPTKX232KZHASVLH56BD6USTOWLNY46JIXQYGXS53E` on [stellar.expert](https://stellar.expert/explorer/testnet/contract/CCEWJLTWEOM6Y2RPTKX232KZHASVLH56BD6USTOWLNY46JIXQYGXS53E) |
+| Vault wasm (testnet) | `3c68437d5b37def506d7bba542b2934341c098c100f76b928a2db26b67f99d88` |
+| Demo vault `demo-bond` | `CCPRUNAVZNPAQJ7XOLO6D23GLWIDS3TZX3YIQ3YDMUTVVAFF5RSZOB6E` (30 USDC, a pending spend, a 70/30 will; re-seed with `npm run stellar:demo-seed`) |
+| Full lifecycle run (example) | vault `CARYG72V3VODNIIQS4ZR6TKBDVFGELRXXBEAYK65LZWFUAQ4OFA27OQ7` on [stellar.expert](https://stellar.expert/explorer/testnet/contract/CARYG72V3VODNIIQS4ZR6TKBDVFGELRXXBEAYK65LZWFUAQ4OFA27OQ7); inheritance run `CCWG6L5SPDXV2K7URGZQPDTEH2A4UBBFGHCLODGULVA6FOTNB4WTKEBQ` on [stellar.expert](https://stellar.expert/explorer/testnet/contract/CCWG6L5SPDXV2K7URGZQPDTEH2A4UBBFGHCLODGULVA6FOTNB4WTKEBQ) |
 
 ```bash
 # contract
@@ -93,7 +131,10 @@ cd miniapp && npm install
 STELLAR_TESTNET_DIRECTORY=demo-bond=<vault id> npm run dev   # then /pay/demo-bond, /stellar/demo-bond
 
 # end-to-end on testnet, headless: deploy → pay in from XLM → solo spend → approved spend
-# → over-budget spend held and cancelled → dissolution delay → 50/50 split
+# → over-budget spend held and cancelled → stray XLM rescued with both signatures
+# → dissolution delay → halves booked → A paid while B (no trustline) is refused → B adds trustline, claims
+# → second vault: co-signed will → lapse vetoed by a check-in → A dies → survivor spends alone
+# → B dies → estate booked → adult heir claims, minor refused until the unlock date, then claims
 npm run stellar:smoke synthetic
 
 # seed a live demo vault and print throwaway testnet keys for Freighter
@@ -111,9 +152,13 @@ npm run stellar:demo-seed demo-bond
 - **The ENS proof is read but not yet written.** Setting the `com.humanbond.stellar` text record needs a Safe transaction signed by both partners, which isn't built. Until then, names resolve through a testnet-only allowlist, and the pages say so.
 - **Dissolution is not synced with World Chain.** A Stellar contract can't see World Chain; the vault runs its own request → delay → split. A relay is roadmap.
 - **No contract-side TTL extension.** Extending storage from inside each call cost thousands of XLM in rent on testnet. Vault state lives the network default (~7 days on testnet today) and then must be restored through RPC; funds are never lost, but the app doesn't automate the restore yet.
-- **Recipients need a USDC trustline** — a shop being paid, and both partners for their half.
+- **Recipients need a USDC trustline** — a shop being paid, and each partner to claim their half (a partner without one only delays their own half).
 - **No federation address or SEP-7 pay link**: classic payments can't target a contract address, so payers use the pay page.
 - **Partner B is set by the deployer** without B signing on Stellar.
+- **Inheritance: check-ins are wallet signatures.** The team's design uses a World ID Selfie Check every 90 days as proof of life (keys can be stolen; a face can't). A Stellar contract can't see World ID today; relaying World ID check-ins from World Chain is roadmap. Until then a stolen key could fake "alive", and a lost key looks like a death after the challenge window.
+- **Inheritance: no will, no heirs.** If both partners die without a will, nothing in the vault can be claimed. The pages say so.
+- **Inheritance: vault only.** Assets in the partners' personal wallets are not swept in. Tokens other than USDC can't be rescued after a death (rescue needs both partners).
+- **Not a legal will.** It executes the rules the couple wrote on-chain; it does not replace a will under any jurisdiction's law.
 
 ## Built during the event
 
@@ -131,7 +176,7 @@ Branch `feat/stellar-joint-wallet`, from `main` at `e75207a`:
 ## Roadmap
 
 1. Write the ENS text record from the Safe (both partners sign in World App) and drop the allowlist.
-2. Relay World Chain dissolution to the Stellar vault.
+2. Relay World Chain to the Stellar vault: World ID Selfie Check heartbeats as proof of life (the team's design), and dissolutions.
 3. Automate archived-state restore in the app.
 4. Mainnet, after an audit.
 

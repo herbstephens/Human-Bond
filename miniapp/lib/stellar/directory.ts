@@ -11,10 +11,11 @@
  *   2. Testnet allowlist (a stand-in). STELLAR_TESTNET_DIRECTORY="label=C…,label=C…", for demos
  *      until the Safe transaction that writes the text record exists. Refused on mainnet.
  *
- * Either way the vault must carry the same label.
+ * Either way the vault must carry the same label, and hold USDC: the pay page sends USDC, and a
+ * vault created with any other token could never move it again.
  */
 import { StrKey } from '@stellar/stellar-sdk';
-import { STELLAR_NETWORK } from './config';
+import { STELLAR, STELLAR_NETWORK } from './config';
 import { readVaultConfig, type VaultConfig } from './vault';
 import { worldchainClient } from './bondLink';
 import { BOND_REGISTRAR_ADDRESS } from '@/lib/contracts/registrar';
@@ -104,6 +105,9 @@ export async function resolveLabel(label: string): Promise<Resolution> {
   if (!StrKey.isValidContract(vaultId)) return { ok: false, reason: `${vaultId} is not a contract address` };
 
   const config = await readVaultConfig(vaultId);
+  if (config.token !== STELLAR.usdcContractId) {
+    return { ok: false, reason: `${vaultId} holds token ${config.token}, not USDC (${STELLAR.usdcContractId})` };
+  }
   if (config.link.label !== label) {
     return { ok: false, reason: `${vaultId} is linked to "${config.link.label}", not "${label}"` };
   }

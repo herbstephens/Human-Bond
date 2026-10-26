@@ -96,7 +96,9 @@ export function StellarVaultCard({ ensLabel }: StellarVaultCardProps) {
             </div>
 
             {summary.dissolved ? (
-                <p className="text-xs font-bold text-gray-700">This vault was dissolved and split 50/50.</p>
+                <p className="text-xs font-bold text-gray-700">
+                    This vault was dissolved. Each of you claims your half on the vault page.
+                </p>
             ) : null}
 
             {summary.dissolution && !summary.dissolved ? (
@@ -134,6 +136,18 @@ export function StellarVaultCard({ ensLabel }: StellarVaultCardProps) {
                         Up to {usdc(summary.smallSpendThreshold)} USDC per spend alone · more needs both of you
                     </p>
                 </div>
+            ) : null}
+
+            {!summary.dissolved ? (
+                <p className="text-xs font-semibold text-gray-700">
+                    {summary.deceased === 1
+                        ? "One partner has died. The survivor now owns this vault; the will is locked."
+                        : summary.deceased === 2
+                          ? "Both partners have died. The heirs claim their shares on the vault page."
+                          : summary.heirs > 0
+                            ? `Will: ${summary.heirs} ${summary.heirs === 1 ? "heir" : "heirs"}, set by both of you`
+                            : "No will yet — if both of you die, nobody can claim this vault."}
+                </p>
             ) : null}
 
             {summary.pendingCount > 0 ? (
